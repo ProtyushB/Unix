@@ -1,0 +1,202 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  StatusBar,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import AppInput from '../../components/forms/AppInput';
+import AppButton from '../../components/common/AppButton';
+import StepProgress from '../../components/common/StepProgress';
+import { validatePhone } from '../../utils/validators';
+
+// ─── Param List ──────────────────────────────────────────────────────────────
+
+type AuthStackParamList = {
+  Splash: undefined;
+  Landing: undefined;
+  Login: undefined;
+  SignupEmail: undefined;
+  OtpVerification: { email: string };
+  SignupCredentials: { email: string };
+  ProfilePersonal: { email: string; username: string; password: string };
+  ProfileBusiness: { email: string; username: string; password: string; firstName: string; lastName: string; phoneNumber: string };
+  Review: { personal: any; businesses: any[] };
+  PortalSelection: undefined;
+  ForgotPasswordEmail: undefined;
+  ForgotPasswordOtp: { email: string };
+  ForgotPasswordNew: { email: string };
+};
+
+type Props = NativeStackScreenProps<AuthStackParamList, 'ProfilePersonal'>;
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
+const ProfilePersonalScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { email, username, password } = route.params;
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!firstName.trim()) {
+      newErrors.firstName = 'First name is required';
+    }
+    if (!lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
+    }
+    if (!phoneNumber.trim()) {
+      newErrors.phoneNumber = 'Phone number is required';
+    } else if (!validatePhone(phoneNumber.trim())) {
+      newErrors.phoneNumber = 'Enter a valid 10-digit phone number';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleContinue = () => {
+    if (!validate()) return;
+
+    navigation.navigate('ProfileBusiness', {
+      email,
+      username,
+      password,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phoneNumber: phoneNumber.trim(),
+    });
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Step Progress */}
+          <StepProgress currentStep={4} totalSteps={5} />
+
+          {/* Title */}
+          <Text style={styles.title}>Personal Information</Text>
+          <Text style={styles.subtitle}>
+            Tell us a bit about yourself
+          </Text>
+
+          {/* First Name */}
+          <AppInput
+            label="First Name"
+            value={firstName}
+            onChangeText={(val) => {
+              setFirstName(val);
+              if (errors.firstName) {
+                setErrors(prev => ({ ...prev, firstName: '' }));
+              }
+            }}
+            placeholder="Enter your first name"
+            autoCapitalize="words"
+            error={errors.firstName}
+          />
+
+          {/* Last Name */}
+          <AppInput
+            label="Last Name"
+            value={lastName}
+            onChangeText={(val) => {
+              setLastName(val);
+              if (errors.lastName) {
+                setErrors(prev => ({ ...prev, lastName: '' }));
+              }
+            }}
+            placeholder="Enter your last name"
+            autoCapitalize="words"
+            error={errors.lastName}
+          />
+
+          {/* Phone Number */}
+          <AppInput
+            label="Phone Number"
+            value={phoneNumber}
+            onChangeText={(val) => {
+              // Only allow digits, max 10
+              const digits = val.replace(/\D/g, '').slice(0, 10);
+              setPhoneNumber(digits);
+              if (errors.phoneNumber) {
+                setErrors(prev => ({ ...prev, phoneNumber: '' }));
+              }
+            }}
+            placeholder="10-digit mobile number"
+            keyboardType="phone-pad"
+            maxLength={10}
+            error={errors.phoneNumber}
+          />
+
+          {/* Continue Button */}
+          <View style={styles.buttonContainer}>
+            <AppButton
+              title="Continue"
+              onPress={handleContinue}
+              variant="primary"
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
+};
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+  },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+
+  // Title
+  title: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 28,
+    color: '#f8fafc',
+    marginTop: 32,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 15,
+    color: '#94a3b8',
+    marginBottom: 28,
+    lineHeight: 22,
+  },
+
+  // Button
+  buttonContainer: {
+    marginTop: 24,
+  },
+});
+
+export default ProfilePersonalScreen;
