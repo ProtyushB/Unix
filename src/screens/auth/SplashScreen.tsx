@@ -97,8 +97,8 @@ const SplashScreen: React.FC<Props> = ({ navigation }) => {
           },
         ]}
       >
-        <Text style={styles.logoText}>Module</Text>
-        <Text style={styles.logoAccent}>X</Text>
+        <Text style={styles.logoText}>Uni</Text>
+        <Text style={styles.logoAccent}>x</Text>
       </Animated.View>
       <Animated.Text style={[styles.tagline, { opacity: fadeAnim }]}>
         Business Management Platform

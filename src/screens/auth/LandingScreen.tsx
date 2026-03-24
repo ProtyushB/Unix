@@ -104,7 +104,7 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Feature Highlights */}
         <View style={styles.featuresSection}>
-          <Text style={styles.sectionTitle}>Why ModuleX?</Text>
+          <Text style={styles.sectionTitle}>Why Unix?</Text>
           <View style={styles.featuresGrid}>
             {FEATURES.map((feature, index) => (
                 <View key={index} style={styles.featureCard}>
