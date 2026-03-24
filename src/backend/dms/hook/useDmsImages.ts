@@ -86,8 +86,8 @@ export function useDmsImages(files: DmsFileRef[]): Record<number, string> {
         if (!cancelled) {
           setResolvedPaths(pathMap);
         }
-      } catch (err) {
-        console.error('[useDmsImages]', err);
+      } catch {
+        // image resolution failed silently
       }
     })();
 

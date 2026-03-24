@@ -67,7 +67,6 @@ export const getSelectedBusinessId = async (): Promise<number | null> => {
     const selectedBusiness = await getSelectedBusiness();
 
     if (!selectedBusinessType || !selectedBusiness) {
-      console.warn('No business selected in session storage');
       return null;
     }
 
@@ -80,8 +79,7 @@ export const getSelectedBusinessId = async (): Promise<number | null> => {
     );
 
     return (business?.id as number) || null;
-  } catch (error) {
-    console.error('Error getting selected business ID:', error);
+  } catch {
     return null;
   }
 };

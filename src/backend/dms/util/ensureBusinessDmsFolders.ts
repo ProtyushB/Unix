@@ -70,8 +70,8 @@ async function _doRepair(
     try {
       const bizFolder = await folderService.viewFolder(entry.folderId as number, true);
       mergeSubs(entry, bizFolder.folderDtos || []);
-    } catch (e) {
-      console.warn('[ensureBusinessDmsFolders] viewFolder failed:', (e as Error).message);
+    } catch {
+      // viewFolder failed — continue with subfolder creation
     }
   }
 
@@ -84,8 +84,8 @@ async function _doRepair(
           missing.map((name) => ({ folderName: name, parentFolderId: entry.folderId as number })),
         );
         mergeSubs(entry, newSubs);
-      } catch (e) {
-        console.warn('[ensureBusinessDmsFolders] Subfolder creation failed:', (e as Error).message);
+      } catch {
+        // subfolder creation failed — proceed
       }
     }
   }
@@ -148,8 +148,8 @@ async function _doRoleRepair(
     newFolders.forEach((f) => {
       existing[f.folderName] = f.folderId!;
     });
-  } catch (e) {
-    console.warn('[ensureBusinessDmsFolders] Role folder creation failed:', (e as Error).message);
+  } catch {
+    // role folder creation failed — proceed with partial folders
   }
 
   // Persist

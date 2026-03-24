@@ -100,33 +100,25 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
   }, [loading, hasOnlyOneRole, user]);
 
   const navigateToOwner = () => {
-    console.log('[PORTAL] navigateToOwner called');
     if (autoNavRef.current) {
       clearTimeout(autoNavRef.current);
     }
     const parent = navigation.getParent();
-    console.log('[PORTAL] parent navigator:', parent ? 'found' : 'null - using self');
-    console.log('[PORTAL] calling reset to OwnerTabs...');
     (parent ?? navigation).reset({
       index: 0,
       routes: [{ name: 'OwnerTabs' as any }],
     });
-    console.log('[PORTAL] reset to OwnerTabs done');
   };
 
   const navigateToCustomer = () => {
-    console.log('[PORTAL] navigateToCustomer called');
     if (autoNavRef.current) {
       clearTimeout(autoNavRef.current);
     }
     const parent = navigation.getParent();
-    console.log('[PORTAL] parent navigator:', parent ? 'found' : 'null - using self');
-    console.log('[PORTAL] calling reset to CustomerTabs...');
     (parent ?? navigation).reset({
       index: 0,
       routes: [{ name: 'CustomerTabs' as any }],
     });
-    console.log('[PORTAL] reset to CustomerTabs done');
   };
 
   const firstName = user?.username
