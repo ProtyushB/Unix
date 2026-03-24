@@ -3,11 +3,9 @@ import {
   View,
   Text,
   TouchableOpacity,
-  FlatList,
   StyleSheet,
 } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { ChevronDown, Check } from 'lucide-react-native';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { darkPalette, themes } from '../../theme/colors';
 import { AppButton } from '../common/AppButton';
 
@@ -71,7 +69,7 @@ export function SelectField({
           <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
             {item.label}
           </Text>
-          {isSelected ? <Check size={18} color={themes.default.primary} /> : null}
+          {isSelected ? <Text style={{ fontSize: 16, color: themes.default.primary }}>✓</Text> : null}
         </TouchableOpacity>
       );
     },
@@ -94,7 +92,7 @@ export function SelectField({
         <Text style={[styles.fieldText, !selectedLabel && styles.placeholder]}>
           {selectedLabel ?? placeholder}
         </Text>
-        <ChevronDown size={18} color={darkPalette.muted} />
+        <Text style={{ fontSize: 16, color: darkPalette.muted }}>▾</Text>
       </TouchableOpacity>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -111,13 +109,13 @@ export function SelectField({
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>{label ?? 'Select'}</Text>
 
-          <FlatList
-            data={options}
-            keyExtractor={item => item.value}
-            renderItem={renderOption}
-            style={styles.list}
-            showsVerticalScrollIndicator={false}
-          />
+          <BottomSheetScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+            {options.map(item => (
+              <React.Fragment key={item.value}>
+                {renderOption({ item })}
+              </React.Fragment>
+            ))}
+          </BottomSheetScrollView>
 
           <AppButton title="Confirm" onPress={handleConfirm} style={styles.confirmBtn} />
         </View>
@@ -210,3 +208,5 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
 });
+
+export default SelectField;

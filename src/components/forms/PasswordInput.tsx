@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { TouchableOpacity } from 'react-native';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { TouchableOpacity, Text } from 'react-native';
 import { darkPalette } from '../../theme/colors';
 import { AppInput } from '../common/AppInput';
 
@@ -29,8 +28,6 @@ export function PasswordInput({
     setVisible(prev => !prev);
   }, []);
 
-  const Icon = visible ? EyeOff : Eye;
-
   return (
     <AppInput
       label={label}
@@ -44,9 +41,11 @@ export function PasswordInput({
           onPress={toggleVisibility}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Icon size={20} color={darkPalette.muted} />
+          <Text style={{ fontSize: 18, color: darkPalette.muted }}>{visible ? '🙈' : '👁'}</Text>
         </TouchableOpacity>
       }
     />
   );
 }
+
+export default PasswordInput;

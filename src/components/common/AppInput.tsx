@@ -6,6 +6,7 @@ import {
   StyleSheet,
   type KeyboardTypeOptions,
   type ViewStyle,
+  type TextInputProps,
 } from 'react-native';
 import { darkPalette } from '../../theme/colors';
 
@@ -13,7 +14,8 @@ import { darkPalette } from '../../theme/colors';
 
 interface AppInputProps {
   label?: string;
-  value: string;
+  value?: string;
+  defaultValue?: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
   error?: string;
@@ -24,13 +26,18 @@ interface AppInputProps {
   secureTextEntry?: boolean;
   multiline?: boolean;
   style?: ViewStyle;
+  autoCapitalize?: TextInputProps['autoCapitalize'];
+  autoCorrect?: boolean;
+  autoComplete?: TextInputProps['autoComplete'];
+  maxLength?: number;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function AppInput({
+export const AppInput = React.forwardRef<TextInput, AppInputProps>(function AppInput({
   label,
   value,
+  defaultValue,
   onChangeText,
   placeholder,
   error,
@@ -41,7 +48,11 @@ export function AppInput({
   secureTextEntry,
   multiline = false,
   style,
-}: AppInputProps) {
+  autoCapitalize,
+  autoCorrect,
+  autoComplete,
+  maxLength,
+}, ref) {
   const [isFocused, setIsFocused] = useState(false);
 
   const borderColor = error
@@ -65,7 +76,9 @@ export function AppInput({
         {leftIcon ? <View style={styles.iconLeft}>{leftIcon}</View> : null}
 
         <TextInput
-          value={value}
+          ref={ref}
+          {...(value !== undefined ? { value } : {})}
+          defaultValue={defaultValue}
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={darkPalette.muted}
@@ -74,6 +87,11 @@ export function AppInput({
           secureTextEntry={secureTextEntry}
           multiline={multiline}
           textAlignVertical={multiline ? 'top' : 'center'}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={autoCorrect}
+          autoComplete={autoComplete}
+          maxLength={maxLength}
+          disableFullscreenUI={true}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           style={[
@@ -90,7 +108,7 @@ export function AppInput({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 

@@ -10,8 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { KeyRound } from 'lucide-react-native';
-import AppInput from '../../components/forms/AppInput';
+import {AppInput} from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
 import { validateEmail } from '../../utils/validators';
@@ -22,7 +21,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -79,7 +78,7 @@ const ForgotPasswordEmailScreen: React.FC<Props> = ({ navigation }) => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
+        <ScrollView removeClippedSubviews={false}
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -88,7 +87,7 @@ const ForgotPasswordEmailScreen: React.FC<Props> = ({ navigation }) => {
           {/* Icon */}
           <View style={styles.iconContainer}>
             <View style={styles.iconCircle}>
-              <KeyRound size={32} color="#f97316" strokeWidth={1.5} />
+              <Text style={{ fontSize: 32 }}>🔑</Text>
             </View>
           </View>
 

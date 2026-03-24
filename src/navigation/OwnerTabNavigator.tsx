@@ -1,15 +1,7 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import {
-  LayoutDashboard,
-  Package,
-  ClipboardList,
-  Archive,
-  Users,
-  User,
-} from 'lucide-react-native';
 import { darkPalette, themes } from '../theme/colors';
 import type {
   OwnerTabParamList,
@@ -18,19 +10,17 @@ import type {
   InventoryStackParamList,
   PeopleStackParamList,
 } from './types';
-import {
-  DashboardScreen,
-  CatalogScreen,
-  ProductDetailScreen,
-  ServiceDetailScreen,
-  OperationsScreen,
-  OrderDetailScreen,
-  AppointmentDetailScreen,
-  BillingDetailScreen,
-  InventoryScreen,
-  PeopleScreen,
-  AccountScreen,
-} from '../screens/placeholder';
+import DashboardScreen from '../screens/owner/DashboardScreen';
+import CatalogScreen from '../screens/owner/CatalogScreen';
+import ProductDetailScreen from '../screens/owner/ProductDetailScreen';
+import ServiceDetailScreen from '../screens/owner/ServiceDetailScreen';
+import OperationsScreen from '../screens/owner/OperationsScreen';
+import { OrderDetailScreen } from '../screens/owner/OrderDetailScreen';
+import { AppointmentDetailScreen } from '../screens/owner/AppointmentDetailScreen';
+import { BillingDetailScreen } from '../screens/owner/BillingDetailScreen';
+import { InventoryScreen } from '../screens/owner/InventoryScreen';
+import { PeopleScreen } from '../screens/owner/PeopleScreen';
+import { AccountScreen } from '../screens/owner/AccountScreen';
 
 // ─── Stack Navigators ───────────────────────────────────────────────────────
 
@@ -96,56 +86,32 @@ export function OwnerTabNavigator() {
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <LayoutDashboard size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>⊞</Text> }}
       />
       <Tab.Screen
         name="Catalog"
         component={CatalogNavigator}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <Package size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📦</Text> }}
       />
       <Tab.Screen
         name="Operations"
         component={OperationsNavigator}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <ClipboardList size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📋</Text> }}
       />
       <Tab.Screen
         name="Inventory"
         component={InventoryNavigator}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <Archive size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🗄</Text> }}
       />
       <Tab.Screen
         name="People"
         component={PeopleNavigator}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <Users size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👥</Text> }}
       />
       <Tab.Screen
         name="Account"
         component={AccountScreen}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <User size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text> }}
       />
     </Tab.Navigator>
   );

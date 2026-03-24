@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import AppInput from '../../components/forms/AppInput';
+import {AppInput} from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import StepProgress from '../../components/common/StepProgress';
 import { validatePhone } from '../../utils/validators';
@@ -20,7 +20,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -43,6 +43,11 @@ const ProfilePersonalScreen: React.FC<Props> = ({ navigation, route }) => {
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const isFormReady =
+    firstName.trim().length > 0 &&
+    lastName.trim().length > 0 &&
+    phoneNumber.length === 10;
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -83,76 +88,89 @@ const ProfilePersonalScreen: React.FC<Props> = ({ navigation, route }) => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
+        <ScrollView removeClippedSubviews={false}
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
         >
-          {/* Step Progress */}
-          <StepProgress currentStep={4} totalSteps={5} />
-
-          {/* Title */}
-          <Text style={styles.title}>Personal Information</Text>
-          <Text style={styles.subtitle}>
-            Tell us a bit about yourself
-          </Text>
-
-          {/* First Name */}
-          <AppInput
-            label="First Name"
-            value={firstName}
-            onChangeText={(val) => {
-              setFirstName(val);
-              if (errors.firstName) {
-                setErrors(prev => ({ ...prev, firstName: '' }));
-              }
+          <StepProgress
+            currentStep={4}
+            totalSteps={5}
+            onStepPress={(step) => {
+              const { email, username, password } = route.params;
+              if (step === 1) navigation.navigate('SignupEmail');
+              else if (step === 2) navigation.navigate('OtpVerification', { email });
+              else if (step === 3) navigation.navigate('SignupCredentials', { email });
+              else if (step === 5) navigation.navigate('ProfileBusiness', { email, username, password, firstName: 'Dev', lastName: 'User', phoneNumber: '9999999999' });
             }}
-            placeholder="Enter your first name"
-            autoCapitalize="words"
-            error={errors.firstName}
           />
 
-          {/* Last Name */}
-          <AppInput
-            label="Last Name"
-            value={lastName}
-            onChangeText={(val) => {
-              setLastName(val);
-              if (errors.lastName) {
-                setErrors(prev => ({ ...prev, lastName: '' }));
-              }
-            }}
-            placeholder="Enter your last name"
-            autoCapitalize="words"
-            error={errors.lastName}
-          />
+          <View>
+            {/* Title */}
+            <Text style={styles.title}>Personal Information</Text>
+            <Text style={styles.subtitle}>
+              Tell us a bit about yourself
+            </Text>
 
-          {/* Phone Number */}
-          <AppInput
-            label="Phone Number"
-            value={phoneNumber}
-            onChangeText={(val) => {
-              // Only allow digits, max 10
-              const digits = val.replace(/\D/g, '').slice(0, 10);
-              setPhoneNumber(digits);
-              if (errors.phoneNumber) {
-                setErrors(prev => ({ ...prev, phoneNumber: '' }));
-              }
-            }}
-            placeholder="10-digit mobile number"
-            keyboardType="phone-pad"
-            maxLength={10}
-            error={errors.phoneNumber}
-          />
-
-          {/* Continue Button */}
-          <View style={styles.buttonContainer}>
-            <AppButton
-              title="Continue"
-              onPress={handleContinue}
-              variant="primary"
+            {/* First Name */}
+            <AppInput
+              label="First Name"
+              value={firstName}
+              onChangeText={(val) => {
+                setFirstName(val.replace(/\s/g, ''));
+                if (errors.firstName) {
+                  setErrors(prev => ({ ...prev, firstName: '' }));
+                }
+              }}
+              placeholder="Enter your first name"
+              autoCapitalize="words"
+              error={errors.firstName}
             />
+
+            {/* Last Name */}
+            <AppInput
+              label="Last Name"
+              value={lastName}
+              onChangeText={(val) => {
+                setLastName(val.replace(/\s/g, ''));
+                if (errors.lastName) {
+                  setErrors(prev => ({ ...prev, lastName: '' }));
+                }
+              }}
+              placeholder="Enter your last name"
+              autoCapitalize="words"
+              error={errors.lastName}
+            />
+
+            {/* Phone Number */}
+            <AppInput
+              label="Phone Number"
+              value={phoneNumber}
+              onChangeText={(val) => {
+                // Only allow digits, max 10
+                const digits = val.replace(/\D/g, '').slice(0, 10);
+                setPhoneNumber(digits);
+                if (errors.phoneNumber) {
+                  setErrors(prev => ({ ...prev, phoneNumber: '' }));
+                }
+              }}
+              placeholder="10-digit mobile number"
+              keyboardType="number-pad"
+              maxLength={10}
+              error={errors.phoneNumber}
+            />
+
+            {/* Continue Button */}
+            <View style={styles.buttonContainer}>
+              <AppButton
+                title="Continue"
+                onPress={handleContinue}
+                variant="primary"
+                disabled={!isFormReady}
+              />
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -173,8 +191,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingTop: 20,
+    paddingBottom: 32,
   },
 
   // Title
@@ -182,7 +200,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
     fontSize: 28,
     color: '#f8fafc',
-    marginTop: 32,
     marginBottom: 8,
   },
   subtitle: {

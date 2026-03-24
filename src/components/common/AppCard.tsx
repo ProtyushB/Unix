@@ -25,3 +25,5 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 });
+
+export default AppCard;

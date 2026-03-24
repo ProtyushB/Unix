@@ -20,7 +20,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -132,7 +132,7 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
+        <ScrollView removeClippedSubviews={false}
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"

@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import {
   View,
   TextInput,
@@ -12,17 +12,30 @@ import { darkPalette, themes } from '../../theme/colors';
 
 interface OtpInputProps {
   value: string;
-  onChange: (otp: string) => void;
+  onChangeOtp: (otp: string) => void;
   error?: boolean;
   length?: number;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function OtpInput({ value, onChange, error = false, length = 6 }: OtpInputProps) {
+export function OtpInput({ value, onChangeOtp, error = false, length = 6 }: OtpInputProps) {
   const inputRefs = useRef<(TextInput | null)[]>([]);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
-  const digits = value.padEnd(length, '').split('').slice(0, length);
+  // Internal positional array — never re-derived from value string.
+  // Re-deriving from a joined string loses gap information (e.g. '12456'
+  // cannot tell if position 2 or 5 was empty).
+  const [digits, setDigits] = useState<string[]>(() =>
+    Array.from({ length }, (_, i) => value[i] ?? '')
+  );
+
+  // Only reset when parent explicitly clears value (e.g. email changed)
+  useEffect(() => {
+    if (value === '') {
+      setDigits(Array(length).fill(''));
+    }
+  }, [value, length]);
 
   const focusInput = useCallback((index: number) => {
     if (index >= 0 && index < length) {
@@ -32,55 +45,53 @@ export function OtpInput({ value, onChange, error = false, length = 6 }: OtpInpu
 
   const handleChange = useCallback(
     (text: string, index: number) => {
-      // Only accept single digit
       const digit = text.replace(/[^0-9]/g, '').slice(-1);
       const newDigits = [...digits];
       newDigits[index] = digit;
-      const newValue = newDigits.join('');
-      onChange(newValue);
-
-      // Auto-advance to next input on digit entry
+      setDigits(newDigits);
+      onChangeOtp(newDigits.join(''));
       if (digit && index < length - 1) {
         focusInput(index + 1);
       }
     },
-    [digits, length, onChange, focusInput],
+    [digits, length, onChangeOtp, focusInput],
   );
 
   const handleKeyPress = useCallback(
     (e: NativeSyntheticEvent<TextInputKeyPressEventData>, index: number) => {
+      // Only move focus back if current box is already empty
       if (e.nativeEvent.key === 'Backspace' && !digits[index] && index > 0) {
-        // Clear previous and move focus back
         const newDigits = [...digits];
         newDigits[index - 1] = '';
-        onChange(newDigits.join(''));
+        setDigits(newDigits);
+        onChangeOtp(newDigits.join(''));
         focusInput(index - 1);
       }
     },
-    [digits, onChange, focusInput],
+    [digits, onChangeOtp, focusInput],
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.row}>
       {digits.map((digit, index) => {
-        const isFocused = false; // managed by TextInput internally
+        const isFocused = focusedIndex === index;
         return (
           <TextInput
             key={index}
-            ref={ref => {
-              inputRefs.current[index] = ref;
-            }}
+            ref={ref => { inputRefs.current[index] = ref; }}
             value={digit}
             onChangeText={text => handleChange(text, index)}
             onKeyPress={e => handleKeyPress(e, index)}
-            onFocus={() => {}}
+            onFocus={() => setFocusedIndex(index)}
+            onBlur={() => setFocusedIndex(null)}
             keyboardType="number-pad"
             maxLength={1}
             selectTextOnFocus
             style={[
               styles.box,
               error && styles.boxError,
-              digit ? styles.boxFilled : undefined,
+              isFocused && styles.boxFocused,
+              digit && !error && !isFocused && styles.boxFilled,
             ]}
             placeholderTextColor={darkPalette.muted}
           />
@@ -93,27 +104,35 @@ export function OtpInput({ value, onChange, error = false, length = 6 }: OtpInpu
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
+  row: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 10,
+    gap: 8,
   },
   box: {
-    width: 48,
+    flex: 1,
     height: 56,
     borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: darkPalette.border,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    color: darkPalette.text,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    color: '#f8fafc',
     fontSize: 22,
     fontWeight: '700',
     textAlign: 'center',
   },
+  boxFocused: {
+    borderColor: themes.default.primary,
+    borderWidth: 2,
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+  },
   boxFilled: {
     borderColor: themes.default.primary,
+    backgroundColor: 'rgba(249, 115, 22, 0.08)',
   },
   boxError: {
     borderColor: '#ef4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
 });
+
+export default OtpInput;

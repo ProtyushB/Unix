@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { CheckCircle2, Circle } from 'lucide-react-native';
 import { PASSWORD_RULES } from '../../utils/validators';
 import { darkPalette } from '../../theme/colors';
 
@@ -20,9 +19,9 @@ export function PasswordChecklist({ password }: PasswordChecklistProps) {
         return (
           <View key={index} style={styles.row}>
             {passes ? (
-              <CheckCircle2 size={16} color="#10b981" />
+              <Text style={{ fontSize: 14, color: '#10b981' }}>✓</Text>
             ) : (
-              <Circle size={16} color={darkPalette.muted} />
+              <Text style={{ fontSize: 14, color: darkPalette.muted }}>○</Text>
             )}
             <Text style={[styles.label, passes && styles.labelPassing]}>
               {rule.label}
@@ -55,3 +54,5 @@ const styles = StyleSheet.create({
     color: '#10b981',
   },
 });
+
+export default PasswordChecklist;

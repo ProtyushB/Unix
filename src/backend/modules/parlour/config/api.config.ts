@@ -1,6 +1,6 @@
-import Config from 'react-native-config';
 
-export const PARLOUR_BASE_URL = Config.PARLOUR_API_URL || 'http://localhost:8086';
+
+export const PARLOUR_BASE_URL = 'https://modulex.eternitytechnologies.in';
 
 export const PARLOUR_ROUTES = {
   // Products

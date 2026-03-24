@@ -1,6 +1,6 @@
-import Config from 'react-native-config';
 
-export const RESTAURANT_BASE_URL = Config.RESTAURANT_API_URL || 'http://localhost:8086';
+
+export const RESTAURANT_BASE_URL = 'https://modulex.eternitytechnologies.in';
 
 export const RESTAURANT_ROUTES = {
   PRODUCTS_VIEW_ALL: '/restaurantProduct/viewAll',

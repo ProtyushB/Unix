@@ -15,7 +15,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };

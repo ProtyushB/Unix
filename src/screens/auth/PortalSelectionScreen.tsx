@@ -7,12 +7,11 @@ import {
   StatusBar,
   TouchableOpacity,
   Animated,
+  InteractionManager,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { CheckCircle, Building2, ShoppingBag } from 'lucide-react-native';
 import { getLoggedInUser, LoggedInUser } from '../../storage/auth.storage';
 import { getUserProfile, setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
-import { CommonActions } from '@react-navigation/native';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -20,7 +19,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -101,27 +100,33 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
   }, [loading, hasOnlyOneRole, user]);
 
   const navigateToOwner = () => {
+    console.log('[PORTAL] navigateToOwner called');
     if (autoNavRef.current) {
       clearTimeout(autoNavRef.current);
     }
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'OwnerTabs' as any }],
-      }),
-    );
+    const parent = navigation.getParent();
+    console.log('[PORTAL] parent navigator:', parent ? 'found' : 'null - using self');
+    console.log('[PORTAL] calling reset to OwnerTabs...');
+    (parent ?? navigation).reset({
+      index: 0,
+      routes: [{ name: 'OwnerTabs' as any }],
+    });
+    console.log('[PORTAL] reset to OwnerTabs done');
   };
 
   const navigateToCustomer = () => {
+    console.log('[PORTAL] navigateToCustomer called');
     if (autoNavRef.current) {
       clearTimeout(autoNavRef.current);
     }
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'CustomerTabs' as any }],
-      }),
-    );
+    const parent = navigation.getParent();
+    console.log('[PORTAL] parent navigator:', parent ? 'found' : 'null - using self');
+    console.log('[PORTAL] calling reset to CustomerTabs...');
+    (parent ?? navigation).reset({
+      index: 0,
+      routes: [{ name: 'CustomerTabs' as any }],
+    });
+    console.log('[PORTAL] reset to CustomerTabs done');
   };
 
   const firstName = user?.username
@@ -142,7 +147,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
-      <ScrollView
+      <ScrollView removeClippedSubviews={false}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -158,7 +163,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
         >
           {/* Success Icon */}
           <View style={styles.successIconContainer}>
-            <CheckCircle size={56} color="#22c55e" strokeWidth={1.5} />
+            <Text style={styles.successIconText}>✓</Text>
           </View>
 
           {/* Welcome */}
@@ -181,7 +186,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 <View style={styles.portalIconContainer}>
-                  <Building2 size={32} color="#f97316" strokeWidth={1.5} />
+                  <Text style={styles.portalIconText}>🏢</Text>
                 </View>
                 <View style={styles.portalCardContent}>
                   <Text style={styles.portalCardTitle}>Owner Portal</Text>
@@ -202,7 +207,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 <View style={[styles.portalIconContainer, styles.portalIconCustomer]}>
-                  <ShoppingBag size={32} color="#0ea5e9" strokeWidth={1.5} />
+                  <Text style={styles.portalIconText}>🛍</Text>
                 </View>
                 <View style={styles.portalCardContent}>
                   <Text style={styles.portalCardTitle}>Customer Portal</Text>
@@ -263,6 +268,13 @@ const styles = StyleSheet.create({
   successIconContainer: {
     alignItems: 'center',
     marginBottom: 24,
+  },
+  successIconText: {
+    fontSize: 56,
+    color: '#22c55e',
+  },
+  portalIconText: {
+    fontSize: 28,
   },
 
   // Welcome

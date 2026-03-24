@@ -8,7 +8,6 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
-import {Search, Compass} from 'lucide-react-native';
 import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
 import {AppInput} from '../../components/common/AppInput';
 import {BusinessCard} from '../../components/list/BusinessCard';
@@ -59,7 +58,7 @@ export const ExploreScreen: React.FC = () => {
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search businesses..."
-          leftIcon={<Search size={18} color="#64748b" />}
+          leftIcon={<Text style={{ fontSize: 16, color: '#64748b' }}>🔍</Text>}
         />
 
         <ScrollView
@@ -90,7 +89,7 @@ export const ExploreScreen: React.FC = () => {
           <LoadingSpinner />
         ) : filteredBusinesses.length === 0 ? (
           <EmptyState
-            icon={<Compass size={48} color="#64748b" />}
+            icon={<Text style={{ fontSize: 44 }}>🧭</Text>}
             title="No businesses found"
             message="Try adjusting your search or category filter"
           />

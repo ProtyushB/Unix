@@ -8,19 +8,19 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  InteractionManager,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import AppInput from '../../components/forms/AppInput';
+import {AppInput} from '../../components/common/AppInput';
 import PasswordInput from '../../components/forms/PasswordInput';
 import AppButton from '../../components/common/AppButton';
-import { useToast } from '../../hooks/useToast';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
+import { getPersonService } from '../../backend/person/provider/person.provider';
 import {
   setLoggedInUser,
-  setAccessToken,
-  setRefreshToken,
-  setUser,
 } from '../../storage/auth.storage';
+import { setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
+import { setDmsFolderMap, DmsFolderMap } from '../../storage/dms.storage';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -28,7 +28,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -49,9 +49,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { showToast } = useToast();
 
   const authService = getAuthService();
+  const personService = getPersonService();
 
   const handleLogin = async () => {
     setError('');
@@ -67,10 +67,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
     setLoading(true);
     try {
+      // Step 1: Login and get auth tokens
       const response = await authService.login(username.trim(), password);
-
-      // Store logged-in user info
       const user = response.user as any;
+
       if (user) {
         await setLoggedInUser({
           id: user.id,
@@ -80,9 +80,67 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         });
       }
 
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'PortalSelection' }],
+      // Step 2: Fetch person profile by username
+      let personTypes: string[] = user?.roles || [];
+      try {
+        const profileResult = await personService.getPersonByUsername(username.trim());
+        if (profileResult.success && profileResult.data) {
+          const userProfile = profileResult.data;
+
+          // Store user profile
+          await setUserProfile(userProfile);
+
+          // Capture person types from profile
+          personTypes = (userProfile.types as string[]) || personTypes;
+
+          // Build and store businessTypeMap
+          if (userProfile.business && (userProfile.business as any[]).length > 0) {
+            const typeMap: Record<string, any[]> = {};
+            (userProfile.business as any[]).forEach((biz: any) => {
+              const type = biz.businessType || 'CUSTOM';
+              if (!typeMap[type]) typeMap[type] = [];
+              typeMap[type].push(biz);
+            });
+            await setBusinessTypeMap(typeMap);
+          }
+
+          // Build and store dmsFolderMap from person profile
+          if (userProfile.personFolderId) {
+            const dmsFolderMap: DmsFolderMap = {
+              userRootFolderId: userProfile.personFolderId as number,
+              roleFolders: { Business: 0, Customer: 0, Employee: 0 },
+              businesses: {},
+            };
+            ((userProfile.business as any[]) || []).forEach((biz: any) => {
+              const bizId = biz.id || biz.businessId;
+              if (bizId) {
+                dmsFolderMap.businesses[bizId] = {
+                  folderId: biz.folderId || 0,
+                  productsFolderId: 0,
+                  servicesFolderId: 0,
+                  ordersFolderId: 0,
+                  appointmentsFolderId: 0,
+                  billsFolderId: 0,
+                };
+              }
+            });
+            await setDmsFolderMap(dmsFolderMap);
+          }
+        }
+      } catch {
+        // Continue with navigation even if profile fetch fails
+      }
+
+      // Step 3: Navigate directly to the right portal
+      const isBusinessOwner = personTypes.includes('BUSINESS_OWNER');
+      const targetRoute = isBusinessOwner ? 'OwnerTabs' : 'CustomerTabs';
+
+      InteractionManager.runAfterInteractions(() => {
+        const parent = navigation.getParent();
+        (parent ?? navigation).reset({
+          index: 0,
+          routes: [{ name: targetRoute as any }],
+        });
       });
     } catch (err: any) {
       const message = err?.message || 'Login failed. Please try again.';
@@ -99,7 +157,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
+        <ScrollView removeClippedSubviews={false}
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"

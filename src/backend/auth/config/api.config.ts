@@ -5,9 +5,7 @@
  * Uses react-native-config for environment variables.
  */
 
-import Config from 'react-native-config';
-
-export const AUTH_BASE_URL: string = Config.AUTH_API_URL || 'http://localhost:8085';
+export const AUTH_BASE_URL: string = 'https://auth.eternitytechnologies.in';
 
 export const AUTH_API_CONFIG = {
   baseURL: AUTH_BASE_URL,

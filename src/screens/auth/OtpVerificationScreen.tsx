@@ -21,7 +21,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -40,13 +40,23 @@ const RESEND_COOLDOWN = 60;
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const OtpVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { email } = route.params;
+  const [email, setEmail] = useState(route.params.email);
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
   const [resending, setResending] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Sync email + reset OTP if user comes back after editing it
+  useEffect(() => {
+    if (route.params.email && route.params.email !== email) {
+      setEmail(route.params.email);
+      setOtp('');
+      setError('');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params.email]);
 
   const authService = getAuthService();
 
@@ -119,13 +129,6 @@ const OtpVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
-  // Mask email: jo***@example.com
-  const maskedEmail = (() => {
-    const [local, domain] = email.split('@');
-    if (local.length <= 2) return email;
-    return `${local.slice(0, 2)}${'*'.repeat(Math.min(local.length - 2, 5))}@${domain}`;
-  })();
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
@@ -133,69 +136,95 @@ const OtpVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
+        <ScrollView removeClippedSubviews={false}
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
         >
-          {/* Step Progress */}
-          <StepProgress currentStep={2} totalSteps={5} />
+          <StepProgress
+            currentStep={2}
+            totalSteps={5}
+            onStepPress={(step) => {
+              // DEV ONLY: remove before production
+              const DEV_EMAIL = email;
+              const DEV_USER = 'devuser';
+              const DEV_PASS = 'Dev@12345';
+              if (step === 1) navigation.navigate('SignupEmail');
+              else if (step === 3) navigation.navigate('SignupCredentials', { email: DEV_EMAIL });
+              else if (step === 4) navigation.navigate('ProfilePersonal', { email: DEV_EMAIL, username: DEV_USER, password: DEV_PASS });
+              else if (step === 5) navigation.navigate('ProfileBusiness', { email: DEV_EMAIL, username: DEV_USER, password: DEV_PASS, firstName: 'Dev', lastName: 'User', phoneNumber: '9999999999' });
+            }}
+          />
 
-          {/* Title */}
-          <Text style={styles.title}>Verify Email</Text>
-          <Text style={styles.subtitle}>
-            We sent a 6-digit code to{' '}
-            <Text style={styles.emailHighlight}>{maskedEmail}</Text>
-          </Text>
-
-          {/* Error */}
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
-
-          {/* OTP Input */}
-          <View style={styles.otpContainer}>
-            <OtpInput
-              length={6}
-              value={otp}
-              onChangeOtp={setOtp}
-            />
-          </View>
-
-          {/* Verify Button */}
-          <View style={styles.buttonContainer}>
-            <AppButton
-              title="Verify"
-              onPress={handleVerify}
-              variant="primary"
-              loading={loading}
-              disabled={loading || otp.length !== 6}
-            />
-          </View>
-
-          {/* Resend */}
-          <View style={styles.resendRow}>
-            <Text style={styles.resendLabel}>Didn't receive the code? </Text>
-            <TouchableOpacity
-              onPress={handleResend}
-              disabled={resendCooldown > 0 || resending}
-            >
-              <Text
-                style={[
-                  styles.resendLink,
-                  (resendCooldown > 0 || resending) && styles.resendDisabled,
-                ]}
+          <View>
+            {/* Title */}
+            <Text style={styles.title}>Verify Email</Text>
+            <Text style={styles.subtitle}>
+              We sent a 6-digit code to
+            </Text>
+            <View style={styles.emailRow}>
+              <Text style={styles.emailText}>{email}</Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('SignupEmail', { prefillEmail: email })}
+                style={styles.editButton}
               >
-                {resending
-                  ? 'Sending...'
-                  : resendCooldown > 0
-                    ? `Resend OTP (${resendCooldown}s)`
-                    : 'Resend OTP'}
-              </Text>
-            </TouchableOpacity>
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.editHint}>
+              Wrong email? Tap Edit to go back and correct it.
+            </Text>
+
+            {/* Error */}
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            {/* OTP Input */}
+            <View style={styles.otpContainer}>
+              <OtpInput
+                length={6}
+                value={otp}
+                onChangeOtp={setOtp}
+              />
+            </View>
+
+            {/* Verify Button */}
+            <View style={styles.buttonContainer}>
+              <AppButton
+                title="Verify"
+                onPress={handleVerify}
+                variant="primary"
+                loading={loading}
+                disabled={loading || otp.length !== 6}
+              />
+            </View>
+
+            {/* Resend */}
+            <View style={styles.resendRow}>
+              <Text style={styles.resendLabel}>Didn't receive the code? </Text>
+              <TouchableOpacity
+                onPress={handleResend}
+                disabled={resendCooldown > 0 || resending}
+              >
+                <Text
+                  style={[
+                    styles.resendLink,
+                    (resendCooldown > 0 || resending) && styles.resendDisabled,
+                  ]}
+                >
+                  {resending
+                    ? 'Sending...'
+                    : resendCooldown > 0
+                      ? `Resend OTP (${resendCooldown}s)`
+                      : 'Resend OTP'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -216,8 +245,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingTop: 20,
+    paddingBottom: 32,
   },
 
   // Title
@@ -225,19 +254,47 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
     fontSize: 28,
     color: '#f8fafc',
-    marginTop: 32,
     marginBottom: 8,
   },
   subtitle: {
     fontFamily: 'Inter-Regular',
     fontSize: 15,
     color: '#94a3b8',
-    marginBottom: 32,
+    marginBottom: 4,
     lineHeight: 22,
   },
-  emailHighlight: {
-    fontFamily: 'Inter-Medium',
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  emailText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 15,
+    color: '#f8fafc',
+    flexShrink: 1,
+  },
+  editButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    backgroundColor: '#f9731620',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f9731640',
+  },
+  editButtonText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 12,
     color: '#f97316',
+  },
+  editHint: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 28,
+    lineHeight: 18,
   },
 
   // Error
@@ -258,13 +315,12 @@ const styles = StyleSheet.create({
 
   // OTP
   otpContainer: {
-    alignItems: 'center',
     marginBottom: 24,
   },
 
   // Button
   buttonContainer: {
-    marginTop: 8,
+    marginTop: 12,
   },
 
   // Resend

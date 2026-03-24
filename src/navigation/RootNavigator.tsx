@@ -99,7 +99,7 @@ export function RootNavigator() {
     <NavigationContainer ref={navigationRef} theme={DarkNavigationTheme}>
       <Stack.Navigator
         initialRouteName={initialRoute}
-        screenOptions={{ headerShown: false }}
+        screenOptions={{ headerShown: false, animation: 'none' }}
       >
         <Stack.Screen name="Auth" component={AuthNavigator} />
         <Stack.Screen name="OwnerTabs" component={OwnerTabNavigator} />

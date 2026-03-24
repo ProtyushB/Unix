@@ -2,9 +2,9 @@
  * API Configuration for Person Module
  */
 
-import Config from 'react-native-config';
 
-export const PERSON_BASE_URL: string = Config.PERSON_API_URL || 'http://localhost:8086';
+
+export const PERSON_BASE_URL: string = 'https://modulex.eternitytechnologies.in';
 
 export const PERSON_API_CONFIG = {
   BASE_URL: PERSON_BASE_URL,

@@ -1,6 +1,6 @@
-import Config from 'react-native-config';
 
-export const PHARMACY_BASE_URL = Config.PHARMACY_API_URL || 'http://localhost:8086';
+
+export const PHARMACY_BASE_URL = 'https://modulex.eternitytechnologies.in';
 
 export const PHARMACY_ROUTES = {
   PRODUCTS_VIEW_ALL: '/pharmacyProduct/viewAll',

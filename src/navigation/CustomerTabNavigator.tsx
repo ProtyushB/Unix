@@ -1,22 +1,14 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {
-  Compass,
-  Calendar,
-  ShoppingBag,
-  Receipt,
-  User,
-} from 'lucide-react-native';
+import { Text } from 'react-native';
 import { darkPalette, themes } from '../theme/colors';
 import type { CustomerTabParamList } from './types';
-import {
-  ExploreScreen,
-  BookingsScreen,
-  OrdersScreen,
-  BillsScreen,
-  ProfileScreen,
-} from '../screens/placeholder';
+import { ExploreScreen } from '../screens/customer/ExploreScreen';
+import { BookingsScreen } from '../screens/customer/BookingsScreen';
+import { CustomerOrdersScreen as OrdersScreen } from '../screens/customer/CustomerOrdersScreen';
+import { BillsScreen } from '../screens/customer/BillsScreen';
+import { CustomerProfileScreen as ProfileScreen } from '../screens/customer/CustomerProfileScreen';
 
 // ─── Tab Navigator ──────────────────────────────────────────────────────────
 
@@ -38,47 +30,27 @@ export function CustomerTabNavigator() {
       <Tab.Screen
         name="Explore"
         component={ExploreScreen}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <Compass size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🧭</Text> }}
       />
       <Tab.Screen
         name="Bookings"
         component={BookingsScreen}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <Calendar size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📅</Text> }}
       />
       <Tab.Screen
         name="Orders"
         component={OrdersScreen}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <ShoppingBag size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🛍</Text> }}
       />
       <Tab.Screen
         name="Bills"
         component={BillsScreen}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <Receipt size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🧾</Text> }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <User size={ICON_SIZE} color={color} />
-          ),
-        }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text> }}
       />
     </Tab.Navigator>
   );

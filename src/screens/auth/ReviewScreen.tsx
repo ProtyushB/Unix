@@ -8,15 +8,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { CheckCircle, Briefcase, User } from 'lucide-react-native';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
-import { getAuthService } from '../../backend/auth/provider/auth.provider';
+import { FolderService } from '../../backend/dms/service/folder.service';
+import { createRoleFolders, createBusinessDmsFolders, BusinessFolderResult } from '../../backend/dms/util/BusinessFolderUtils';
+import { getPersonService } from '../../backend/person/provider/person.provider';
 import { setDmsFolderMap, DmsFolderMap } from '../../storage/dms.storage';
 import { setCompleteProfileData, setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
-import { setLoggedInUser, getAccessToken } from '../../storage/auth.storage';
+import { setLoggedInUser } from '../../storage/auth.storage';
 import { getBusinessTypeLabel } from '../../utils/businessTypes';
-import authApiClient from '../../backend/auth/config/axios.instance';
+import { v4 as uuidv4 } from 'uuid';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -24,7 +25,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -38,11 +39,6 @@ type AuthStackParamList = {
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Review'>;
 
-// ─── DMS Folder Categories ──────────────────────────────────────────────────
-
-const DMS_CATEGORIES = ['Products', 'Services', 'Orders', 'Appointments', 'Bills'];
-const ROLE_FOLDERS = ['Business', 'Customer', 'Employee'];
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -51,168 +47,106 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
   const [error, setError] = useState('');
 
   const hasBusiness = businesses && businesses.length > 0;
-  const roles = ['CUSTOMER', ...(hasBusiness ? ['BUSINESS_OWNER'] : [])];
 
   const handleSubmit = async () => {
     setError('');
     setLoading(true);
 
     try {
-      const token = await getAccessToken();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const folderService = new FolderService();
+      const personService = getPersonService();
 
-      // ─── Step 1: DMS Folder Creation ─────────────────────────────────
-      // Create user root folder
-      const userRootRes = await authApiClient.post(
-        '/folder/create',
-        {
-          name: personal.username,
-          parentFolderId: null,
-          description: `Root folder for ${personal.username}`,
-        },
-        { headers },
-      );
-      const userRootFolderId = userRootRes.data?.data?.id;
-
-      // Create role folders under root
-      const roleFolderPayloads = ROLE_FOLDERS.map(role => ({
-        name: role,
-        parentFolderId: userRootFolderId,
-        description: `${role} folder`,
-      }));
-      const roleFoldersRes = await authApiClient.post(
-        '/folder/create-multiple',
-        roleFolderPayloads,
-        { headers },
-      );
-      const roleFoldersData = roleFoldersRes.data?.data || [];
-      const roleFolders: Record<string, number> = {};
-      roleFoldersData.forEach((folder: any) => {
-        roleFolders[folder.name] = folder.id;
+      // ─── Step 1: Create user root folder ─────────────────────────────
+      const userFolder = await folderService.createFolder({
+        folderName: `${personal.username}_${uuidv4()}`,
       });
+      const userRootFolderId = userFolder.folderId!;
 
-      // Create per-business branch and category folders
-      const businessFolders: Record<number, any> = {};
-      const businessFolderParentId = roleFolders['Business'];
+      // ─── Step 2: Create role folders ─────────────────────────────────
+      const roleFolders = await createRoleFolders(userRootFolderId);
 
-      if (hasBusiness && businessFolderParentId) {
-        for (let i = 0; i < businesses.length; i++) {
-          const biz = businesses[i];
-
-          // Create business branch folder
-          const bizFolderRes = await authApiClient.post(
-            '/folder/create',
-            {
-              name: biz.name,
-              parentFolderId: businessFolderParentId,
-              description: `${biz.name} (${biz.businessType})`,
-            },
-            { headers },
-          );
-          const bizFolderId = bizFolderRes.data?.data?.id;
-
-          // Create category folders under business
-          const categoryPayloads = DMS_CATEGORIES.map(cat => ({
-            name: cat,
-            parentFolderId: bizFolderId,
-            description: `${cat} for ${biz.name}`,
-          }));
-          const catFoldersRes = await authApiClient.post(
-            '/folder/create-multiple',
-            categoryPayloads,
-            { headers },
-          );
-          const catFoldersData = catFoldersRes.data?.data || [];
-
-          const catMap: Record<string, number> = {};
-          catFoldersData.forEach((folder: any) => {
-            catMap[folder.name] = folder.id;
-          });
-
-          businessFolders[i] = {
-            folderId: bizFolderId,
-            productsFolderId: catMap['Products'] || 0,
-            servicesFolderId: catMap['Services'] || 0,
-            ordersFolderId: catMap['Orders'] || 0,
-            appointmentsFolderId: catMap['Appointments'] || 0,
-            billsFolderId: catMap['Bills'] || 0,
-          };
+      // ─── Step 3: Create per-business folders ─────────────────────────
+      const businessFolderResults: BusinessFolderResult[] = [];
+      if (hasBusiness) {
+        for (const biz of businesses) {
+          const result = await createBusinessDmsFolders(null, biz.businessName, roleFolders.Business);
+          businessFolderResults.push(result);
         }
       }
 
-      // Store DMS folder map
+      // ─── Step 4: Create person via PersonService ──────────────────────
+      const result = await personService.createPerson({
+        firstName: personal.firstName,
+        lastName: personal.lastName,
+        userName: personal.username,
+        email: personal.email,
+        phoneNumber: personal.phoneNumber,
+        personFolderId: userRootFolderId,
+        businesses: hasBusiness
+          ? businesses.map((biz: any, idx: number) => ({
+              businessName: biz.businessName,
+              businessType: biz.businessType,
+              businessPhone: biz.businessPhone || null,
+              businessEmail: biz.businessEmail || null,
+              registrationNumber: biz.registrationNumber || null,
+              folderId: businessFolderResults[idx]?.folderId ?? null,
+              businessRoles: [],
+              isActive: true,
+            }))
+          : [],
+      });
+
+      if (!result.success || !result.data) {
+        setError(result.error || 'Something went wrong. Please try again.');
+        return;
+      }
+
+      // ─── Step 5: Store everything ─────────────────────────────────────
+      const registeredUser = result.data;
+
+      await setLoggedInUser({
+        id: registeredUser.id || 0,
+        username: personal.username,
+        roles: registeredUser.types || [],
+        email: personal.email,
+      });
+
+      await setUserProfile(registeredUser);
+
+      await setCompleteProfileData({
+        person: registeredUser,
+        businesses: registeredUser.business || businesses,
+      });
+
+      if (hasBusiness && registeredUser.business && registeredUser.business.length > 0) {
+        const typeMap: Record<string, any[]> = {};
+        (registeredUser.business as any[]).forEach((biz: any) => {
+          const type = biz.businessType || 'CUSTOM';
+          if (!typeMap[type]) typeMap[type] = [];
+          typeMap[type].push(biz);
+        });
+        await setBusinessTypeMap(typeMap);
+      }
+
       const dmsFolderMapData: DmsFolderMap = {
         userRootFolderId,
         roleFolders: {
-          Business: roleFolders['Business'] || 0,
-          Customer: roleFolders['Customer'] || 0,
-          Employee: roleFolders['Employee'] || 0,
+          Business: roleFolders.Business,
+          Customer: roleFolders.Customer,
+          Employee: roleFolders.Employee,
         },
-        businesses: businessFolders,
+        businesses: {},
       };
+      if (hasBusiness && registeredUser.business) {
+        (registeredUser.business as any[]).forEach((biz: any, idx: number) => {
+          const bizId = biz.id || idx;
+          if (businessFolderResults[idx]) {
+            dmsFolderMapData.businesses[bizId] = businessFolderResults[idx];
+          }
+        });
+      }
       await setDmsFolderMap(dmsFolderMapData);
 
-      // ─── Step 2: Create Person with Business ─────────────────────────
-      const personPayload = {
-        firstName: personal.firstName,
-        lastName: personal.lastName,
-        email: personal.email,
-        username: personal.username,
-        phoneNumber: personal.phoneNumber,
-        roles,
-        businesses: hasBusiness
-          ? businesses.map((biz: any, idx: number) => ({
-              name: biz.name,
-              businessType: biz.businessType,
-              phone: biz.phone || null,
-              email: biz.email || null,
-              registrationNumber: biz.registrationNumber || null,
-              dmsFolderId: businessFolders[idx]?.folderId || null,
-            }))
-          : [],
-      };
-
-      const personRes = await authApiClient.post(
-        `/persons?hasBusiness=${hasBusiness}`,
-        personPayload,
-        { headers },
-      );
-      const registeredUser = personRes.data?.data;
-
-      // ─── Step 3: Store Everything ────────────────────────────────────
-      if (registeredUser) {
-        // Store logged-in user
-        await setLoggedInUser({
-          id: registeredUser.id || registeredUser.userId,
-          username: personal.username,
-          roles,
-          email: personal.email,
-        });
-
-        // Store user profile
-        await setUserProfile(registeredUser);
-
-        // Store complete profile data
-        await setCompleteProfileData({
-          person: registeredUser,
-          businesses: registeredUser.businesses || businesses,
-        });
-
-        // Build and store business type map
-        if (hasBusiness && registeredUser.businesses) {
-          const typeMap: Record<string, any[]> = {};
-          registeredUser.businesses.forEach((biz: any) => {
-            const type = biz.businessType || 'CUSTOM';
-            if (!typeMap[type]) {
-              typeMap[type] = [];
-            }
-            typeMap[type].push(biz);
-          });
-          await setBusinessTypeMap(typeMap);
-        }
-      }
-
-      // Navigate to portal selection
       navigation.reset({
         index: 0,
         routes: [{ name: 'PortalSelection' }],
@@ -245,7 +179,7 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       )}
 
-      <ScrollView
+      <ScrollView removeClippedSubviews={false}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -266,7 +200,7 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* Personal Info Card */}
         <AppCard style={styles.card}>
           <View style={styles.cardHeader}>
-            <User size={20} color="#f97316" strokeWidth={1.8} />
+            <Text style={{ fontSize: 18 }}>👤</Text>
             <Text style={styles.cardTitle}>Personal Information</Text>
           </View>
           <View style={styles.infoRow}>
@@ -299,14 +233,14 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
         {hasBusiness && businesses.map((biz: any, index: number) => (
           <AppCard key={index} style={styles.card}>
             <View style={styles.cardHeader}>
-              <Briefcase size={20} color="#f97316" strokeWidth={1.8} />
+              <Text style={{ fontSize: 18 }}>💼</Text>
               <Text style={styles.cardTitle}>
                 Business {businesses.length > 1 ? `#${index + 1}` : 'Information'}
               </Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Name</Text>
-              <Text style={styles.infoValue}>{biz.name}</Text>
+              <Text style={styles.infoValue}>{biz.businessName}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Type</Text>
@@ -314,16 +248,16 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
                 {getBusinessTypeLabel(biz.businessType)}
               </Text>
             </View>
-            {biz.phone ? (
+            {biz.businessPhone ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Phone</Text>
-                <Text style={styles.infoValue}>{biz.phone}</Text>
+                <Text style={styles.infoValue}>{biz.businessPhone}</Text>
               </View>
             ) : null}
-            {biz.email ? (
+            {biz.businessEmail ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>{biz.email}</Text>
+                <Text style={styles.infoValue}>{biz.businessEmail}</Text>
               </View>
             ) : null}
             {biz.registrationNumber ? (
@@ -334,21 +268,6 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
             ) : null}
           </AppCard>
         ))}
-
-        {/* Roles Preview */}
-        <AppCard style={styles.card}>
-          <View style={styles.cardHeader}>
-            <CheckCircle size={20} color="#f97316" strokeWidth={1.8} />
-            <Text style={styles.cardTitle}>Assigned Roles</Text>
-          </View>
-          <View style={styles.rolesRow}>
-            {roles.map(role => (
-              <View key={role} style={styles.roleBadge}>
-                <Text style={styles.roleBadgeText}>{role}</Text>
-              </View>
-            ))}
-          </View>
-        </AppCard>
 
         {/* Buttons */}
         <View style={styles.buttonContainer}>
@@ -458,27 +377,6 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     flex: 2,
     textAlign: 'right',
-  },
-
-  // Roles
-  rolesRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  roleBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#f9731620',
-    borderWidth: 1,
-    borderColor: '#f9731640',
-  },
-  roleBadgeText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 12,
-    color: '#f97316',
-    letterSpacing: 0.5,
   },
 
   // Buttons

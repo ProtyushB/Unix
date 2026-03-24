@@ -10,8 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Check, X } from 'lucide-react-native';
-import AppInput from '../../components/forms/AppInput';
+import {AppInput} from '../../components/common/AppInput';
 import PasswordInput from '../../components/forms/PasswordInput';
 import PasswordChecklist from '../../components/forms/PasswordChecklist';
 import PasswordMatch from '../../components/forms/PasswordMatch';
@@ -27,7 +26,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -78,7 +77,7 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
         try {
           const isAvailable = await authService.checkUsername(value);
           setUsernameStatus(isAvailable ? 'available' : 'taken');
-        } catch {
+        } catch (err: any) {
           setUsernameStatus('idle');
         }
       }, 500);
@@ -95,9 +94,10 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
   }, []);
 
   const handleUsernameChange = (value: string) => {
-    setUsername(value);
+    const sanitized = value.replace(/\s/g, '');
+    setUsername(sanitized);
     if (error) setError('');
-    checkUsernameAvailability(value);
+    checkUsernameAvailability(sanitized);
   };
 
   // Validation
@@ -155,21 +155,21 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
       case 'available':
         return (
           <View style={styles.statusRow}>
-            <Check size={16} color="#22c55e" strokeWidth={2.5} />
+            <Text style={{ fontSize: 14, color: '#22c55e' }}>✓</Text>
             <Text style={styles.statusAvailable}>Available</Text>
           </View>
         );
       case 'taken':
         return (
           <View style={styles.statusRow}>
-            <X size={16} color="#ef4444" strokeWidth={2.5} />
+            <Text style={{ fontSize: 14, color: '#ef4444' }}>✕</Text>
             <Text style={styles.statusTaken}>Username taken</Text>
           </View>
         );
       case 'invalid':
         return (
           <View style={styles.statusRow}>
-            <X size={16} color="#ef4444" strokeWidth={2.5} />
+            <Text style={{ fontSize: 14, color: '#ef4444' }}>✕</Text>
             <Text style={styles.statusTaken}>3-20 chars, letters/numbers/underscores only</Text>
           </View>
         );
@@ -185,76 +185,88 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
+        <ScrollView removeClippedSubviews={false}
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Step Progress */}
-          <StepProgress currentStep={3} totalSteps={5} />
-
-          {/* Title */}
-          <Text style={styles.title}>Set Credentials</Text>
-          <Text style={styles.subtitle}>
-            Choose a username and secure password
-          </Text>
-
-          {/* Error */}
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
-
-          {/* Username */}
-          <AppInput
-            label="Username"
-            value={username}
-            onChangeText={handleUsernameChange}
-            placeholder="e.g. john_doe"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {renderUsernameStatus()}
-
-          {/* Password */}
-          <View style={styles.fieldSpacer} />
-          <PasswordInput
-            label="Password"
-            value={password}
-            onChangeText={(val) => {
-              setPassword(val);
-              if (error) setError('');
+          <StepProgress
+            currentStep={3}
+            totalSteps={5}
+            onStepPress={(step) => {
+              const { email } = route.params;
+              const D_USER = 'devuser'; const D_PASS = 'Dev@12345';
+              if (step === 1) navigation.navigate('SignupEmail');
+              else if (step === 2) navigation.navigate('OtpVerification', { email });
+              else if (step === 4) navigation.navigate('ProfilePersonal', { email, username: D_USER, password: D_PASS });
+              else if (step === 5) navigation.navigate('ProfileBusiness', { email, username: D_USER, password: D_PASS, firstName: 'Dev', lastName: 'User', phoneNumber: '9999999999' });
             }}
-            placeholder="Create a strong password"
           />
-          <PasswordChecklist password={password} />
 
-          {/* Confirm Password */}
-          <View style={styles.fieldSpacer} />
-          <PasswordInput
-            label="Confirm Password"
-            value={confirmPassword}
-            onChangeText={(val) => {
-              setConfirmPassword(val);
-              if (error) setError('');
-            }}
-            placeholder="Re-enter your password"
-          />
-          {confirmPassword.length > 0 && (
-            <PasswordMatch match={passwordsMatch} />
-          )}
+          <View>
+            {/* Title */}
+            <Text style={styles.title}>Set Credentials</Text>
+            <Text style={styles.subtitle}>
+              Choose a username and secure password
+            </Text>
 
-          {/* Continue Button */}
-          <View style={styles.buttonContainer}>
-            <AppButton
-              title="Continue"
-              onPress={handleContinue}
-              variant="primary"
-              loading={loading}
-              disabled={!isFormValid || loading}
+            {/* Error */}
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            {/* Username */}
+            <AppInput
+              label="Username"
+              value={username}
+              onChangeText={handleUsernameChange}
+              placeholder="e.g. john_doe"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+            {renderUsernameStatus()}
+
+            {/* Password */}
+            <View style={styles.fieldSpacer} />
+            <PasswordInput
+              label="Password"
+              value={password}
+              onChangeText={(val) => {
+                setPassword(val);
+                if (error) setError('');
+              }}
+              placeholder="Create a strong password"
+            />
+            <PasswordChecklist password={password} />
+
+            {/* Confirm Password */}
+            <View style={styles.fieldSpacer} />
+            <PasswordInput
+              label="Confirm Password"
+              value={confirmPassword}
+              onChangeText={(val) => {
+                setConfirmPassword(val);
+                if (error) setError('');
+              }}
+              placeholder="Re-enter your password"
+            />
+            {confirmPassword.length > 0 && (
+              <PasswordMatch match={passwordsMatch} />
+            )}
+
+            {/* Continue Button */}
+            <View style={styles.buttonContainer}>
+              <AppButton
+                title="Continue"
+                onPress={handleContinue}
+                variant="primary"
+                loading={loading}
+                disabled={!isFormValid || loading}
+              />
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -275,8 +287,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingTop: 20,
+    paddingBottom: 32,
   },
 
   // Title
@@ -284,7 +296,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
     fontSize: 28,
     color: '#f8fafc',
-    marginTop: 32,
+    marginTop: 12,
     marginBottom: 8,
   },
   subtitle: {

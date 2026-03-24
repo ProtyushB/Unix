@@ -11,17 +11,6 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import {
-  LayoutDashboard,
-  ChevronDown,
-  ChevronRight,
-  Plus,
-  ShoppingCart,
-  CalendarClock,
-  Receipt,
-  Package,
-  X,
-} from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { AppCard } from '../../components/common/AppCard';
@@ -206,7 +195,7 @@ export default function DashboardScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <LayoutDashboard size={24} color="#f97316" />
+          <Text style={styles.headerIcon}>⊞</Text>
           <Text style={styles.headerTitle}>Dashboard</Text>
         </View>
         <TouchableOpacity style={styles.businessSelector} onPress={openSheet} activeOpacity={0.7}>
@@ -214,7 +203,7 @@ export default function DashboardScreen() {
             {selectedModule ? `${getBusinessTypeLabel(selectedModule)}` : 'Select Business'}
             {selectedBusiness ? ` / ${selectedBusiness}` : ''}
           </Text>
-          <ChevronDown size={16} color="#94a3b8" />
+          <Text style={styles.chevronIcon}>▾</Text>
         </TouchableOpacity>
       </View>
 
@@ -242,10 +231,10 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActions}>
             {[
-              { key: 'product', icon: Package, label: 'Product' },
-              { key: 'order', icon: ShoppingCart, label: 'Order' },
-              { key: 'appointment', icon: CalendarClock, label: 'Appointment' },
-              { key: 'invoice', icon: Receipt, label: 'Invoice' },
+              { key: 'product', icon: '📦', label: 'Product' },
+              { key: 'order', icon: '🛒', label: 'Order' },
+              { key: 'appointment', icon: '📅', label: 'Appointment' },
+              { key: 'invoice', icon: '🧾', label: 'Invoice' },
             ].map((action) => (
               <TouchableOpacity
                 key={action.key}
@@ -254,8 +243,7 @@ export default function DashboardScreen() {
                 activeOpacity={0.7}
               >
                 <View style={styles.quickActionIcon}>
-                  <Plus size={14} color="#f97316" />
-                  <action.icon size={18} color="#f97316" />
+                  <Text style={styles.quickActionIconText}>{action.icon}</Text>
                 </View>
                 <Text style={styles.quickActionLabel}>{action.label}</Text>
               </TouchableOpacity>
@@ -323,7 +311,7 @@ export default function DashboardScreen() {
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Select Business</Text>
               <TouchableOpacity onPress={() => setSheetVisible(false)}>
-                <X size={24} color="#94a3b8" />
+                <Text style={styles.closeIcon}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -338,7 +326,7 @@ export default function DashboardScreen() {
                     activeOpacity={0.7}
                   >
                     <Text style={styles.sheetRowText}>{getBusinessTypeLabel(type)}</Text>
-                    <ChevronRight size={18} color="#94a3b8" />
+                    <Text style={styles.chevronIcon}>›</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -501,7 +489,7 @@ const styles = StyleSheet.create({
   listCard: {
     marginBottom: 16,
     padding: 0,
-    overflow: 'hidden',
+
   },
   listItem: {
     flexDirection: 'row',
@@ -638,5 +626,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#f97316',
+  },
+  headerIcon: {
+    fontSize: 22,
+    color: '#f97316',
+  },
+  chevronIcon: {
+    fontSize: 18,
+    color: '#94a3b8',
+  },
+  closeIcon: {
+    fontSize: 22,
+    color: '#94a3b8',
+  },
+  quickActionIconText: {
+    fontSize: 22,
+    marginBottom: 2,
   },
 });

@@ -9,7 +9,6 @@ import {
   Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ShieldCheck } from 'lucide-react-native';
 import PasswordInput from '../../components/forms/PasswordInput';
 import PasswordChecklist from '../../components/forms/PasswordChecklist';
 import PasswordMatch from '../../components/forms/PasswordMatch';
@@ -24,7 +23,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -94,7 +93,7 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
+        <ScrollView removeClippedSubviews={false}
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -103,7 +102,7 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
           {/* Icon */}
           <View style={styles.iconContainer}>
             <View style={styles.iconCircle}>
-              <ShieldCheck size={32} color="#f97316" strokeWidth={1.5} />
+              <Text style={{ fontSize: 32 }}>🛡️</Text>
             </View>
           </View>
 

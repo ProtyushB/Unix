@@ -10,18 +10,6 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import {
-  BarChart3,
-  TrendingUp,
-  MapPin,
-  Fingerprint,
-  Scissors,
-  UtensilsCrossed,
-  Dumbbell,
-  Shirt,
-  ShoppingBag,
-  MoreHorizontal,
-} from 'lucide-react-native';
 import AppButton from '../../components/common/AppButton';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
@@ -30,7 +18,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -47,19 +35,19 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Landing'>;
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const FEATURES = [
-  { icon: BarChart3, title: 'Billing', description: 'Generate invoices & track payments' },
-  { icon: TrendingUp, title: 'Analytics', description: 'Real-time business insights' },
-  { icon: MapPin, title: 'Multi-Location', description: 'Manage multiple branches' },
-  { icon: Fingerprint, title: 'Unified Identity', description: 'One account, all services' },
+  { icon: '📊', title: 'Billing', description: 'Generate invoices & track payments' },
+  { icon: '📈', title: 'Analytics', description: 'Real-time business insights' },
+  { icon: '📍', title: 'Multi-Location', description: 'Manage multiple branches' },
+  { icon: '🔐', title: 'Unified Identity', description: 'One account, all services' },
 ];
 
 const MODULES = [
-  { icon: Scissors, title: 'Parlour & Spa', color: '#f59e0b' },
-  { icon: UtensilsCrossed, title: 'Restaurant', color: '#ef4444' },
-  { icon: Dumbbell, title: 'Gym', color: '#10b981' },
-  { icon: Shirt, title: 'Fashion', color: '#8b5cf6' },
-  { icon: ShoppingBag, title: 'Retail', color: '#0ea5e9' },
-  { icon: MoreHorizontal, title: 'More', color: '#64748b' },
+  { icon: '✂️', title: 'Parlour & Spa', color: '#f59e0b' },
+  { icon: '🍽️', title: 'Restaurant', color: '#ef4444' },
+  { icon: '🏋️', title: 'Gym', color: '#10b981' },
+  { icon: '👗', title: 'Fashion', color: '#8b5cf6' },
+  { icon: '🛍️', title: 'Retail', color: '#0ea5e9' },
+  { icon: '···', title: 'More', color: '#64748b' },
 ];
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -68,11 +56,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const LandingScreen: React.FC<Props> = ({ navigation }) => {
   const renderModuleCard = ({ item }: { item: typeof MODULES[number] }) => {
-    const IconComponent = item.icon;
     return (
       <View style={styles.moduleCard}>
         <View style={[styles.moduleIconContainer, { backgroundColor: `${item.color}20` }]}>
-          <IconComponent size={28} color={item.color} strokeWidth={1.8} />
+          <Text style={[styles.moduleIcon, { color: item.color }]}>{item.icon}</Text>
         </View>
         <Text style={styles.moduleTitle} numberOfLines={2}>
           {item.title}
@@ -84,7 +71,7 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
-      <ScrollView
+      <ScrollView removeClippedSubviews={false}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -119,18 +106,15 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.featuresSection}>
           <Text style={styles.sectionTitle}>Why ModuleX?</Text>
           <View style={styles.featuresGrid}>
-            {FEATURES.map((feature, index) => {
-              const IconComponent = feature.icon;
-              return (
+            {FEATURES.map((feature, index) => (
                 <View key={index} style={styles.featureCard}>
                   <View style={styles.featureIconContainer}>
-                    <IconComponent size={22} color="#f97316" strokeWidth={1.8} />
+                    <Text style={styles.featureIcon}>{feature.icon}</Text>
                   </View>
                   <Text style={styles.featureTitle}>{feature.title}</Text>
                   <Text style={styles.featureDescription}>{feature.description}</Text>
                 </View>
-              );
-            })}
+              ))}
           </View>
         </View>
 
@@ -146,6 +130,7 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
             contentContainerStyle={styles.modulesListContent}
             snapToInterval={108}
             decelerationRate="fast"
+            removeClippedSubviews={false}
           />
         </View>
 
@@ -287,6 +272,12 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  moduleIcon: {
+    fontSize: 26,
+  },
+  featureIcon: {
+    fontSize: 20,
   },
 
   bottomSpacer: {

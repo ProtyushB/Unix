@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { CheckCircle2, XCircle } from 'lucide-react-native';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -22,12 +21,12 @@ export function PasswordMatch({ password, confirmPassword }: PasswordMatchProps)
     <View style={styles.container}>
       {matches ? (
         <>
-          <CheckCircle2 size={16} color="#10b981" />
+          <Text style={{ fontSize: 14, color: '#10b981' }}>✓</Text>
           <Text style={styles.matchText}>Passwords match</Text>
         </>
       ) : (
         <>
-          <XCircle size={16} color="#ef4444" />
+          <Text style={{ fontSize: 14, color: '#ef4444' }}>✕</Text>
           <Text style={styles.mismatchText}>Passwords do not match</Text>
         </>
       )}
@@ -56,3 +55,5 @@ const styles = StyleSheet.create({
     color: '#ef4444',
   },
 });
+
+export default PasswordMatch;

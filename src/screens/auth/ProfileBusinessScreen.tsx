@@ -10,8 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Plus, Trash2 } from 'lucide-react-native';
-import AppInput from '../../components/forms/AppInput';
+import {AppInput} from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import SelectField from '../../components/forms/SelectField';
 import StepProgress from '../../components/common/StepProgress';
@@ -24,7 +23,7 @@ type AuthStackParamList = {
   Splash: undefined;
   Landing: undefined;
   Login: undefined;
-  SignupEmail: undefined;
+  SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
   ProfilePersonal: { email: string; username: string; password: string };
@@ -42,19 +41,19 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'ProfileBusiness'>;
 
 interface BusinessForm {
   id: string;
-  name: string;
+  businessName: string;
   businessType: string;
-  phone: string;
-  email: string;
+  businessPhone: string;
+  businessEmail: string;
   registrationNumber: string;
 }
 
 const createEmptyBusiness = (): BusinessForm => ({
   id: Date.now().toString() + Math.random().toString(36).slice(2),
-  name: '',
+  businessName: '',
   businessType: '',
-  phone: '',
-  email: '',
+  businessPhone: '',
+  businessEmail: '',
   registrationNumber: '',
 });
 
@@ -107,20 +106,20 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
     businesses.forEach(biz => {
       const bizErrors: Record<string, string> = {};
 
-      if (!biz.name.trim()) {
-        bizErrors.name = 'Business name is required';
+      if (!biz.businessName.trim()) {
+        bizErrors.businessName = 'Business name is required';
         isValid = false;
       }
       if (!biz.businessType) {
         bizErrors.businessType = 'Business type is required';
         isValid = false;
       }
-      if (biz.phone.trim() && !validatePhone(biz.phone.trim())) {
-        bizErrors.phone = 'Enter a valid 10-digit phone number';
+      if (biz.businessPhone.trim() && !validatePhone(biz.businessPhone.trim())) {
+        bizErrors.businessPhone = 'Enter a valid 10-digit phone number';
         isValid = false;
       }
-      if (biz.email.trim() && !validateEmail(biz.email.trim())) {
-        bizErrors.email = 'Enter a valid email address';
+      if (biz.businessEmail.trim() && !validateEmail(biz.businessEmail.trim())) {
+        bizErrors.businessEmail = 'Enter a valid email address';
         isValid = false;
       }
 
@@ -147,10 +146,10 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const businessData = hasBusiness
       ? businesses.map(biz => ({
-          name: biz.name.trim(),
+          businessName: biz.businessName.trim(),
           businessType: biz.businessType,
-          phone: biz.phone.trim() || undefined,
-          email: biz.email.trim() || undefined,
+          businessPhone: biz.businessPhone.trim() || undefined,
+          businessEmail: biz.businessEmail.trim() || undefined,
           registrationNumber: biz.registrationNumber.trim() || undefined,
         }))
       : [];
@@ -173,15 +172,25 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
+        <ScrollView removeClippedSubviews={false}
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Step Progress */}
-          <StepProgress currentStep={5} totalSteps={5} />
+          <StepProgress
+            currentStep={5}
+            totalSteps={5}
+            onStepPress={(step) => {
+              const { email, username, password } = route.params;
+              if (step === 1) navigation.navigate('SignupEmail');
+              else if (step === 2) navigation.navigate('OtpVerification', { email });
+              else if (step === 3) navigation.navigate('SignupCredentials', { email });
+              else if (step === 4) navigation.navigate('ProfilePersonal', { email, username, password });
+            }}
+          />
 
+          <View>
           {/* Title */}
           <Text style={styles.title}>Business Information</Text>
           <Text style={styles.subtitle}>
@@ -242,7 +251,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                         onPress={() => removeBusiness(biz.id)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <Trash2 size={18} color="#ef4444" strokeWidth={1.8} />
+                        <Text style={{ fontSize: 16, color: '#ef4444' }}>🗑</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -250,17 +259,17 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                   {/* Business Name */}
                   <AppInput
                     label="Business Name"
-                    value={biz.name}
-                    onChangeText={(val) => updateBusiness(biz.id, 'name', val)}
+                    value={biz.businessName}
+                    onChangeText={(val) => updateBusiness(biz.id, 'businessName', val.replace(/\s/g, ''))}
                     placeholder="Enter business name"
-                    error={errors[biz.id]?.name}
+                    error={errors[biz.id]?.businessName}
                   />
 
                   {/* Business Type */}
                   <SelectField
                     label="Business Type"
                     value={biz.businessType}
-                    onSelect={(val) => updateBusiness(biz.id, 'businessType', val)}
+                    onChange={(val) => updateBusiness(biz.id, 'businessType', val)}
                     options={businessTypeOptions}
                     placeholder="Select business type"
                     error={errors[biz.id]?.businessType}
@@ -269,33 +278,33 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                   {/* Business Phone */}
                   <AppInput
                     label="Business Phone"
-                    value={biz.phone}
+                    value={biz.businessPhone}
                     onChangeText={(val) => {
                       const digits = val.replace(/\D/g, '').slice(0, 10);
-                      updateBusiness(biz.id, 'phone', digits);
+                      updateBusiness(biz.id, 'businessPhone', digits);
                     }}
                     placeholder="10-digit phone number"
-                    keyboardType="phone-pad"
+                    keyboardType="number-pad"
                     maxLength={10}
-                    error={errors[biz.id]?.phone}
+                    error={errors[biz.id]?.businessPhone}
                   />
 
                   {/* Business Email */}
                   <AppInput
                     label="Business Email"
-                    value={biz.email}
-                    onChangeText={(val) => updateBusiness(biz.id, 'email', val)}
+                    value={biz.businessEmail}
+                    onChangeText={(val) => updateBusiness(biz.id, 'businessEmail', val.replace(/\s/g, ''))}
                     placeholder="business@example.com"
                     keyboardType="email-address"
                     autoCapitalize="none"
-                    error={errors[biz.id]?.email}
+                    error={errors[biz.id]?.businessEmail}
                   />
 
                   {/* Registration Number */}
                   <AppInput
                     label="Registration Number (Optional)"
                     value={biz.registrationNumber}
-                    onChangeText={(val) => updateBusiness(biz.id, 'registrationNumber', val)}
+                    onChangeText={(val) => updateBusiness(biz.id, 'registrationNumber', val.replace(/\s/g, ''))}
                     placeholder="e.g. GST, CIN"
                     autoCapitalize="characters"
                   />
@@ -308,7 +317,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                 onPress={addBusiness}
                 activeOpacity={0.7}
               >
-                <Plus size={18} color="#f97316" strokeWidth={2} />
+                <Text style={{ fontSize: 18, color: '#f97316' }}>+</Text>
                 <Text style={styles.addButtonText}>Add Another Business</Text>
               </TouchableOpacity>
             </View>
@@ -333,6 +342,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
               />
             </View>
           )}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -352,8 +362,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingTop: 20,
+    paddingBottom: 32,
   },
 
   // Title
@@ -361,7 +371,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
     fontSize: 28,
     color: '#f8fafc',
-    marginTop: 32,
     marginBottom: 8,
   },
   subtitle: {

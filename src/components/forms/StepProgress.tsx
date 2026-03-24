@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { darkPalette, themes } from '../../theme/colors';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -7,11 +7,13 @@ import { darkPalette, themes } from '../../theme/colors';
 interface StepProgressProps {
   currentStep: number;
   totalSteps: number;
+  // DEV ONLY: remove before production
+  onStepPress?: (step: number) => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function StepProgress({ currentStep, totalSteps }: StepProgressProps) {
+export function StepProgress({ currentStep, totalSteps, onStepPress }: StepProgressProps) {
   const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
 
   return (
@@ -23,11 +25,14 @@ export function StepProgress({ currentStep, totalSteps }: StepProgressProps) {
 
         return (
           <React.Fragment key={step}>
-            {/* Circle */}
-            <View
-              style={[
+            <Pressable
+              onPress={() => onStepPress?.(step)}
+              disabled={!onStepPress || isCurrent}
+              hitSlop={16}
+              style={({ pressed }) => [
                 styles.circle,
                 isActive ? styles.circleActive : styles.circleInactive,
+                pressed && styles.circlePressed,
               ]}
             >
               <Text
@@ -38,9 +43,8 @@ export function StepProgress({ currentStep, totalSteps }: StepProgressProps) {
               >
                 {step}
               </Text>
-            </View>
+            </Pressable>
 
-            {/* Connecting line */}
             {index < steps.length - 1 ? (
               <View
                 style={[
@@ -63,8 +67,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    marginBottom: 32,
   },
   circle: {
     width: 32,
@@ -81,6 +84,9 @@ const styles = StyleSheet.create({
   circleInactive: {
     backgroundColor: 'transparent',
     borderColor: darkPalette.border,
+  },
+  circlePressed: {
+    opacity: 0.6,
   },
   circleText: {
     fontSize: 13,
