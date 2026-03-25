@@ -17,8 +17,8 @@ import PasswordMatch from '../../components/forms/PasswordMatch';
 import AppButton from '../../components/common/AppButton';
 import StepProgress from '../../components/common/StepProgress';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
-import { setSignupData } from '../../storage/session.storage';
 import { validateUsername, PASSWORD_RULES } from '../../utils/validators';
+import { useSignupDraft } from '../../context/SignupDraftContext';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -29,8 +29,8 @@ type AuthStackParamList = {
   SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string; password: string };
-  ProfileBusiness: { email: string; username: string; password: string; firstName: string; lastName: string; phoneNumber: string };
+  ProfilePersonal: { email: string; username: string };
+  ProfileBusiness: { email: string; username: string; firstName: string; lastName: string; phoneNumber: string };
   Review: { personal: any; businesses: any[] };
   PortalSelection: undefined;
   ForgotPasswordEmail: undefined;
@@ -49,11 +49,10 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const authService = getAuthService();
+  const { setDraft } = useSignupDraft();
 
   // Debounced username availability check
   const checkUsernameAvailability = useCallback(
@@ -96,7 +95,6 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleUsernameChange = (value: string) => {
     const sanitized = value.replace(/\s/g, '');
     setUsername(sanitized);
-    if (error) setError('');
     checkUsernameAvailability(sanitized);
   };
 
@@ -106,40 +104,11 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
   const isUsernameValid = usernameStatus === 'available';
   const isFormValid = isUsernameValid && allPasswordRulesPass && passwordsMatch;
 
-  const handleContinue = async () => {
-    setError('');
-
+  const handleContinue = () => {
     if (!isFormValid) return;
 
-    setLoading(true);
-    try {
-      // Call signup endpoint
-      const roles = ['CUSTOMER']; // Default role during signup
-      await authService.signup({
-        username: username.trim(),
-        email,
-        password,
-        roles,
-      });
-
-      // Store signup data in session
-      await setSignupData({
-        username: username.trim(),
-        email,
-        password,
-      });
-
-      navigation.navigate('ProfilePersonal', {
-        email,
-        username: username.trim(),
-        password,
-      });
-    } catch (err: any) {
-      const message = err?.message || 'Signup failed. Please try again.';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+    setDraft({ email, username: username.trim(), password });
+    navigation.navigate('ProfilePersonal', { email, username: username.trim() });
   };
 
   // Username status indicator
@@ -199,8 +168,8 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
               const D_USER = 'devuser'; const D_PASS = 'Dev@12345';
               if (step === 1) navigation.navigate('SignupEmail');
               else if (step === 2) navigation.navigate('OtpVerification', { email });
-              else if (step === 4) navigation.navigate('ProfilePersonal', { email, username: D_USER, password: D_PASS });
-              else if (step === 5) navigation.navigate('ProfileBusiness', { email, username: D_USER, password: D_PASS, firstName: 'Dev', lastName: 'User', phoneNumber: '9999999999' });
+              else if (step === 4) { setDraft({ email, username: D_USER, password: D_PASS }); navigation.navigate('ProfilePersonal', { email, username: D_USER }); }
+              else if (step === 5) { setDraft({ email, username: D_USER, password: D_PASS }); navigation.navigate('ProfileBusiness', { email, username: D_USER, firstName: 'Dev', lastName: 'User', phoneNumber: '9999999999' }); }
             }}
           />
 
@@ -210,13 +179,6 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text style={styles.subtitle}>
               Choose a username and secure password
             </Text>
-
-            {/* Error */}
-            {error ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
 
             {/* Username */}
             <AppInput
@@ -234,10 +196,7 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
             <PasswordInput
               label="Password"
               value={password}
-              onChangeText={(val) => {
-                setPassword(val);
-                if (error) setError('');
-              }}
+              onChangeText={setPassword}
               placeholder="Create a strong password"
             />
             <PasswordChecklist password={password} />
@@ -247,10 +206,7 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
             <PasswordInput
               label="Confirm Password"
               value={confirmPassword}
-              onChangeText={(val) => {
-                setConfirmPassword(val);
-                if (error) setError('');
-              }}
+              onChangeText={setConfirmPassword}
               placeholder="Re-enter your password"
             />
             {confirmPassword.length > 0 && (
@@ -263,8 +219,7 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
                 title="Continue"
                 onPress={handleContinue}
                 variant="primary"
-                loading={loading}
-                disabled={!isFormValid || loading}
+                disabled={!isFormValid}
               />
             </View>
           </View>
@@ -305,22 +260,6 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginBottom: 28,
     lineHeight: 22,
-  },
-
-  // Error
-  errorContainer: {
-    backgroundColor: '#ef444420',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ef444440',
-  },
-  errorText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 13,
-    color: '#fca5a5',
-    textAlign: 'center',
   },
 
   // Username status

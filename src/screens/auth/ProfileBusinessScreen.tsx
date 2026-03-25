@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,8 +26,8 @@ type AuthStackParamList = {
   SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string; password: string };
-  ProfileBusiness: { email: string; username: string; password: string; firstName: string; lastName: string; phoneNumber: string };
+  ProfilePersonal: { email: string; username: string };
+  ProfileBusiness: { email: string; username: string; firstName: string; lastName: string; phoneNumber: string };
   Review: { personal: any; businesses: any[] };
   PortalSelection: undefined;
   ForgotPasswordEmail: undefined;
@@ -45,7 +45,9 @@ interface BusinessForm {
   businessType: string;
   businessPhone: string;
   businessEmail: string;
-  registrationNumber: string;
+  gstin: string;
+  cin: string;
+  pan: string;
 }
 
 const createEmptyBusiness = (): BusinessForm => ({
@@ -54,23 +56,30 @@ const createEmptyBusiness = (): BusinessForm => ({
   businessType: '',
   businessPhone: '',
   businessEmail: '',
-  registrationNumber: '',
+  gstin: '',
+  cin: '',
+  pan: '',
 });
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { email, username, password, firstName, lastName, phoneNumber } = route.params;
+  const { email, username, firstName, lastName, phoneNumber } = route.params;
 
   const [hasBusiness, setHasBusiness] = useState<boolean | null>(null);
   const [businesses, setBusinesses] = useState<BusinessForm[]>([createEmptyBusiness()]);
   const [errors, setErrors] = useState<Record<string, Record<string, string>>>({});
 
+  const scrollViewRef = useRef<ScrollView>(null);
+  const innerViewY = useRef(0);
+  const businessSectionY = useRef(0);
+  const cardYPositions = useRef<Map<string, number>>(new Map());
+  const SCROLL_OFFSET = 20; // breathing room from top of screen
+
   const updateBusiness = (id: string, field: keyof BusinessForm, value: string) => {
     setBusinesses(prev =>
       prev.map(b => (b.id === id ? { ...b, [field]: value } : b)),
     );
-    // Clear field error
     if (errors[id]?.[field]) {
       setErrors(prev => {
         const copy = { ...prev };
@@ -84,17 +93,50 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const addBusiness = () => {
-    setBusinesses(prev => [...prev, createEmptyBusiness()]);
+    const newBiz = createEmptyBusiness();
+    setBusinesses(prev => [...prev, newBiz]);
+    setTimeout(() => {
+      const cardY = cardYPositions.current.get(newBiz.id) ?? 0;
+      scrollViewRef.current?.scrollTo({
+        y: innerViewY.current + businessSectionY.current + cardY - SCROLL_OFFSET,
+        animated: true,
+      });
+    }, 150);
   };
 
   const removeBusiness = (id: string) => {
     if (businesses.length <= 1) return;
-    setBusinesses(prev => prev.filter(b => b.id !== id));
+
+    const deletedIndex = businesses.findIndex(b => b.id === id);
+    const remaining = businesses.filter(b => b.id !== id);
+
+    setBusinesses(remaining);
     setErrors(prev => {
       const copy = { ...prev };
       delete copy[id];
       return copy;
     });
+    cardYPositions.current.delete(id);
+
+    // Scroll to the card that takes the deleted one's place (or the last card)
+    const targetId = remaining[Math.min(deletedIndex, remaining.length - 1)].id;
+    setTimeout(() => {
+      const cardY = cardYPositions.current.get(targetId) ?? 0;
+      scrollViewRef.current?.scrollTo({
+        y: innerViewY.current + businessSectionY.current + cardY - SCROLL_OFFSET,
+        animated: true,
+      });
+    }, 150);
+  };
+
+  const handleYesPress = () => {
+    setHasBusiness(true);
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: innerViewY.current + businessSectionY.current - SCROLL_OFFSET,
+        animated: true,
+      });
+    }, 120);
   };
 
   const validate = (): boolean => {
@@ -135,14 +177,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleReview = () => {
     if (!validate()) return;
 
-    const personal = {
-      firstName,
-      lastName,
-      email,
-      username,
-      password,
-      phoneNumber,
-    };
+    const personal = { firstName, lastName, email, username, phoneNumber };
 
     const businessData = hasBusiness
       ? businesses.map(biz => ({
@@ -150,14 +185,13 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
           businessType: biz.businessType,
           businessPhone: biz.businessPhone.trim() || undefined,
           businessEmail: biz.businessEmail.trim() || undefined,
-          registrationNumber: biz.registrationNumber.trim() || undefined,
+          gstin: biz.gstin.trim() || undefined,
+          cin: biz.cin.trim() || undefined,
+          pan: biz.pan.trim() || undefined,
         }))
       : [];
 
-    navigation.navigate('Review', {
-      personal,
-      businesses: businessData,
-    });
+    navigation.navigate('Review', { personal, businesses: businessData });
   };
 
   const businessTypeOptions = BUSINESS_TYPES.map(bt => ({
@@ -172,7 +206,9 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView removeClippedSubviews={false}
+        <ScrollView
+          ref={scrollViewRef}
+          removeClippedSubviews={false}
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -182,166 +218,179 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
             currentStep={5}
             totalSteps={5}
             onStepPress={(step) => {
-              const { email, username, password } = route.params;
+              const { email: e, username: u } = route.params;
               if (step === 1) navigation.navigate('SignupEmail');
-              else if (step === 2) navigation.navigate('OtpVerification', { email });
-              else if (step === 3) navigation.navigate('SignupCredentials', { email });
-              else if (step === 4) navigation.navigate('ProfilePersonal', { email, username, password });
+              else if (step === 2) navigation.navigate('OtpVerification', { email: e });
+              else if (step === 3) navigation.navigate('SignupCredentials', { email: e });
+              else if (step === 4) navigation.navigate('ProfilePersonal', { email: e, username: u });
             }}
           />
 
-          <View>
-          {/* Title */}
-          <Text style={styles.title}>Business Information</Text>
-          <Text style={styles.subtitle}>
-            Do you have a business to register?
-          </Text>
+          <View onLayout={(e) => { innerViewY.current = e.nativeEvent.layout.y; }}>
+            {/* Title */}
+            <Text style={styles.title}>Business Information</Text>
+            <Text style={styles.subtitle}>
+              Do you have a business to register?
+            </Text>
 
-          {/* Toggle */}
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                hasBusiness === true && styles.toggleButtonActive,
-              ]}
-              onPress={() => setHasBusiness(true)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.toggleText,
-                  hasBusiness === true && styles.toggleTextActive,
-                ]}
-              >
-                Yes
-              </Text>
-            </TouchableOpacity>
-            <View style={styles.toggleSpacer} />
-            <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                hasBusiness === false && styles.toggleButtonActive,
-              ]}
-              onPress={() => setHasBusiness(false)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.toggleText,
-                  hasBusiness === false && styles.toggleTextActive,
-                ]}
-              >
-                No
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Business Forms */}
-          {hasBusiness === true && (
-            <View style={styles.businessFormsSection}>
-              {businesses.map((biz, index) => (
-                <View key={biz.id} style={styles.businessCard}>
-                  {/* Card Header */}
-                  <View style={styles.businessCardHeader}>
-                    <Text style={styles.businessCardTitle}>
-                      Business {index + 1}
-                    </Text>
-                    {businesses.length > 1 && (
-                      <TouchableOpacity
-                        onPress={() => removeBusiness(biz.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Text style={{ fontSize: 16, color: '#ef4444' }}>🗑</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {/* Business Name */}
-                  <AppInput
-                    label="Business Name"
-                    value={biz.businessName}
-                    onChangeText={(val) => updateBusiness(biz.id, 'businessName', val.replace(/\s/g, ''))}
-                    placeholder="Enter business name"
-                    error={errors[biz.id]?.businessName}
-                  />
-
-                  {/* Business Type */}
-                  <SelectField
-                    label="Business Type"
-                    value={biz.businessType}
-                    onChange={(val) => updateBusiness(biz.id, 'businessType', val)}
-                    options={businessTypeOptions}
-                    placeholder="Select business type"
-                    error={errors[biz.id]?.businessType}
-                  />
-
-                  {/* Business Phone */}
-                  <AppInput
-                    label="Business Phone"
-                    value={biz.businessPhone}
-                    onChangeText={(val) => {
-                      const digits = val.replace(/\D/g, '').slice(0, 10);
-                      updateBusiness(biz.id, 'businessPhone', digits);
-                    }}
-                    placeholder="10-digit phone number"
-                    keyboardType="number-pad"
-                    maxLength={10}
-                    error={errors[biz.id]?.businessPhone}
-                  />
-
-                  {/* Business Email */}
-                  <AppInput
-                    label="Business Email"
-                    value={biz.businessEmail}
-                    onChangeText={(val) => updateBusiness(biz.id, 'businessEmail', val.replace(/\s/g, ''))}
-                    placeholder="business@example.com"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    error={errors[biz.id]?.businessEmail}
-                  />
-
-                  {/* Registration Number */}
-                  <AppInput
-                    label="Registration Number (Optional)"
-                    value={biz.registrationNumber}
-                    onChangeText={(val) => updateBusiness(biz.id, 'registrationNumber', val.replace(/\s/g, ''))}
-                    placeholder="e.g. GST, CIN"
-                    autoCapitalize="characters"
-                  />
-                </View>
-              ))}
-
-              {/* Add Another */}
+            {/* Toggle */}
+            <View style={styles.toggleRow}>
               <TouchableOpacity
-                style={styles.addButton}
-                onPress={addBusiness}
+                style={[styles.toggleButton, hasBusiness === true && styles.toggleButtonActive]}
+                onPress={handleYesPress}
                 activeOpacity={0.7}
               >
-                <Text style={{ fontSize: 18, color: '#f97316' }}>+</Text>
-                <Text style={styles.addButtonText}>Add Another Business</Text>
+                <Text style={[styles.toggleText, hasBusiness === true && styles.toggleTextActive]}>
+                  Yes
+                </Text>
+              </TouchableOpacity>
+              <View style={styles.toggleSpacer} />
+              <TouchableOpacity
+                style={[styles.toggleButton, hasBusiness === false && styles.toggleButtonActive]}
+                onPress={() => setHasBusiness(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.toggleText, hasBusiness === false && styles.toggleTextActive]}>
+                  No
+                </Text>
               </TouchableOpacity>
             </View>
-          )}
 
-          {/* No Business Info */}
-          {hasBusiness === false && (
-            <View style={styles.noBizCard}>
-              <Text style={styles.noBizText}>
-                No worries! You can always add a business later from your account settings.
-              </Text>
-            </View>
-          )}
+            {/* Business Forms */}
+            {hasBusiness === true && (
+              <View
+                style={styles.businessFormsSection}
+                onLayout={(e) => { businessSectionY.current = e.nativeEvent.layout.y; }}
+              >
+                {businesses.map((biz, index) => (
+                  <View
+                    key={biz.id}
+                    style={styles.businessCard}
+                    onLayout={(e) => { cardYPositions.current.set(biz.id, e.nativeEvent.layout.y); }}
+                  >
+                    {/* Card Header */}
+                    <View style={styles.businessCardHeader}>
+                      <Text style={styles.businessCardTitle}>Business {index + 1}</Text>
+                      {businesses.length > 1 && (
+                        <TouchableOpacity
+                          onPress={() => removeBusiness(biz.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Text style={{ fontSize: 16, color: '#ef4444' }}>🗑</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
 
-          {/* Review Button */}
-          {hasBusiness !== null && (
-            <View style={styles.buttonContainer}>
-              <AppButton
-                title="Review & Submit"
-                onPress={handleReview}
-                variant="primary"
-              />
-            </View>
-          )}
+                    {/* Business Name */}
+                    <AppInput
+                      label="Business Name"
+                      value={biz.businessName}
+                      onChangeText={(val) => updateBusiness(biz.id, 'businessName', val.trimStart())}
+                      placeholder="Enter business name"
+                      error={errors[biz.id]?.businessName}
+                    />
+
+                    {/* Business Type */}
+                    <SelectField
+                      label="Business Type"
+                      value={biz.businessType}
+                      onChange={(val) => updateBusiness(biz.id, 'businessType', val)}
+                      options={businessTypeOptions}
+                      placeholder="Select business type"
+                      error={errors[biz.id]?.businessType}
+                    />
+
+                    {/* Business Phone */}
+                    <AppInput
+                      label="Business Phone"
+                      value={biz.businessPhone}
+                      onChangeText={(val) => {
+                        const digits = val.replace(/\D/g, '').slice(0, 10);
+                        updateBusiness(biz.id, 'businessPhone', digits);
+                      }}
+                      placeholder="10-digit phone number"
+                      keyboardType="number-pad"
+                      maxLength={10}
+                      error={errors[biz.id]?.businessPhone}
+                    />
+
+                    {/* Business Email */}
+                    <AppInput
+                      label="Business Email"
+                      value={biz.businessEmail}
+                      onChangeText={(val) => updateBusiness(biz.id, 'businessEmail', val.replace(/\s/g, ''))}
+                      placeholder="business@example.com"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      error={errors[biz.id]?.businessEmail}
+                    />
+
+                    {/* GSTIN */}
+                    <AppInput
+                      label="GSTIN (Optional)"
+                      value={biz.gstin}
+                      onChangeText={(val) => updateBusiness(biz.id, 'gstin', val.replace(/\s/g, '').toUpperCase())}
+                      placeholder="e.g. 22AAAAA0000A1Z5"
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      maxLength={15}
+                    />
+
+                    {/* CIN */}
+                    <AppInput
+                      label="CIN (Optional)"
+                      value={biz.cin}
+                      onChangeText={(val) => updateBusiness(biz.id, 'cin', val.replace(/\s/g, '').toUpperCase())}
+                      placeholder="e.g. L17110MH1973PLC013222"
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      maxLength={21}
+                    />
+
+                    {/* PAN */}
+                    <AppInput
+                      label="PAN (Optional)"
+                      value={biz.pan}
+                      onChangeText={(val) => updateBusiness(biz.id, 'pan', val.replace(/\s/g, '').toUpperCase())}
+                      placeholder="e.g. ABCDE1234F"
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      maxLength={10}
+                    />
+                  </View>
+                ))}
+
+                {/* Add Another */}
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={addBusiness}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 18, color: '#f97316' }}>+</Text>
+                  <Text style={styles.addButtonText}>Add Another Business</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* No Business Info */}
+            {hasBusiness === false && (
+              <View style={styles.noBizCard}>
+                <Text style={styles.noBizText}>
+                  No worries! You can always add a business later from your account settings.
+                </Text>
+              </View>
+            )}
+
+            {/* Review Button */}
+            {hasBusiness !== null && (
+              <View style={styles.buttonContainer}>
+                <AppButton
+                  title="Review & Submit"
+                  onPress={handleReview}
+                  variant="primary"
+                />
+              </View>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

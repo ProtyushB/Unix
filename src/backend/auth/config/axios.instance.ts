@@ -50,6 +50,13 @@ authApiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Never intercept 401s from auth endpoints themselves (login/signup failures)
+    const url = originalRequest.url || '';
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/signup') || url.includes('/auth/refresh');
+    if (isAuthEndpoint) {
+      return Promise.reject(error);
+    }
+
     // If 401 and we haven't tried to refresh yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;

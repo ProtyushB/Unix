@@ -6,7 +6,10 @@
 
 import { getFolderApi } from '../provider/folder.provider';
 import { FolderApiInterface, FolderDto, FolderFilterRequest } from '../api/folder.api.interface';
+import { DMS_APP_ROOT_FOLDER_ID } from '../config/api.config';
 import { AxiosError } from 'axios';
+
+const DEFAULT_PARENT_FOLDER_ID = Number(DMS_APP_ROOT_FOLDER_ID);
 
 export class FolderService {
   private api: FolderApiInterface;
@@ -20,7 +23,10 @@ export class FolderService {
   async createFolder(folderDto: FolderDto): Promise<FolderDto> {
     if (!folderDto) throw new Error('folderDto is required');
     try {
-      return await this.api.createFolder(folderDto);
+      const dto = folderDto.parentFolderId != null
+        ? folderDto
+        : { ...folderDto, parentFolderId: DEFAULT_PARENT_FOLDER_ID };
+      return await this.api.createFolder(dto);
     } catch (error) {
       throw this.handleApiError(error);
     }
@@ -31,7 +37,12 @@ export class FolderService {
       throw new Error('At least one folderDto is required');
     }
     try {
-      return await this.api.createMultipleFolders(folderDtoList);
+      const dtoList = folderDtoList.map(dto =>
+        dto.parentFolderId != null
+          ? dto
+          : { ...dto, parentFolderId: DEFAULT_PARENT_FOLDER_ID },
+      );
+      return await this.api.createMultipleFolders(dtoList);
     } catch (error) {
       throw this.handleApiError(error);
     }

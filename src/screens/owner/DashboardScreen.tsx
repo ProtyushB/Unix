@@ -51,7 +51,6 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [businessTypeMap, setBusinessTypeMap] = useState<BusinessTypeMap | null>(null);
-  const [selectedType, setSelectedType] = useState<string | null>(null);
 
   // Resolve business ID from stable string
   const [selectedBusinessId, setSelectedBusinessId] = useState<number | null>(null);
@@ -62,7 +61,7 @@ export default function DashboardScreen() {
       setBusinessTypeMap(map);
       if (map && selectedModule) {
         const businesses = map[selectedModule] || [];
-        const biz = businesses.find((b: Business) => b.name === selectedBusiness);
+        const biz = businesses.find((b: Business) => ((b as any).businessName || b.name) === selectedBusiness);
         setSelectedBusinessId(biz?.id ?? null);
       }
     })();
@@ -123,17 +122,12 @@ export default function DashboardScreen() {
   const openSheet = useCallback(async () => {
     const map = await getBusinessTypeMap();
     setBusinessTypeMap(map);
-    setSelectedType(null);
     setSheetVisible(true);
-  }, []);
-
-  const selectModuleType = useCallback((type: string) => {
-    setSelectedType(type);
   }, []);
 
   const selectBusiness = useCallback((biz: Business, type: string) => {
     setSelectedModule(type);
-    setSelectedBusiness(biz.name);
+    setSelectedBusiness((biz as any).businessName || biz.name);
     setSheetVisible(false);
   }, [setSelectedModule, setSelectedBusiness]);
 
@@ -200,8 +194,7 @@ export default function DashboardScreen() {
         </View>
         <TouchableOpacity style={styles.businessSelector} onPress={openSheet} activeOpacity={0.7}>
           <Text style={styles.businessSelectorText} numberOfLines={1}>
-            {selectedModule ? `${getBusinessTypeLabel(selectedModule)}` : 'Select Business'}
-            {selectedBusiness ? ` / ${selectedBusiness}` : ''}
+            {selectedBusiness || 'Select Business'}
           </Text>
           <Text style={styles.chevronIcon}>▾</Text>
         </TouchableOpacity>
@@ -315,47 +308,34 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </View>
 
-            {!selectedType ? (
-              <View style={styles.sheetBody}>
-                <Text style={styles.sheetSubtitle}>Business Type</Text>
-                {businessTypeMap && Object.keys(businessTypeMap).map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={styles.sheetRow}
-                    onPress={() => selectModuleType(type)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.sheetRowText}>{getBusinessTypeLabel(type)}</Text>
-                    <Text style={styles.chevronIcon}>›</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.sheetBody}>
-                <TouchableOpacity onPress={() => setSelectedType(null)} style={styles.sheetBackBtn}>
-                  <Text style={styles.sheetBackText}>Back to types</Text>
-                </TouchableOpacity>
-                <Text style={styles.sheetSubtitle}>{getBusinessTypeLabel(selectedType)}</Text>
-                {(businessTypeMap?.[selectedType] || []).map((biz: Business) => (
-                  <TouchableOpacity
-                    key={biz.id}
-                    style={[
-                      styles.sheetRow,
-                      selectedBusiness === biz.name && styles.sheetRowActive,
-                    ]}
-                    onPress={() => selectBusiness(biz, selectedType)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.sheetRowText,
-                      selectedBusiness === biz.name && styles.sheetRowTextActive,
-                    ]}>
-                      {biz.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            <ScrollView style={styles.sheetBody} showsVerticalScrollIndicator={false}>
+              {businessTypeMap && Object.keys(businessTypeMap).map((type) => (
+                <View key={type} style={styles.sheetSection}>
+                  <Text style={styles.sheetSubtitle}>{getBusinessTypeLabel(type)}</Text>
+                  {(businessTypeMap[type] || []).map((biz: Business) => (
+                    <TouchableOpacity
+                      key={biz.id}
+                      style={[
+                        styles.sheetRow,
+                        selectedBusiness === ((biz as any).businessName || biz.name) && selectedModule === type && styles.sheetRowActive,
+                      ]}
+                      onPress={() => selectBusiness(biz, type)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.sheetRowText,
+                        selectedBusiness === ((biz as any).businessName || biz.name) && selectedModule === type && styles.sheetRowTextActive,
+                      ]}>
+                        {(biz as any).businessName || biz.name}
+                      </Text>
+                      {selectedBusiness === ((biz as any).businessName || biz.name) && selectedModule === type && (
+                        <Text style={styles.activeCheckIcon}>✓</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -619,13 +599,13 @@ const styles = StyleSheet.create({
     color: '#f97316',
     fontWeight: '600',
   },
-  sheetBackBtn: {
-    marginBottom: 12,
+  sheetSection: {
+    marginBottom: 20,
   },
-  sheetBackText: {
-    fontSize: 14,
-    fontWeight: '500',
+  activeCheckIcon: {
+    fontSize: 16,
     color: '#f97316',
+    fontWeight: '700',
   },
   headerIcon: {
     fontSize: 22,

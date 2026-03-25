@@ -1,21 +1,23 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Alert,
   StyleSheet,
+  Animated,
 } from 'react-native';
 import {
   User,
   ChevronRight,
+  ChevronDown,
   Palette,
   Bell,
   Globe,
   HelpCircle,
   Mail,
   LogOut,
-  ArrowRightLeft,
+  Building2,
 } from 'lucide-react-native';
 import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
 import {AppCard} from '../../components/common/AppCard';
@@ -46,6 +48,26 @@ const SETTINGS_ROWS = [
 export const CustomerProfileScreen: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showPortalSheet, setShowPortalSheet] = useState(false);
+  const slideAnim = useRef(new Animated.Value(300)).current;
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+
+  const openPortalSheet = () => {
+    slideAnim.setValue(300);
+    overlayAnim.setValue(0);
+    setShowPortalSheet(true);
+    Animated.parallel([
+      Animated.spring(slideAnim, {toValue: 0, useNativeDriver: true, bounciness: 3, speed: 16}),
+      Animated.timing(overlayAnim, {toValue: 1, duration: 250, useNativeDriver: true}),
+    ]).start();
+  };
+
+  const closePortalSheet = (callback?: () => void) => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {toValue: 300, duration: 220, useNativeDriver: true}),
+      Animated.timing(overlayAnim, {toValue: 0, duration: 220, useNativeDriver: true}),
+    ]).start(() => { setShowPortalSheet(false); callback?.(); });
+  };
 
   useEffect(() => {
     const loadUser = async () => {
@@ -60,14 +82,13 @@ export const CustomerProfileScreen: React.FC = () => {
     loadUser();
   }, []);
 
-  const hasOwnerRole = user?.roles?.includes('BUSINESS_OWNER');
+  const hasOwnerRole =
+    (user as any)?.types?.includes('BUSINESS_OWNER') ||
+    user?.roles?.includes('BUSINESS_OWNER');
 
   const handleSwitchToOwner = useCallback(() => {
-    navigationRef.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{name: 'OwnerTabs'}],
-      }),
+    closePortalSheet(() =>
+      navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: 'OwnerTabs'}]}))
     );
   }, []);
 
@@ -116,28 +137,16 @@ export const CustomerProfileScreen: React.FC = () => {
             {user?.phone && (
               <Text style={styles.profilePhone}>{user.phone}</Text>
             )}
+            <TouchableOpacity
+              style={styles.rolePill}
+              onPress={() => hasOwnerRole && openPortalSheet()}
+              activeOpacity={hasOwnerRole ? 0.7 : 1}>
+              <User size={11} color="#f97316" />
+              <Text style={styles.rolePillText}>Customer</Text>
+              {hasOwnerRole && <ChevronDown size={11} color="#f97316" />}
+            </TouchableOpacity>
           </View>
         </AppCard>
-
-        {hasOwnerRole && (
-          <TouchableOpacity
-            style={styles.switchCard}
-            onPress={handleSwitchToOwner}
-            activeOpacity={0.7}>
-            <View style={styles.switchRow}>
-              <View style={styles.switchIconContainer}>
-                <ArrowRightLeft size={20} color="#f97316" />
-              </View>
-              <View style={styles.switchTextContainer}>
-                <Text style={styles.switchTitle}>Switch to Owner Portal</Text>
-                <Text style={styles.switchSubtitle}>
-                  Manage your businesses
-                </Text>
-              </View>
-              <ChevronRight size={20} color="#64748b" />
-            </View>
-          </TouchableOpacity>
-        )}
 
         <View style={styles.settingsSection}>
           <Text style={styles.sectionTitle}>Settings</Text>
@@ -175,6 +184,30 @@ export const CustomerProfileScreen: React.FC = () => {
           onConfirm={handleLogout}
           onCancel={() => setShowLogoutConfirm(false)}
         />
+
+        {showPortalSheet && (
+          <View style={styles.overlay}>
+            <Animated.View style={[styles.overlayBg, {opacity: overlayAnim}]}>
+              <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => closePortalSheet()} />
+            </Animated.View>
+            <Animated.View style={[styles.sheet, {transform: [{translateY: slideAnim}]}]}>
+              <Text style={styles.sheetTitle}>Switch Portal</Text>
+              <TouchableOpacity style={styles.portalOptionActive} activeOpacity={1}>
+                <View style={styles.portalIconWrap}>
+                  <User size={20} color="#f97316" />
+                </View>
+                <Text style={styles.portalOptionActiveText}>Customer</Text>
+                <View style={styles.portalActiveDot} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.portalOption} onPress={handleSwitchToOwner} activeOpacity={0.7}>
+                <View style={styles.portalIconWrapMuted}>
+                  <Building2 size={20} color="#64748b" />
+                </View>
+                <Text style={styles.portalOptionText}>Business Owner</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        )}
       </View>
     </ScreenWrapper>
   );
@@ -216,40 +249,19 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 2,
   },
-  switchCard: {
-    backgroundColor: 'rgba(249,115,22,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(249,115,22,0.2)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  switchIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(249,115,22,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  switchTextContainer: {
-    flex: 1,
-  },
-  switchTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#f97316',
-  },
-  switchSubtitle: {
-    fontSize: 13,
-    color: '#94a3b8',
-    marginTop: 2,
-  },
+  rolePill: {marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(249,115,22,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(249,115,22,0.25)'},
+  rolePillText: {fontSize: 11, color: '#f97316', fontWeight: '700', letterSpacing: 0.5},
+  overlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end'},
+  overlayBg: {...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)'},
+  sheet: {backgroundColor: '#1e293b', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24},
+  sheetTitle: {fontSize: 18, fontWeight: '700', color: '#f8fafc', marginBottom: 16},
+  portalOptionActive: {flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(249,115,22,0.12)', borderWidth: 1, borderColor: 'rgba(249,115,22,0.3)', borderRadius: 14, padding: 14, marginBottom: 10},
+  portalOptionActiveText: {flex: 1, fontSize: 16, fontWeight: '600', color: '#f97316'},
+  portalActiveDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: '#f97316'},
+  portalOption: {flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(51,65,85,0.4)', borderWidth: 1, borderColor: 'rgba(51,65,85,0.6)', borderRadius: 14, padding: 14},
+  portalOptionText: {flex: 1, fontSize: 16, fontWeight: '600', color: '#94a3b8'},
+  portalIconWrap: {width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(249,115,22,0.15)', alignItems: 'center', justifyContent: 'center'},
+  portalIconWrapMuted: {width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(51,65,85,0.6)', alignItems: 'center', justifyContent: 'center'},
   settingsSection: {
     marginBottom: 24,
   },

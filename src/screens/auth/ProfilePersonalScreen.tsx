@@ -23,8 +23,8 @@ type AuthStackParamList = {
   SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string; password: string };
-  ProfileBusiness: { email: string; username: string; password: string; firstName: string; lastName: string; phoneNumber: string };
+  ProfilePersonal: { email: string; username: string };
+  ProfileBusiness: { email: string; username: string; firstName: string; lastName: string; phoneNumber: string };
   Review: { personal: any; businesses: any[] };
   PortalSelection: undefined;
   ForgotPasswordEmail: undefined;
@@ -37,7 +37,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'ProfilePersonal'>;
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const ProfilePersonalScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { email, username, password } = route.params;
+  const { email, username } = route.params;
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -74,7 +74,6 @@ const ProfilePersonalScreen: React.FC<Props> = ({ navigation, route }) => {
     navigation.navigate('ProfileBusiness', {
       email,
       username,
-      password,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       phoneNumber: phoneNumber.trim(),
@@ -99,11 +98,11 @@ const ProfilePersonalScreen: React.FC<Props> = ({ navigation, route }) => {
             currentStep={4}
             totalSteps={5}
             onStepPress={(step) => {
-              const { email, username, password } = route.params;
+              const { email, username } = route.params;
               if (step === 1) navigation.navigate('SignupEmail');
               else if (step === 2) navigation.navigate('OtpVerification', { email });
               else if (step === 3) navigation.navigate('SignupCredentials', { email });
-              else if (step === 5) navigation.navigate('ProfileBusiness', { email, username, password, firstName: 'Dev', lastName: 'User', phoneNumber: '9999999999' });
+              else if (step === 5) navigation.navigate('ProfileBusiness', { email, username, firstName: 'Dev', lastName: 'User', phoneNumber: '9999999999' });
             }}
           />
 

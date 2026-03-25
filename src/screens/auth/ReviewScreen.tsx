@@ -13,10 +13,12 @@ import AppCard from '../../components/common/AppCard';
 import { FolderService } from '../../backend/dms/service/folder.service';
 import { createRoleFolders, createBusinessDmsFolders, BusinessFolderResult } from '../../backend/dms/util/BusinessFolderUtils';
 import { getPersonService } from '../../backend/person/provider/person.provider';
+import { getAuthService } from '../../backend/auth/provider/auth.provider';
 import { setDmsFolderMap, DmsFolderMap } from '../../storage/dms.storage';
 import { setCompleteProfileData, setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
 import { setLoggedInUser } from '../../storage/auth.storage';
 import { getBusinessTypeLabel } from '../../utils/businessTypes';
+import { useSignupDraft } from '../../context/SignupDraftContext';
 import { v4 as uuidv4 } from 'uuid';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
@@ -28,8 +30,8 @@ type AuthStackParamList = {
   SignupEmail: { prefillEmail?: string } | undefined;
   OtpVerification: { email: string };
   SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string; password: string };
-  ProfileBusiness: { email: string; username: string; password: string; firstName: string; lastName: string; phoneNumber: string };
+  ProfilePersonal: { email: string; username: string };
+  ProfileBusiness: { email: string; username: string; firstName: string; lastName: string; phoneNumber: string };
   Review: { personal: any; businesses: any[] };
   PortalSelection: undefined;
   ForgotPasswordEmail: undefined;
@@ -43,6 +45,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Review'>;
 
 const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
   const { personal, businesses } = route.params;
+  const { getDraft, clearDraft } = useSignupDraft();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -52,30 +55,80 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
     setError('');
     setLoading(true);
 
+    const draft = getDraft();
+    if (!draft) {
+      setError('Session expired. Please go back and re-enter your credentials.');
+      setLoading(false);
+      return;
+    }
+
+    const authService = getAuthService();
+    const folderService = new FolderService();
+    const personService = getPersonService();
+
+    let signupCompleted = false;
+    let authUserId: number | null = null;
+    let userRootFolderId: number | null = null;
+    let personCreated = false;
+
+    const rollback = async () => {
+      console.log('[ReviewScreen] ROLLBACK — signupCompleted:', signupCompleted, '| authUserId:', authUserId, '| userRootFolderId:', userRootFolderId);
+      if (userRootFolderId) {
+        console.log('[ReviewScreen] ROLLBACK DELETE /folder/', userRootFolderId);
+        await folderService.deleteFolder(userRootFolderId).catch((e) => console.warn('[ReviewScreen] ROLLBACK folder delete failed:', e?.message));
+      }
+      if (signupCompleted) {
+        if (authUserId !== null) {
+          console.log('[ReviewScreen] ROLLBACK DELETE /auth-user/', authUserId);
+          await authService.deleteUser(authUserId).catch((e) => console.warn('[ReviewScreen] ROLLBACK auth delete failed:', e?.message));
+        }
+        await authService.logout();
+        console.log('[ReviewScreen] ROLLBACK logout done');
+      }
+    };
+
     try {
-      const folderService = new FolderService();
-      const personService = getPersonService();
-
-      // ─── Step 1: Create user root folder ─────────────────────────────
-      const userFolder = await folderService.createFolder({
-        folderName: `${personal.username}_${uuidv4()}`,
+      // ─── Step A: Create auth user ─────────────────────────────────
+      const signupPayload = { username: personal.username, email: personal.email, password: '***', roles: ['CUSTOMER'] };
+      console.log('[ReviewScreen] A1 POST /auth/signup → payload:', JSON.stringify(signupPayload));
+      await authService.signup({
+        username: personal.username,
+        email: personal.email,
+        password: draft.password,
+        roles: ['CUSTOMER'],
       });
-      const userRootFolderId = userFolder.folderId!;
+      signupCompleted = true;
+      console.log('[ReviewScreen] A1 POST /auth/signup ✓ (tokens stored)');
 
-      // ─── Step 2: Create role folders ─────────────────────────────────
+      console.log(`[ReviewScreen] A2 GET /auth-user/username/${personal.username}`);
+      const authUser = await authService.getUserByUsername(personal.username);
+      authUserId = authUser.id;
+      console.log('[ReviewScreen] A2 GET /auth-user/username → response:', JSON.stringify(authUser));
+
+      // ─── Step B: Create DMS folders ───────────────────────────────
+      const rootFolderName = `${personal.username}_${uuidv4()}`;
+      const rootFolderPayload = { folderName: rootFolderName };
+      console.log('[ReviewScreen] B1 POST /folder/create → payload:', JSON.stringify(rootFolderPayload));
+      const userFolder = await folderService.createFolder(rootFolderPayload);
+      userRootFolderId = userFolder.folderId!;
+      console.log('[ReviewScreen] B1 POST /folder/create ✓ → response:', JSON.stringify(userFolder));
+
+      console.log('[ReviewScreen] B2 createRoleFolders → parentFolderId:', userRootFolderId);
       const roleFolders = await createRoleFolders(userRootFolderId);
+      console.log('[ReviewScreen] B2 createRoleFolders ✓ → response:', JSON.stringify(roleFolders));
 
-      // ─── Step 3: Create per-business folders ─────────────────────────
       const businessFolderResults: BusinessFolderResult[] = [];
       if (hasBusiness) {
         for (const biz of businesses) {
+          console.log(`[ReviewScreen] B3 createBusinessDmsFolders → bizName: ${biz.businessName}, parentFolderId:`, roleFolders.Business);
           const result = await createBusinessDmsFolders(null, biz.businessName, roleFolders.Business);
           businessFolderResults.push(result);
+          console.log(`[ReviewScreen] B3 createBusinessDmsFolders ✓ → response:`, JSON.stringify(result));
         }
       }
 
-      // ─── Step 4: Create person via PersonService ──────────────────────
-      const result = await personService.createPerson({
+      // ─── Step C: Create person ────────────────────────────────────
+      const personPayload = {
         firstName: personal.firstName,
         lastName: personal.lastName,
         userName: personal.username,
@@ -88,20 +141,45 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
               businessType: biz.businessType,
               businessPhone: biz.businessPhone || null,
               businessEmail: biz.businessEmail || null,
-              registrationNumber: biz.registrationNumber || null,
+              registration: { cin: biz.cin || null, gstin: biz.gstin || null, pan: biz.pan || null },
+              folderId: businessFolderResults[idx]?.folderId ?? null,
+              businessRoles: [],
+              isActive: true,
+            }))
+          : [],
+      };
+      console.log('[ReviewScreen] C1 POST /persons → payload:', JSON.stringify(personPayload));
+      const result = await personService.createPerson({
+        ...personPayload,
+        businesses: hasBusiness
+          ? businesses.map((biz: any, idx: number) => ({
+              businessName: biz.businessName,
+              businessType: biz.businessType,
+              businessPhone: biz.businessPhone || null,
+              businessEmail: biz.businessEmail || null,
+              registration: {
+                cin: biz.cin || null,
+                gstin: biz.gstin || null,
+                pan: biz.pan || null,
+              },
               folderId: businessFolderResults[idx]?.folderId ?? null,
               businessRoles: [],
               isActive: true,
             }))
           : [],
       });
+      console.log('[ReviewScreen] C1 POST /persons → response:', JSON.stringify(result));
 
       if (!result.success || !result.data) {
+        console.log('[ReviewScreen] C1 POST /persons FAILED — rolling back');
+        await rollback();
         setError(result.error || 'Something went wrong. Please try again.');
         return;
       }
+      personCreated = true;
+      console.log('[ReviewScreen] C1 POST /persons ✓');
 
-      // ─── Step 5: Store everything ─────────────────────────────────────
+      // ─── Step D: Store everything ─────────────────────────────────
       const registeredUser = result.data;
 
       await setLoggedInUser({
@@ -147,11 +225,16 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
       }
       await setDmsFolderMap(dmsFolderMapData);
 
+      clearDraft();
       navigation.reset({
         index: 0,
         routes: [{ name: 'PortalSelection' }],
       });
     } catch (err: any) {
+      console.log('[ReviewScreen] CATCH error:', err?.message, '| personCreated:', personCreated);
+      if (!personCreated) {
+        await rollback();
+      }
       const message = err?.response?.data?.error
         || err?.response?.data?.message
         || err?.message
@@ -171,9 +254,9 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color="#f97316" />
-            <Text style={styles.loadingText}>Setting up your account...</Text>
+            <Text style={styles.loadingText}>Creating your account...</Text>
             <Text style={styles.loadingSubtext}>
-              Creating folders and registering your profile
+              Registering credentials, setting up folders, and saving your profile
             </Text>
           </View>
         </View>
@@ -260,10 +343,22 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Text style={styles.infoValue}>{biz.businessEmail}</Text>
               </View>
             ) : null}
-            {biz.registrationNumber ? (
+            {biz.cin ? (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Reg. Number</Text>
-                <Text style={styles.infoValue}>{biz.registrationNumber}</Text>
+                <Text style={styles.infoLabel}>CIN</Text>
+                <Text style={styles.infoValue}>{biz.cin}</Text>
+              </View>
+            ) : null}
+            {biz.gstin ? (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>GSTIN</Text>
+                <Text style={styles.infoValue}>{biz.gstin}</Text>
+              </View>
+            ) : null}
+            {biz.pan ? (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>PAN</Text>
+                <Text style={styles.infoValue}>{biz.pan}</Text>
               </View>
             ) : null}
           </AppCard>

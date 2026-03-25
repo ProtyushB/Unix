@@ -5,11 +5,10 @@ export type AuthStackParamList = {
   SignupEmail: undefined;
   OtpVerification: {email: string};
   SignupCredentials: {email: string};
-  ProfilePersonal: {email: string; username: string; password: string};
+  ProfilePersonal: {email: string; username: string};
   ProfileBusiness: {
     email: string;
     username: string;
-    password: string;
     firstName: string;
     lastName: string;
     phoneNumber: string;
@@ -68,7 +67,6 @@ export type CustomerTabParamList = {
 export interface PersonalData {
   email: string;
   username: string;
-  password: string;
   firstName: string;
   lastName: string;
   phoneNumber: string;
@@ -79,5 +77,7 @@ export interface BusinessData {
   businessType: string;
   businessPhone: string;
   businessEmail: string;
-  registrationNumber?: string;
+  cin?: string;
+  gstin?: string;
+  pan?: string;
 }

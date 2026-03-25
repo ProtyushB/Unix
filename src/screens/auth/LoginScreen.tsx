@@ -143,7 +143,17 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         });
       });
     } catch (err: any) {
-      const message = err?.message || 'Login failed. Please try again.';
+      const raw = (err?.message || '').toLowerCase();
+      let message: string;
+      if (raw.includes('invalid credentials')) {
+        message = 'Incorrect password. Please try again.';
+      } else if (raw.includes('not found with username')) {
+        message = 'No account found with that username.';
+      } else if (raw.includes('network') || raw.includes('econnrefused') || raw.includes('timeout') || raw.includes('enotfound')) {
+        message = 'Unable to connect. Please check your internet connection.';
+      } else {
+        message = 'Login failed. Please try again.';
+      }
       setError(message);
     } finally {
       setLoading(false);
@@ -166,7 +176,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoRow}>
-              <Text style={styles.logoText}>Module</Text>
+              <Text style={styles.logoText}>Uni</Text>
               <Text style={styles.logoAccent}>X</Text>
             </View>
           </View>
