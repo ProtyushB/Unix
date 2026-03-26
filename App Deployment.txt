@@ -1,0 +1,46 @@
+1. App/Company name — e.g. "Eternity Technologies"
+  2. Your name — e.g. "Protyush Banerjee"
+  3. City — e.g. "Naihati"
+  4. State — e.g. "West Bengal"
+  5. Country code — e.g. "IN" for India
+  6. Keystore password — Unix#2026
+
+
+
+
+Step 1 — Build the Android APK
+
+  Run this in PowerShell or Git Bash:
+  cd "D:\My Projects\Unix\android"
+  ./gradlew assembleRelease
+
+  Output APK will be at:
+  D:\My Projects\Unix\android\app\build\outputs\apk\release\app-release.apk
+
+  ---
+  Step 2 — Upload APK to server
+
+  # Create downloads folder on server
+  ssh -i "D:\My Projects\Deployment\Keys" root@204.168.146.103 "mkdir -p /opt/centrixpro/downloads"
+
+  # Upload the APK
+  scp -i "D:\My Projects\Deployment\Keys" \
+    "D:\My Projects\Unix\android\app\build\outputs\apk\release\app-release.apk" \
+    root@204.168.146.103:/opt/centrixpro/downloads/unix.apk
+
+  ---
+  Step 3 — Deploy Centrix frontend
+
+  Push the LandingPage change to GitHub → Jenkins will auto-build and deploy. Or manually:
+  cd "D:\My Projects\Centrix"
+  git add src/pages/LandingPage.jsx
+  git commit -m "Add mobile app download section"
+  git push
+
+  ---
+  What users will see
+
+  - Android button → directly downloads unix.apk from https://centrixpro.in/downloads/unix.apk
+  - iOS button → greyed out "Coming Soon" (until you publish to App Store, which requires a Mac + Apple Developer account)
+
+  The APK file lives in /opt/centrixpro/downloads/ which is already served as static files by Nginx under centrixpro.in.
