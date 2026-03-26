@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { darkPalette, themes } from '../../theme/colors';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ interface StepProgressProps {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function StepProgress({ currentStep, totalSteps, onStepPress }: StepProgressProps) {
+  const styles = useThemedStyles(createStyles);
   const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
 
   return (
@@ -62,51 +64,53 @@ export function StepProgress({ currentStep, totalSteps, onStepPress }: StepProgr
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 32,
-  },
-  circle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
-  circleActive: {
-    backgroundColor: themes.default.primary,
-    borderColor: themes.default.primary,
-  },
-  circleInactive: {
-    backgroundColor: 'transparent',
-    borderColor: darkPalette.border,
-  },
-  circlePressed: {
-    opacity: 0.6,
-  },
-  circleText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  circleTextActive: {
-    color: '#ffffff',
-  },
-  circleTextInactive: {
-    color: darkPalette.muted,
-  },
-  line: {
-    flex: 1,
-    height: 2,
-    marginHorizontal: 6,
-  },
-  lineActive: {
-    backgroundColor: themes.default.primary,
-  },
-  lineInactive: {
-    backgroundColor: darkPalette.border,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 32,
+    },
+    circle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+    },
+    circleActive: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+    circleInactive: {
+      backgroundColor: 'transparent',
+      borderColor: theme.palette.divider,
+    },
+    circlePressed: {
+      opacity: 0.6,
+    },
+    circleText: {
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    circleTextActive: {
+      color: '#ffffff',
+    },
+    circleTextInactive: {
+      color: theme.palette.muted,
+    },
+    line: {
+      flex: 1,
+      height: 2,
+      marginHorizontal: 6,
+    },
+    lineActive: {
+      backgroundColor: theme.colors.primary,
+    },
+    lineInactive: {
+      backgroundColor: theme.palette.divider,
+    },
+  });
+}

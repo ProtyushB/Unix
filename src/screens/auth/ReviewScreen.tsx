@@ -20,6 +20,9 @@ import { setLoggedInUser } from '../../storage/auth.storage';
 import { getBusinessTypeLabel } from '../../utils/businessTypes';
 import { useSignupDraft } from '../../context/SignupDraftContext';
 import { v4 as uuidv4 } from 'uuid';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -48,6 +51,9 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
   const { getDraft, clearDraft } = useSignupDraft();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const hasBusiness = businesses && businesses.length > 0;
 
@@ -247,13 +253,13 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
 
       {/* Loading Overlay */}
       {loading && (
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color="#f97316" />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Creating your account...</Text>
             <Text style={styles.loadingSubtext}>
               Registering credentials, setting up folders, and saving your profile
@@ -388,132 +394,134 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 24,
+      paddingTop: 60,
+      paddingBottom: 40,
+    },
 
-  // Title
-  title: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 28,
-    color: '#f8fafc',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 15,
-    color: '#94a3b8',
-    marginBottom: 28,
-    lineHeight: 22,
-  },
+    // Title
+    title: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 28,
+      color: theme.palette.onBackground,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 15,
+      color: theme.palette.muted,
+      marginBottom: 28,
+      lineHeight: 22,
+    },
 
-  // Error
-  errorContainer: {
-    backgroundColor: '#ef444420',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#ef444440',
-  },
-  errorText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 13,
-    color: '#fca5a5',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+    // Error
+    errorContainer: {
+      backgroundColor: theme.palette.error + '20',
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: theme.palette.error + '40',
+    },
+    errorText: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 13,
+      color: theme.palette.error + 'CC',
+      textAlign: 'center',
+      lineHeight: 20,
+    },
 
-  // Card
-  card: {
-    marginBottom: 16,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  cardTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
-    color: '#f8fafc',
-    marginLeft: 10,
-  },
+    // Card
+    card: {
+      marginBottom: 16,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider,
+    },
+    cardTitle: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 16,
+      color: theme.palette.onBackground,
+      marginLeft: 10,
+    },
 
-  // Info rows
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  infoLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#94a3b8',
-    flex: 1,
-  },
-  infoValue: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 14,
-    color: '#f8fafc',
-    flex: 2,
-    textAlign: 'right',
-  },
+    // Info rows
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 8,
+    },
+    infoLabel: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: theme.palette.muted,
+      flex: 1,
+    },
+    infoValue: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 14,
+      color: theme.palette.onBackground,
+      flex: 2,
+      textAlign: 'right',
+    },
 
-  // Buttons
-  buttonContainer: {
-    marginTop: 24,
-  },
-  buttonSpacer: {
-    height: 12,
-  },
+    // Buttons
+    buttonContainer: {
+      marginTop: 24,
+    },
+    buttonSpacer: {
+      height: 12,
+    },
 
-  // Loading overlay
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  loadingCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 32,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginHorizontal: 32,
-  },
-  loadingText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
-    color: '#f8fafc',
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  loadingSubtext: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13,
-    color: '#94a3b8',
-    marginTop: 8,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
+    // Loading overlay
+    loadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: theme.palette.background + 'EB',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 100,
+    },
+    loadingCard: {
+      backgroundColor: theme.palette.surface,
+      borderRadius: 20,
+      padding: 32,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      marginHorizontal: 32,
+    },
+    loadingText: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 16,
+      color: theme.palette.onBackground,
+      marginTop: 20,
+      textAlign: 'center',
+    },
+    loadingSubtext: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 13,
+      color: theme.palette.muted,
+      marginTop: 8,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+  });
+}
 
 export default ReviewScreen;

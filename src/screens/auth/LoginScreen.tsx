@@ -29,6 +29,9 @@ import {biometricStorage} from '../../storage/biometric.storage';
 import {promptBiometric} from '../../hooks/useBiometric';
 import {PORTALS, isBusinessUser} from '../../utils/portals';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -59,6 +62,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [error, setError] = useState('');
   const [biometricReady, setBiometricReady] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const authService = getAuthService();
   const personService = getPersonService();
@@ -274,7 +280,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -354,9 +360,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   disabled={biometricLoading || loading}
                   activeOpacity={0.7}>
                   {biometricLoading ? (
-                    <ActivityIndicator size="small" color="#f97316" />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
-                    <Fingerprint size={22} color="#f97316" />
+                    <Fingerprint size={22} color={colors.primary} />
                   )}
                   <Text style={styles.biometricText}>
                     {biometricLoading ? 'Verifying...' : 'Sign in with Fingerprint'}
@@ -381,142 +387,144 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      paddingVertical: 40,
+    },
 
-  // Header
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  logoText: {
-    fontFamily: 'Inter-ExtraBold',
-    fontSize: 36,
-    color: '#f8fafc',
-    letterSpacing: -1,
-  },
-  logoAccent: {
-    fontFamily: 'Inter-ExtraBold',
-    fontSize: 36,
-    color: '#f97316',
-    letterSpacing: -1,
-  },
+    // Header
+    header: {
+      alignItems: 'center',
+      marginBottom: 32,
+    },
+    logoRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+    },
+    logoText: {
+      fontFamily: 'Inter-ExtraBold',
+      fontSize: 36,
+      color: theme.palette.onBackground,
+      letterSpacing: -1,
+    },
+    logoAccent: {
+      fontFamily: 'Inter-ExtraBold',
+      fontSize: 36,
+      color: theme.colors.primary,
+      letterSpacing: -1,
+    },
 
-  // Card
-  card: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  cardTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 24,
-    color: '#f8fafc',
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#94a3b8',
-    marginBottom: 24,
-  },
+    // Card
+    card: {
+      backgroundColor: theme.palette.surface,
+      borderRadius: 20,
+      padding: 24,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    cardTitle: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 24,
+      color: theme.palette.onBackground,
+      marginBottom: 4,
+    },
+    cardSubtitle: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: theme.palette.muted,
+      marginBottom: 24,
+    },
 
-  // Error
-  errorContainer: {
-    backgroundColor: '#ef444420',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ef444440',
-  },
-  errorText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 13,
-    color: '#fca5a5',
-    textAlign: 'center',
-  },
+    // Error
+    errorContainer: {
+      backgroundColor: theme.palette.error + '20',
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.palette.error + '40',
+    },
+    errorText: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 13,
+      color: theme.palette.error + 'CC',
+      textAlign: 'center',
+    },
 
-  // Forgot
-  forgotLink: {
-    alignSelf: 'flex-end',
-    marginBottom: 20,
-    marginTop: -4,
-  },
-  forgotText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 13,
-    color: '#f97316',
-  },
+    // Forgot
+    forgotLink: {
+      alignSelf: 'flex-end',
+      marginBottom: 20,
+      marginTop: -4,
+    },
+    forgotText: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 13,
+      color: theme.colors.primary,
+    },
 
-  // Signup
-  signupRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  signupLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#94a3b8',
-  },
-  signupLink: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    color: '#f97316',
-  },
+    // Signup
+    signupRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 20,
+    },
+    signupLabel: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: theme.palette.muted,
+    },
+    signupLink: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 14,
+      color: theme.colors.primary,
+    },
 
-  // Biometric
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-    gap: 8,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#334155',
-  },
-  dividerText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13,
-    color: '#64748b',
-  },
-  biometricButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(249,115,22,0.35)',
-    backgroundColor: 'rgba(249,115,22,0.08)',
-  },
-  biometricText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 15,
-    color: '#f97316',
-  },
-});
+    // Biometric
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 16,
+      gap: 8,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: theme.palette.divider,
+    },
+    dividerText: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 13,
+      color: theme.palette.muted,
+    },
+    biometricButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.primary + '14',
+    },
+    biometricText: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 15,
+      color: theme.colors.primary,
+    },
+  });
+}
 
 export default LoginScreen;

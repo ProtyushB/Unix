@@ -13,14 +13,17 @@ import {AppButton} from '../../components/common/AppButton';
 import {ConfirmDialog} from '../../components/common/ConfirmDialog';
 import {Toast} from '../../components/common/Toast';
 import {PortalSwitcherSheet} from '../../components/common/PortalSwitcherSheet';
-import {useAppContext} from '../../context/AppContext';
+import {useTheme} from '../../hooks/useTheme';
+import {useThemeActions} from '../../hooks/useThemeActions';
+import {useThemedStyles} from '../../hooks/useThemedStyles';
 import {useToast} from '../../hooks/useToast';
 import {navigationRef} from '../../navigation/RootNavigator';
 import {CommonActions, useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {ProfileStackParamList} from '../../navigation/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {ThemeName, themes} from '../../theme/colors';
+import type {AccentName} from '../../theme/theme.types';
+import type {AppTheme} from '../../theme/theme.types';
 import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
 import {biometricStorage} from '../../storage/biometric.storage';
 
@@ -31,7 +34,7 @@ const SETTINGS_ROWS = [
   {key: 'privacy', label: 'Privacy Policy', icon: Shield},
 ];
 
-const THEME_OPTIONS: {name: ThemeName; color: string; label: string}[] = [
+const THEME_OPTIONS: {name: AccentName; color: string; label: string}[] = [
   {name: 'default', color: '#f97316', label: 'Orange'},
   {name: 'ocean', color: '#0ea5e9', label: 'Ocean'},
   {name: 'rose', color: '#e11d48', label: 'Rose'},
@@ -42,7 +45,9 @@ const THEME_OPTIONS: {name: ThemeName; color: string; label: string}[] = [
 
 export const AccountScreen: React.FC = () => {
   const profileNav = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
-  const {theme, setTheme} = useAppContext();
+  const { colors, palette, name: accentName } = useTheme();
+  const { setAccent } = useThemeActions();
+  const styles = useThemedStyles(createStyles);
   const {toasts, showToast} = useToast();
   const [user, setUser] = useState<any>(null);
   const [showLogout, setShowLogout] = useState(false);
@@ -120,9 +125,9 @@ export const AccountScreen: React.FC = () => {
               style={styles.rolePill}
               onPress={openPortalSheet}
               activeOpacity={0.7}>
-              <Building2 size={11} color="#f97316" />
+              <Building2 size={11} color={colors.primary} />
               <Text style={styles.rolePillText}>Business</Text>
-              <ChevronDown size={11} color="#f97316" />
+              <ChevronDown size={11} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </AppCard>
@@ -131,16 +136,16 @@ export const AccountScreen: React.FC = () => {
           style={styles.themeRow}
           onPress={() => profileNav.navigate('Security')}
           activeOpacity={0.7}>
-          <Lock size={20} color="#64748b" />
+          <Lock size={20} color={palette.muted} />
           <Text style={styles.settingLabel}>Security</Text>
-          <ChevronRight size={18} color="#334155" />
+          <ChevronRight size={18} color={palette.divider} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.themeRow} onPress={() => setShowThemePicker(true)} activeOpacity={0.7}>
-          <Palette size={20} color="#64748b" />
+          <Palette size={20} color={palette.muted} />
           <Text style={styles.settingLabel}>Theme</Text>
-          <View style={[styles.themePreview, {backgroundColor: themes[theme]?.primary || '#f97316'}]} />
-          <ChevronRight size={18} color="#334155" />
+          <View style={[styles.themePreview, {backgroundColor: colors.primary}]} />
+          <ChevronRight size={18} color={palette.divider} />
         </TouchableOpacity>
 
         <View style={styles.settingsSection}>
@@ -152,9 +157,9 @@ export const AccountScreen: React.FC = () => {
                 style={styles.settingRow}
                 onPress={() => handleSettingPress(row.key)}
                 activeOpacity={0.7}>
-                <Icon size={20} color="#64748b" />
+                <Icon size={20} color={palette.muted} />
                 <Text style={styles.settingLabel}>{row.label}</Text>
-                <ChevronRight size={18} color="#334155" />
+                <ChevronRight size={18} color={palette.divider} />
               </TouchableOpacity>
             );
           })}
@@ -189,8 +194,16 @@ export const AccountScreen: React.FC = () => {
                   <TouchableOpacity
                     key={opt.name}
                     style={styles.themeItem}
-                    onPress={() => { setTheme(opt.name); setShowThemePicker(false); showToast(`Theme changed to ${opt.label}`, 'success'); }}>
-                    <View style={[styles.themeCircle, {backgroundColor: opt.color}, theme === opt.name && styles.themeCircleActive]} />
+                    onPress={() => {
+                      setAccent(opt.name);
+                      setShowThemePicker(false);
+                      showToast(`Theme changed to ${opt.label}`, 'success');
+                    }}>
+                    <View style={[
+                      styles.themeCircle,
+                      {backgroundColor: opt.color},
+                      accentName === opt.name && styles.themeCircleActive,
+                    ]} />
                     <Text style={styles.themeLabel}>{opt.label}</Text>
                   </TouchableOpacity>
                 ))}
@@ -215,28 +228,59 @@ export const AccountScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {flex: 1, paddingHorizontal: 16},
-  title: {fontSize: 28, fontWeight: '700', color: '#f8fafc', marginTop: 16, marginBottom: 16},
-  profileCard: {flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16},
-  profileInfo: {flex: 1},
-  profileName: {fontSize: 18, fontWeight: '700', color: '#f8fafc'},
-  profileEmail: {fontSize: 13, color: '#94a3b8', marginTop: 2},
-  rolePill: {marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(249,115,22,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(249,115,22,0.25)'},
-  rolePillText: {fontSize: 11, color: '#f97316', fontWeight: '700', letterSpacing: 0.5},
-  themeRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(51,65,85,0.3)', marginBottom: 4},
-  themePreview: {width: 20, height: 20, borderRadius: 10, marginLeft: 'auto', marginRight: 8},
-  settingsSection: {marginBottom: 24},
-  settingRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(51,65,85,0.3)'},
-  settingLabel: {flex: 1, fontSize: 16, color: '#f8fafc'},
-  logoutBtn: {marginBottom: 32},
-  overlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end'},
-  overlayBg: {...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)'},
-  sheet: {backgroundColor: '#1e293b', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24},
-  sheetTitle: {fontSize: 18, fontWeight: '700', color: '#f8fafc', marginBottom: 20},
-  themeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 16},
-  themeItem: {alignItems: 'center', gap: 8, width: 72},
-  themeCircle: {width: 48, height: 48, borderRadius: 24},
-  themeCircleActive: {borderWidth: 3, borderColor: '#f8fafc'},
-  themeLabel: {fontSize: 12, color: '#94a3b8'},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {flex: 1, paddingHorizontal: 16},
+    title: {fontSize: 28, fontWeight: '700', color: theme.palette.onBackground, marginTop: 16, marginBottom: 16},
+    profileCard: {flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16},
+    profileInfo: {flex: 1},
+    profileName: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground},
+    profileEmail: {fontSize: 13, color: theme.palette.muted, marginTop: 2},
+    rolePill: {
+      marginTop: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: theme.colors.softBg,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    rolePillText: {fontSize: 11, color: theme.colors.primary, fontWeight: '700', letterSpacing: 0.5},
+    themeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      gap: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider + '4D',
+      marginBottom: 4,
+    },
+    themePreview: {width: 20, height: 20, borderRadius: 10, marginLeft: 'auto', marginRight: 8},
+    settingsSection: {marginBottom: 24},
+    settingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      gap: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider + '4D',
+    },
+    settingLabel: {flex: 1, fontSize: 16, color: theme.palette.onBackground},
+    logoutBtn: {marginBottom: 32},
+    overlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end'},
+    overlayBg: {...StyleSheet.absoluteFillObject, backgroundColor: theme.palette.overlay},
+    sheet: {backgroundColor: theme.palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24},
+    sheetTitle: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground, marginBottom: 20},
+    themeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 16},
+    themeItem: {alignItems: 'center', gap: 8, width: 72},
+    themeCircle: {width: 48, height: 48, borderRadius: 24},
+    themeCircleActive: {borderWidth: 3, borderColor: theme.palette.onBackground},
+    themeLabel: {fontSize: 12, color: theme.palette.muted},
+  });
+}

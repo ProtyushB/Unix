@@ -23,6 +23,9 @@ import {useParlour} from '../../backend/modules/parlour/hook/useParlour';
 import {usePharmacy} from '../../backend/modules/pharmacy/hook/usePharmacy';
 import {useRestaurant} from '../../backend/modules/restaurant/hook/useRestaurant';
 import {useToast} from '../../hooks/useToast';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 type Props = NativeStackScreenProps<OperationsStackParamList, 'OrderDetail'>;
 
@@ -45,6 +48,9 @@ export const OrderDetailScreen: React.FC<Props> = ({route, navigation}) => {
   const [loading, setLoading] = useState(true);
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('');
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const loadOrder = useCallback(async () => {
     setLoading(true);
@@ -178,34 +184,36 @@ export const OrderDetailScreen: React.FC<Props> = ({route, navigation}) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {flex: 1},
-  content: {padding: 16, gap: 12, paddingBottom: 32},
-  card: {gap: 8},
-  cardTitle: {fontSize: 16, fontWeight: '700', color: '#f8fafc', marginBottom: 8},
-  fieldLabel: {fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5},
-  fieldValue: {fontSize: 15, color: '#f8fafc', marginBottom: 8},
-  statusRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  itemRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(51,65,85,0.3)', gap: 8},
-  itemName: {flex: 1, fontSize: 14, color: '#cbd5e1'},
-  itemQty: {fontSize: 14, color: '#64748b', width: 32, textAlign: 'center'},
-  itemPrice: {fontSize: 14, color: '#94a3b8', width: 72, textAlign: 'right'},
-  itemTotal: {fontSize: 14, color: '#f8fafc', width: 80, textAlign: 'right', fontWeight: '600'},
-  summaryRow: {flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6},
-  summaryLabel: {fontSize: 14, color: '#94a3b8'},
-  summaryValue: {fontSize: 14, color: '#f8fafc'},
-  totalRow: {borderTopWidth: 1, borderTopColor: '#334155', marginTop: 4, paddingTop: 12},
-  totalLabel: {fontSize: 16, fontWeight: '700', color: '#f8fafc'},
-  totalValue: {fontSize: 16, fontWeight: '700', color: '#f97316'},
-  actionBtn: {marginTop: 4},
-  overlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0},
-  overlayBg: {flex: 1, backgroundColor: 'rgba(0,0,0,0.6)'},
-  sheet: {backgroundColor: '#1e293b', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, gap: 12},
-  sheetTitle: {fontSize: 18, fontWeight: '700', color: '#f8fafc', marginBottom: 8},
-  radioRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12, borderRadius: 8, paddingHorizontal: 8},
-  radioRowActive: {backgroundColor: 'rgba(249,115,22,0.1)'},
-  radioCircle: {width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#475569'},
-  radioCircleActive: {borderColor: '#f97316', backgroundColor: '#f97316'},
-  radioLabel: {fontSize: 15, color: '#f8fafc'},
-  sheetBtn: {marginTop: 8},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {flex: 1},
+    content: {padding: 16, gap: 12, paddingBottom: 32},
+    card: {gap: 8},
+    cardTitle: {fontSize: 16, fontWeight: '700', color: theme.palette.onBackground, marginBottom: 8},
+    fieldLabel: {fontSize: 12, color: theme.palette.muted, textTransform: 'uppercase', letterSpacing: 0.5},
+    fieldValue: {fontSize: 15, color: theme.palette.onBackground, marginBottom: 8},
+    statusRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+    itemRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.palette.divider + '80', gap: 8},
+    itemName: {flex: 1, fontSize: 14, color: theme.palette.onBackground},
+    itemQty: {fontSize: 14, color: theme.palette.muted, width: 32, textAlign: 'center'},
+    itemPrice: {fontSize: 14, color: theme.palette.muted, width: 72, textAlign: 'right'},
+    itemTotal: {fontSize: 14, color: theme.palette.onBackground, width: 80, textAlign: 'right', fontWeight: '600'},
+    summaryRow: {flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6},
+    summaryLabel: {fontSize: 14, color: theme.palette.muted},
+    summaryValue: {fontSize: 14, color: theme.palette.onBackground},
+    totalRow: {borderTopWidth: 1, borderTopColor: theme.palette.divider, marginTop: 4, paddingTop: 12},
+    totalLabel: {fontSize: 16, fontWeight: '700', color: theme.palette.onBackground},
+    totalValue: {fontSize: 16, fontWeight: '700', color: theme.colors.primary},
+    actionBtn: {marginTop: 4},
+    overlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0},
+    overlayBg: {flex: 1, backgroundColor: theme.palette.overlay},
+    sheet: {backgroundColor: theme.palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, gap: 12},
+    sheetTitle: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground, marginBottom: 8},
+    radioRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12, borderRadius: 8, paddingHorizontal: 8},
+    radioRowActive: {backgroundColor: theme.colors.primary + '14'},
+    radioCircle: {width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: theme.palette.muted},
+    radioCircleActive: {borderColor: theme.colors.primary, backgroundColor: theme.colors.primary},
+    radioLabel: {fontSize: 15, color: theme.palette.onBackground},
+    sheetBtn: {marginTop: 8},
+  });
+}

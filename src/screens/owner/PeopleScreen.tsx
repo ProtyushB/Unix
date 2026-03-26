@@ -10,6 +10,9 @@ import {useAppContext} from '../../context/AppContext';
 import {useParlour} from '../../backend/modules/parlour/hook/useParlour';
 import {usePharmacy} from '../../backend/modules/pharmacy/hook/usePharmacy';
 import {useRestaurant} from '../../backend/modules/restaurant/hook/useRestaurant';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 const TABS = [
   {key: 'employees', label: 'Employees'},
@@ -30,6 +33,9 @@ export const PeopleScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState('customers');
   const [searchText, setSearchText] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
     activeModule.loadCustomers?.();
@@ -63,14 +69,14 @@ export const PeopleScreen: React.FC = () => {
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search by name or phone..."
-          placeholderTextColor="#64748b"
+          placeholderTextColor={palette.muted}
         />
 
         {activeModule.loading && !refreshing ? (
           <LoadingSpinner />
         ) : filtered.length === 0 ? (
           <EmptyState
-            icon={<Users size={48} color="#64748b" />}
+            icon={<Users size={48} color={palette.muted} />}
             title={activeTab === 'customers' ? 'No customers' : 'No employees'}
             message={activeTab === 'customers' ? 'Customer records will appear here' : 'Employee records will appear here'}
           />
@@ -84,7 +90,7 @@ export const PeopleScreen: React.FC = () => {
                 onPress={() => {}}
               />
             )}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f97316" />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />
@@ -94,9 +100,11 @@ export const PeopleScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {flex: 1, paddingHorizontal: 16},
-  title: {fontSize: 28, fontWeight: '700', color: '#f8fafc', marginTop: 16, marginBottom: 16},
-  searchInput: {backgroundColor: 'rgba(30,41,59,0.6)', borderWidth: 1, borderColor: '#334155', borderRadius: 12, padding: 12, color: '#f8fafc', fontSize: 14, marginTop: 12, marginBottom: 4},
-  listContent: {paddingBottom: 24, gap: 8, paddingTop: 8},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {flex: 1, paddingHorizontal: 16},
+    title: {fontSize: 28, fontWeight: '700', color: theme.palette.onBackground, marginTop: 16, marginBottom: 16},
+    searchInput: {backgroundColor: theme.palette.surface + '99', borderWidth: 1, borderColor: theme.palette.divider, borderRadius: 12, padding: 12, color: theme.palette.onBackground, fontSize: 14, marginTop: 12, marginBottom: 4},
+    listContent: {paddingBottom: 24, gap: 8, paddingTop: 8},
+  });
+}

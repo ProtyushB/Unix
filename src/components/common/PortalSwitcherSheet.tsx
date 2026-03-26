@@ -9,6 +9,9 @@ import {
 } from 'react-native';
 import {User, Building2} from 'lucide-react-native';
 import {PORTALS, PORTAL_ORDER, PortalKey} from '../../utils/portals';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 interface Props {
   visible: boolean;
@@ -34,6 +37,8 @@ export function PortalSwitcherSheet({
   onClose,
   onSwitch,
 }: Props) {
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const portalsToShow = PORTAL_ORDER.filter(key => availableKeys.includes(key));
 
   return (
@@ -64,7 +69,7 @@ export function PortalSwitcherSheet({
                 onPress={() => !isActive && onSwitch(key)}
                 activeOpacity={isActive ? 1 : 0.7}>
                 <View style={isActive ? styles.iconWrapActive : styles.iconWrapInactive}>
-                  <Icon size={20} color={isActive ? '#f97316' : '#64748b'} />
+                  <Icon size={20} color={isActive ? colors.primary : palette.muted} />
                 </View>
                 <Text style={isActive ? styles.labelActive : styles.labelInactive}>
                   {portal.label}
@@ -79,18 +84,25 @@ export function PortalSwitcherSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end'},
-  overlayBg: {...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)'},
-  sheet: {backgroundColor: '#1e293b', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24},
-  sheetTitle: {fontSize: 18, fontWeight: '700', color: '#f8fafc', marginBottom: 16},
-  option: {flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 14, borderWidth: 1},
-  optionActive: {backgroundColor: 'rgba(249,115,22,0.12)', borderColor: 'rgba(249,115,22,0.3)'},
-  optionInactive: {backgroundColor: 'rgba(51,65,85,0.4)', borderColor: 'rgba(51,65,85,0.6)'},
-  optionMarginBottom: {marginBottom: 10},
-  iconWrapActive: {width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(249,115,22,0.15)', alignItems: 'center', justifyContent: 'center'},
-  iconWrapInactive: {width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(51,65,85,0.6)', alignItems: 'center', justifyContent: 'center'},
-  labelActive: {flex: 1, fontSize: 16, fontWeight: '600', color: '#f97316'},
-  labelInactive: {flex: 1, fontSize: 16, fontWeight: '600', color: '#94a3b8'},
-  activeDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: '#f97316'},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    overlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end'},
+    overlayBg: {...StyleSheet.absoluteFillObject, backgroundColor: theme.palette.overlay},
+    sheet: {
+      backgroundColor: theme.palette.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      padding: 24,
+    },
+    sheetTitle: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground, marginBottom: 16},
+    option: {flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 14, borderWidth: 1},
+    optionActive:  {backgroundColor: theme.colors.softBg,  borderColor: theme.colors.border},
+    optionInactive: {backgroundColor: theme.palette.divider + '66', borderColor: theme.palette.divider + '99'},
+    optionMarginBottom: {marginBottom: 10},
+    iconWrapActive:   {width: 40, height: 40, borderRadius: 12, backgroundColor: theme.colors.softBg, alignItems: 'center', justifyContent: 'center'},
+    iconWrapInactive: {width: 40, height: 40, borderRadius: 12, backgroundColor: theme.palette.divider + '99', alignItems: 'center', justifyContent: 'center'},
+    labelActive:   {flex: 1, fontSize: 16, fontWeight: '600', color: theme.colors.primary},
+    labelInactive: {flex: 1, fontSize: 16, fontWeight: '600', color: theme.palette.onSurface},
+    activeDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.primary},
+  });
+}

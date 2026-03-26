@@ -15,6 +15,9 @@ import {usePharmacy} from '../../backend/modules/pharmacy/hook/usePharmacy';
 import {useRestaurant} from '../../backend/modules/restaurant/hook/useRestaurant';
 import {useToast} from '../../hooks/useToast';
 import Share from 'react-native-share';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 type Props = NativeStackScreenProps<OperationsStackParamList, 'BillingDetail'>;
 
@@ -33,6 +36,9 @@ export const BillingDetailScreen: React.FC<Props> = ({route}) => {
 
   const [bill, setBill] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const loadBill = useCallback(async () => {
     setLoading(true);
@@ -135,7 +141,7 @@ export const BillingDetailScreen: React.FC<Props> = ({route}) => {
           {discount > 0 && (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Discount</Text>
-              <Text style={[styles.summaryValue, {color: '#10b981'}]}>-{formatCurrency(discount)}</Text>
+              <Text style={[styles.summaryValue, {color: palette.success}]}>-{formatCurrency(discount)}</Text>
             </View>
           )}
           {bill?.tips > 0 && (
@@ -160,24 +166,26 @@ export const BillingDetailScreen: React.FC<Props> = ({route}) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {flex: 1},
-  content: {padding: 16, gap: 12, paddingBottom: 32},
-  card: {gap: 8},
-  headerRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8},
-  cardTitle: {fontSize: 16, fontWeight: '700', color: '#f8fafc'},
-  dateText: {fontSize: 13, color: '#64748b', marginTop: 2},
-  fieldLabel: {fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5},
-  fieldValue: {fontSize: 15, color: '#f8fafc', marginBottom: 8},
-  itemRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(51,65,85,0.3)', gap: 8},
-  itemName: {flex: 1, fontSize: 14, color: '#cbd5e1'},
-  itemQty: {fontSize: 14, color: '#64748b', width: 32, textAlign: 'center'},
-  itemTotal: {fontSize: 14, color: '#f8fafc', width: 80, textAlign: 'right', fontWeight: '600'},
-  summaryRow: {flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6},
-  summaryLabel: {fontSize: 14, color: '#94a3b8'},
-  summaryValue: {fontSize: 14, color: '#f8fafc'},
-  totalRow: {borderTopWidth: 1, borderTopColor: '#334155', marginTop: 4, paddingTop: 12},
-  totalLabel: {fontSize: 16, fontWeight: '700', color: '#f8fafc'},
-  totalValue: {fontSize: 16, fontWeight: '700', color: '#f97316'},
-  actionBtn: {marginTop: 4},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {flex: 1},
+    content: {padding: 16, gap: 12, paddingBottom: 32},
+    card: {gap: 8},
+    headerRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8},
+    cardTitle: {fontSize: 16, fontWeight: '700', color: theme.palette.onBackground},
+    dateText: {fontSize: 13, color: theme.palette.muted, marginTop: 2},
+    fieldLabel: {fontSize: 12, color: theme.palette.muted, textTransform: 'uppercase', letterSpacing: 0.5},
+    fieldValue: {fontSize: 15, color: theme.palette.onBackground, marginBottom: 8},
+    itemRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.palette.divider + '80', gap: 8},
+    itemName: {flex: 1, fontSize: 14, color: theme.palette.onBackground},
+    itemQty: {fontSize: 14, color: theme.palette.muted, width: 32, textAlign: 'center'},
+    itemTotal: {fontSize: 14, color: theme.palette.onBackground, width: 80, textAlign: 'right', fontWeight: '600'},
+    summaryRow: {flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6},
+    summaryLabel: {fontSize: 14, color: theme.palette.muted},
+    summaryValue: {fontSize: 14, color: theme.palette.onBackground},
+    totalRow: {borderTopWidth: 1, borderTopColor: theme.palette.divider, marginTop: 4, paddingTop: 12},
+    totalLabel: {fontSize: 16, fontWeight: '700', color: theme.palette.onBackground},
+    totalValue: {fontSize: 16, fontWeight: '700', color: theme.colors.primary},
+    actionBtn: {marginTop: 4},
+  });
+}

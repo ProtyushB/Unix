@@ -21,6 +21,9 @@ import { getBusinessTypeMap, type Business } from '../../storage/session.storage
 import { formatCurrency } from '../../utils/formatters';
 import { getStatusColor } from '../../utils/statusColors';
 import type { CatalogStackParamList } from '../../navigation/OwnerTabNavigator';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +51,9 @@ export default function CatalogScreen({ navigation }: Props) {
   const [page, setPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBusinessId, setSelectedBusinessId] = useState<number | null>(null);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   // Resolve business ID from stable string
   useEffect(() => {
@@ -131,7 +137,7 @@ export default function CatalogScreen({ navigation }: Props) {
       onPress={() => navigation.navigate('ProductDetailScreen', { productId: item.id, mode: 'view' } as any)}
     >
       <View style={styles.itemIcon}>
-        <Package size={20} color="#f97316" />
+        <Package size={20} color={colors.primary} />
       </View>
       <View style={styles.itemContent}>
         <Text style={styles.itemName} numberOfLines={1}>{item.name || 'Unnamed'}</Text>
@@ -146,7 +152,7 @@ export default function CatalogScreen({ navigation }: Props) {
         <Text style={styles.itemStock}>Stock: {item.stock ?? '-'}</Text>
       </View>
     </TouchableOpacity>
-  ), [navigation]);
+  ), [navigation, colors.primary]);
 
   const renderServiceItem = useCallback(({ item }: { item: any }) => (
     <TouchableOpacity
@@ -185,7 +191,7 @@ export default function CatalogScreen({ navigation }: Props) {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -220,7 +226,7 @@ export default function CatalogScreen({ navigation }: Props) {
           value={searchText}
           onChangeText={setSearchText}
           placeholder={`Search ${activeTab}...`}
-          leftIcon={<Search size={18} color="#64748b" />}
+          leftIcon={<Search size={18} color={palette.muted} />}
           style={styles.searchInput}
         />
       </View>
@@ -228,7 +234,7 @@ export default function CatalogScreen({ navigation }: Props) {
       {/* List */}
       {loading && page === 1 ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#f97316" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : activeTab === 'products' ? (
         <FlatList
@@ -240,7 +246,7 @@ export default function CatalogScreen({ navigation }: Props) {
           onEndReachedThreshold={0.3}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#f97316" />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
           }
         />
       ) : (
@@ -253,7 +259,7 @@ export default function CatalogScreen({ navigation }: Props) {
           onEndReachedThreshold={0.3}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#f97316" />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
           }
         />
       )}
@@ -268,141 +274,143 @@ export default function CatalogScreen({ navigation }: Props) {
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: '#0f172a',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f8fafc',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 12,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-  },
-  tabActive: {
-    backgroundColor: '#f97316',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#94a3b8',
-  },
-  tabTextActive: {
-    color: '#ffffff',
-  },
-  searchContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 4,
-  },
-  searchInput: {
-    marginBottom: 8,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginBottom: 10,
-  },
-  itemIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#f9731615',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  itemContent: {
-    flex: 1,
-    marginRight: 8,
-  },
-  itemName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#f8fafc',
-    marginBottom: 3,
-  },
-  itemMeta: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  itemRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  itemStock: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#475569',
-    textAlign: 'center',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#f97316',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#f97316',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    header: {
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 12,
+      backgroundColor: theme.palette.background,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+    },
+    tabBar: {
+      flexDirection: 'row',
+      marginHorizontal: 16,
+      backgroundColor: theme.palette.surface,
+      borderRadius: 12,
+      padding: 4,
+      marginBottom: 12,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: 10,
+    },
+    tabActive: {
+      backgroundColor: theme.colors.primary,
+    },
+    tabText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.palette.muted,
+    },
+    tabTextActive: {
+      color: '#ffffff',
+    },
+    searchContainer: {
+      paddingHorizontal: 16,
+      marginBottom: 4,
+    },
+    searchInput: {
+      marginBottom: 8,
+    },
+    centered: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    listContent: {
+      paddingHorizontal: 16,
+      paddingBottom: 100,
+    },
+    itemRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      marginBottom: 10,
+    },
+    itemIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      backgroundColor: theme.colors.primary + '14',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    itemContent: {
+      flex: 1,
+      marginRight: 8,
+    },
+    itemName: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.palette.onBackground,
+      marginBottom: 3,
+    },
+    itemMeta: {
+      fontSize: 12,
+      color: theme.palette.muted,
+    },
+    itemRight: {
+      alignItems: 'flex-end',
+      gap: 4,
+    },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    itemStock: {
+      fontSize: 11,
+      color: theme.palette.muted,
+      fontWeight: '500',
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      paddingTop: 60,
+      paddingHorizontal: 32,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.palette.muted,
+      marginBottom: 8,
+    },
+    emptySubtitle: {
+      fontSize: 13,
+      color: theme.palette.muted,
+      textAlign: 'center',
+    },
+    fab: {
+      position: 'absolute',
+      bottom: 24,
+      right: 20,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: theme.colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      elevation: 6,
+      shadowColor: theme.colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+    },
+  });
+}

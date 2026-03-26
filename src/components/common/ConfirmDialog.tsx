@@ -1,7 +1,8 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet } from 'react-native';
-import { darkPalette } from '../../theme/colors';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { AppButton } from './AppButton';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,8 @@ export function ConfirmDialog({
   onCancel,
   danger = false,
 }: ConfirmDialogProps) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Modal
       visible={visible}
@@ -63,40 +66,42 @@ export function ConfirmDialog({
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  card: {
-    backgroundColor: darkPalette.surface,
-    borderWidth: 1,
-    borderColor: darkPalette.border,
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 380,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: darkPalette.text,
-    marginBottom: 8,
-  },
-  message: {
-    fontSize: 14,
-    color: darkPalette.muted,
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: theme.palette.overlay,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+    },
+    card: {
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      borderRadius: 20,
+      padding: 24,
+      width: '100%',
+      maxWidth: 380,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      marginBottom: 8,
+    },
+    message: {
+      fontSize: 14,
+      color: theme.palette.muted,
+      lineHeight: 20,
+      marginBottom: 24,
+    },
+    actions: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    button: {
+      flex: 1,
+    },
+  });
+}

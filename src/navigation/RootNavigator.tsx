@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   NavigationContainer,
   createNavigationContainerRef,
@@ -6,7 +6,9 @@ import {
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { darkPalette } from '../theme/colors';
+import { useTheme } from '../hooks/useTheme';
+import { useThemedStyles } from '../hooks/useThemedStyles';
+import type { AppTheme } from '../theme/theme.types';
 import { getAccessToken, getLoggedInUser } from '../storage/auth.storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PORTALS, isBusinessUser } from '../utils/portals';
@@ -21,24 +23,6 @@ import type { RootStackParamList } from './types';
 
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
-// ─── Dark Theme ─────────────────────────────────────────────────────────────
-
-const DarkNavigationTheme = {
-  ...DefaultTheme,
-  dark: true,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: '#f97316',
-    background: darkPalette.bg,
-    card: darkPalette.surface,
-    text: darkPalette.text,
-    border: darkPalette.border,
-    notification: '#f97316',
-  },
-};
-
-// ─── Determine initial route based on role ──────────────────────────────────
-
 // ─── Stack ──────────────────────────────────────────────────────────────────
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -46,8 +30,25 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 // ─── Root Navigator ─────────────────────────────────────────────────────────
 
 export function RootNavigator() {
+  const { colors, palette, mode } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
   const [isReady, setIsReady] = useState(false);
+
+  // Navigation theme — reactive to accent and mode changes.
+  const navigationTheme = useMemo(() => ({
+    ...DefaultTheme,
+    dark: mode === 'dark',
+    colors: {
+      ...DefaultTheme.colors,
+      primary:      colors.primary,
+      background:   palette.background,
+      card:         palette.surface,
+      text:         palette.onBackground,
+      border:       palette.divider,
+      notification: colors.primary,
+    },
+  }), [colors, palette, mode]);
 
   useEffect(() => {
     let mounted = true;
@@ -66,7 +67,6 @@ export function RootNavigator() {
         const types = user?.types ?? [];
         const isBusiness = isBusinessUser(roles, types);
 
-        // Respect the user's last manually chosen portal, fall back to role-based default
         const savedPortal = await AsyncStorage.getItem('session:activeProfile');
         let route: keyof RootStackParamList;
 
@@ -75,13 +75,11 @@ export function RootNavigator() {
         } else if (savedPortal === PORTALS.business.key && isBusiness) {
           route = PORTALS.business.route;
         } else {
-          // No saved preference — use role default and persist it for next reopen
           route = isBusiness ? PORTALS.business.route : PORTALS.customer.route;
           const defaultKey = isBusiness ? PORTALS.business.key : PORTALS.customer.key;
           await AsyncStorage.setItem('session:activeProfile', defaultKey);
         }
 
-        // Biometric gate — if enabled, require fingerprint before entering the app
         if (route !== 'Auth') {
           const biometricEnabled = await biometricStorage.isEnabled();
           if (biometricEnabled) {
@@ -106,14 +104,14 @@ export function RootNavigator() {
 
   if (!isReady || !initialRoute) {
     return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#f97316" />
+      <View style={[styles.loader, { backgroundColor: palette.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer ref={navigationRef} theme={DarkNavigationTheme}>
+    <NavigationContainer ref={navigationRef} theme={navigationTheme}>
       <Stack.Navigator
         initialRouteName={initialRoute}
         screenOptions={{ headerShown: false, animation: 'none' }}
@@ -128,11 +126,12 @@ export function RootNavigator() {
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  loader: {
-    flex: 1,
-    backgroundColor: darkPalette.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+function createStyles(_theme: AppTheme) {
+  return StyleSheet.create({
+    loader: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });
+}

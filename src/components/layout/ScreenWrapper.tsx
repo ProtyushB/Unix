@@ -8,7 +8,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { darkPalette } from '../../theme/colors';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,8 @@ export function ScreenWrapper({
   scrollable = true,
   style,
 }: ScreenWrapperProps) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
@@ -51,16 +54,18 @@ export function ScreenWrapper({
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: darkPalette.bg,
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 24,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingBottom: 24,
+    },
+  });
+}

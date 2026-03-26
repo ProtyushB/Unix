@@ -2,7 +2,9 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { darkPalette, themes } from '../theme/colors';
+import { useTheme } from '../hooks/useTheme';
+import { useThemedStyles } from '../hooks/useThemedStyles';
+import type { AppTheme } from '../theme/theme.types';
 import type {
   OwnerTabParamList,
   CatalogStackParamList,
@@ -91,68 +93,73 @@ const Tab = createBottomTabNavigator<OwnerTabParamList>();
 const ICON_SIZE = 22;
 
 export function OwnerTabNavigator() {
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
-    <View style={{flex: 1}}>
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: themes.default.primary,
-        tabBarInactiveTintColor: darkPalette.muted,
-        tabBarLabelStyle: styles.tabLabel,
-      }}
-    >
-      <Tab.Screen
-        name="Dashboard"
-        component={DashboardScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>⊞</Text> }}
-      />
-      <Tab.Screen
-        name="Catalog"
-        component={CatalogNavigator}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📦</Text> }}
-      />
-      <Tab.Screen
-        name="Operations"
-        component={OperationsNavigator}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📋</Text> }}
-      />
-      <Tab.Screen
-        name="Inventory"
-        component={InventoryNavigator}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🗄</Text> }}
-      />
-      <Tab.Screen
-        name="People"
-        component={PeopleNavigator}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👥</Text> }}
-      />
-      <Tab.Screen
-        name="Account"
-        component={AccountNavigator}
-        options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text> }}
-      />
-    </Tab.Navigator>
-    <BiometricOnboardingModal />
+    <View style={styles.flex}>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: palette.surface,
+            borderTopColor: palette.divider,
+            borderTopWidth: 1,
+            height: 64,
+            paddingBottom: 8,
+            paddingTop: 8,
+            elevation: 0,
+          },
+          tabBarActiveTintColor:   colors.primary,
+          tabBarInactiveTintColor: palette.muted,
+          tabBarLabelStyle: styles.tabLabel,
+        }}
+      >
+        <Tab.Screen
+          name="Dashboard"
+          component={DashboardScreen}
+          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>⊞</Text> }}
+        />
+        <Tab.Screen
+          name="Catalog"
+          component={CatalogNavigator}
+          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>📦</Text> }}
+        />
+        <Tab.Screen
+          name="Operations"
+          component={OperationsNavigator}
+          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>📋</Text> }}
+        />
+        <Tab.Screen
+          name="Inventory"
+          component={InventoryNavigator}
+          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>🗄</Text> }}
+        />
+        <Tab.Screen
+          name="People"
+          component={PeopleNavigator}
+          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>👥</Text> }}
+        />
+        <Tab.Screen
+          name="Account"
+          component={AccountNavigator}
+          options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>👤</Text> }}
+        />
+      </Tab.Navigator>
+      <BiometricOnboardingModal />
     </View>
   );
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: darkPalette.surface,
-    borderTopColor: darkPalette.border,
-    borderTopWidth: 1,
-    height: 64,
-    paddingBottom: 8,
-    paddingTop: 8,
-    elevation: 0,
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-});
+function createStyles(_theme: AppTheme) {
+  return StyleSheet.create({
+    flex: { flex: 1 },
+    tabLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+  });
+}

@@ -1,9 +1,10 @@
 import React from 'react';
-import {StyleSheet, View} from 'react-native';
+import {StyleSheet, View, Text} from 'react-native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {Text} from 'react-native';
-import {darkPalette, themes} from '../theme/colors';
+import { useTheme } from '../hooks/useTheme';
+import { useThemedStyles } from '../hooks/useThemedStyles';
+import type { AppTheme } from '../theme/theme.types';
 import type {CustomerTabParamList, ProfileStackParamList} from './types';
 import {ExploreScreen} from '../screens/customer/ExploreScreen';
 import {BookingsScreen} from '../screens/customer/BookingsScreen';
@@ -33,14 +34,25 @@ function ProfileNavigator() {
 const Tab = createBottomTabNavigator<CustomerTabParamList>();
 
 export function CustomerTabNavigator() {
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
-    <View style={{flex: 1}}>
+    <View style={styles.flex}>
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
-          tabBarStyle: styles.tabBar,
-          tabBarActiveTintColor: themes.default.primary,
-          tabBarInactiveTintColor: darkPalette.muted,
+          tabBarStyle: {
+            backgroundColor: palette.surface,
+            borderTopColor: palette.divider,
+            borderTopWidth: 1,
+            height: 64,
+            paddingBottom: 8,
+            paddingTop: 8,
+            elevation: 0,
+          },
+          tabBarActiveTintColor:   colors.primary,
+          tabBarInactiveTintColor: palette.muted,
           tabBarLabelStyle: styles.tabLabel,
         }}>
         <Tab.Screen
@@ -76,19 +88,13 @@ export function CustomerTabNavigator() {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: darkPalette.surface,
-    borderTopColor: darkPalette.border,
-    borderTopWidth: 1,
-    height: 64,
-    paddingBottom: 8,
-    paddingTop: 8,
-    elevation: 0,
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-});
+function createStyles(_theme: AppTheme) {
+  return StyleSheet.create({
+    flex: { flex: 1 },
+    tabLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+  });
+}

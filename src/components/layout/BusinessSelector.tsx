@@ -1,7 +1,9 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
-import { darkPalette, themes } from '../../theme/colors';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -18,6 +20,9 @@ export function BusinessSelector({
   selectedModule,
   onPress,
 }: BusinessSelectorProps) {
+  const { palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const displayModule = selectedModule ?? 'Module';
   const displayBusiness = selectedBusiness ?? 'Select Business';
   const label = `${displayModule} / ${displayBusiness}`;
@@ -31,28 +36,30 @@ export function BusinessSelector({
       <Text style={styles.label} numberOfLines={1}>
         {label}
       </Text>
-      <ChevronDown size={18} color={darkPalette.muted} />
+      <ChevronDown size={18} color={palette.muted} />
     </TouchableOpacity>
   );
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: darkPalette.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: darkPalette.border,
-    gap: 8,
-  },
-  label: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: themes.default.text,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: theme.palette.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider,
+      gap: 8,
+    },
+    label: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+  });
+}

@@ -32,6 +32,9 @@ import {usePharmacy} from '../../backend/modules/pharmacy/hook/usePharmacy';
 import {useRestaurant} from '../../backend/modules/restaurant/hook/useRestaurant';
 import {useToast} from '../../hooks/useToast';
 import {getBusinessTypeMap} from '../../storage/session.storage';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 type ViewState = 'list' | 'detail' | 'add' | 'edit';
 
@@ -70,6 +73,9 @@ export const InventoryScreen: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   // Form state for add/edit
   const [form, setForm] = useState<{
@@ -286,7 +292,7 @@ export const InventoryScreen: React.FC = () => {
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search by product or batch #..."
-          placeholderTextColor="#64748b"
+          placeholderTextColor={palette.muted}
         />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterContent}>
@@ -301,7 +307,7 @@ export const InventoryScreen: React.FC = () => {
           <TouchableOpacity
             style={[styles.filterChip, expiringOnly && styles.filterChipExpiring]}
             onPress={() => setExpiringOnly(v => !v)}>
-            <Clock size={14} color={expiringOnly ? '#f59e0b' : '#64748b'} />
+            <Clock size={14} color={expiringOnly ? '#f59e0b' : palette.muted} />
             <Text style={[styles.filterText, expiringOnly && {color: '#f59e0b'}]}>Expiring 30d</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -310,7 +316,7 @@ export const InventoryScreen: React.FC = () => {
           <LoadingSpinner />
         ) : filteredBatches.length === 0 ? (
           <EmptyState
-            icon={<Archive size={48} color="#64748b" />}
+            icon={<Archive size={48} color={palette.muted} />}
             title="No inventory batches"
             message="Add your first batch using the + button"
           />
@@ -326,7 +332,7 @@ export const InventoryScreen: React.FC = () => {
                 onDelete={() => setDeleteConfirm(item.id)}
               />
             )}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f97316" />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />
@@ -351,36 +357,41 @@ export const InventoryScreen: React.FC = () => {
   );
 };
 
-const LabelValue = ({label, value}: {label: string; value: string}) => (
-  <View style={styles.lvRow}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    <Text style={styles.fieldValue}>{value}</Text>
-  </View>
-);
+const LabelValue = ({label, value}: {label: string; value: string}) => {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View style={styles.lvRow}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={styles.fieldValue}>{value}</Text>
+    </View>
+  );
+};
 
-const styles = StyleSheet.create({
-  listContainer: {flex: 1, paddingHorizontal: 16},
-  content: {padding: 16, gap: 12, paddingBottom: 32},
-  title: {fontSize: 28, fontWeight: '700', color: '#f8fafc', marginTop: 16, marginBottom: 12},
-  searchInput: {backgroundColor: 'rgba(30,41,59,0.6)', borderWidth: 1, borderColor: '#334155', borderRadius: 12, padding: 12, color: '#f8fafc', fontSize: 14, marginBottom: 12},
-  filterRow: {maxHeight: 44, marginBottom: 8},
-  filterContent: {gap: 8, paddingRight: 16},
-  filterChip: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(30,41,59,0.6)', borderWidth: 1, borderColor: '#334155', gap: 4},
-  filterChipActive: {backgroundColor: 'rgba(249,115,22,0.15)', borderColor: '#f97316'},
-  filterChipExpiring: {backgroundColor: 'rgba(245,158,11,0.15)', borderColor: '#f59e0b'},
-  filterText: {fontSize: 13, color: '#64748b', fontWeight: '500'},
-  filterTextActive: {color: '#f97316'},
-  listContent: {paddingBottom: 80, gap: 8},
-  card: {gap: 6},
-  cardTitle: {fontSize: 16, fontWeight: '700', color: '#f8fafc', marginBottom: 8},
-  detailHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16},
-  backBtn: {padding: 4},
-  backBtnText: {fontSize: 16, color: '#f97316', fontWeight: '600'},
-  formTitle: {fontSize: 18, fontWeight: '700', color: '#f8fafc'},
-  statusRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-  lvRow: {marginBottom: 8},
-  fieldLabel: {fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5},
-  fieldValue: {fontSize: 14, color: '#f8fafc', marginTop: 2},
-  expiryWarning: {color: '#f59e0b', fontSize: 14, fontWeight: '600', textAlign: 'center', padding: 8},
-  saveBtn: {marginTop: 8},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    listContainer: {flex: 1, paddingHorizontal: 16},
+    content: {padding: 16, gap: 12, paddingBottom: 32},
+    title: {fontSize: 28, fontWeight: '700', color: theme.palette.onBackground, marginTop: 16, marginBottom: 12},
+    searchInput: {backgroundColor: theme.palette.surface + '99', borderWidth: 1, borderColor: theme.palette.divider, borderRadius: 12, padding: 12, color: theme.palette.onBackground, fontSize: 14, marginBottom: 12},
+    filterRow: {maxHeight: 44, marginBottom: 8},
+    filterContent: {gap: 8, paddingRight: 16},
+    filterChip: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: theme.palette.surface + '99', borderWidth: 1, borderColor: theme.palette.divider, gap: 4},
+    filterChipActive: {backgroundColor: theme.colors.softBg, borderColor: theme.colors.primary},
+    filterChipExpiring: {backgroundColor: 'rgba(245,158,11,0.15)', borderColor: '#f59e0b'},
+    filterText: {fontSize: 13, color: theme.palette.muted, fontWeight: '500'},
+    filterTextActive: {color: theme.colors.primary},
+    listContent: {paddingBottom: 80, gap: 8},
+    card: {gap: 6},
+    cardTitle: {fontSize: 16, fontWeight: '700', color: theme.palette.onBackground, marginBottom: 8},
+    detailHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16},
+    backBtn: {padding: 4},
+    backBtnText: {fontSize: 16, color: theme.colors.primary, fontWeight: '600'},
+    formTitle: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground},
+    statusRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+    lvRow: {marginBottom: 8},
+    fieldLabel: {fontSize: 12, color: theme.palette.muted, textTransform: 'uppercase', letterSpacing: 0.5},
+    fieldValue: {fontSize: 14, color: theme.palette.onBackground, marginTop: 2},
+    expiryWarning: {color: '#f59e0b', fontSize: 14, fontWeight: '600', textAlign: 'center', padding: 8},
+    saveBtn: {marginTop: 8},
+  });
+}

@@ -19,6 +19,9 @@ import StepProgress from '../../components/common/StepProgress';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
 import { validateUsername, PASSWORD_RULES } from '../../utils/validators';
 import { useSignupDraft } from '../../context/SignupDraftContext';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -53,6 +56,9 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const authService = getAuthService();
   const { setDraft } = useSignupDraft();
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   // Debounced username availability check
   const checkUsernameAvailability = useCallback(
@@ -117,28 +123,28 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
       case 'checking':
         return (
           <View style={styles.statusRow}>
-            <ActivityIndicator size="small" color="#f97316" />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.statusChecking}>Checking...</Text>
           </View>
         );
       case 'available':
         return (
           <View style={styles.statusRow}>
-            <Text style={{ fontSize: 14, color: '#22c55e' }}>✓</Text>
+            <Text style={{ fontSize: 14, color: palette.success }}>✓</Text>
             <Text style={styles.statusAvailable}>Available</Text>
           </View>
         );
       case 'taken':
         return (
           <View style={styles.statusRow}>
-            <Text style={{ fontSize: 14, color: '#ef4444' }}>✕</Text>
+            <Text style={{ fontSize: 14, color: palette.error }}>✕</Text>
             <Text style={styles.statusTaken}>Username taken</Text>
           </View>
         );
       case 'invalid':
         return (
           <View style={styles.statusRow}>
-            <Text style={{ fontSize: 14, color: '#ef4444' }}>✕</Text>
+            <Text style={{ fontSize: 14, color: palette.error }}>✕</Text>
             <Text style={styles.statusTaken}>3-20 chars, letters/numbers/underscores only</Text>
           </View>
         );
@@ -149,7 +155,7 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -231,73 +237,75 @@ const SignupCredentialsScreen: React.FC<Props> = ({ navigation, route }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 32,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 20,
+      paddingBottom: 32,
+    },
 
-  // Title
-  title: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 28,
-    color: '#f8fafc',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 15,
-    color: '#94a3b8',
-    marginBottom: 28,
-    lineHeight: 22,
-  },
+    // Title
+    title: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 28,
+      color: theme.palette.onBackground,
+      marginTop: 12,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 15,
+      color: theme.palette.muted,
+      marginBottom: 28,
+      lineHeight: 22,
+    },
 
-  // Username status
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    marginBottom: 4,
-    paddingLeft: 4,
-  },
-  statusChecking: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 12,
-    color: '#f97316',
-    marginLeft: 6,
-  },
-  statusAvailable: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 12,
-    color: '#22c55e',
-    marginLeft: 6,
-  },
-  statusTaken: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 12,
-    color: '#ef4444',
-    marginLeft: 6,
-  },
+    // Username status
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 6,
+      marginBottom: 4,
+      paddingLeft: 4,
+    },
+    statusChecking: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 12,
+      color: theme.colors.primary,
+      marginLeft: 6,
+    },
+    statusAvailable: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 12,
+      color: theme.palette.success,
+      marginLeft: 6,
+    },
+    statusTaken: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 12,
+      color: theme.palette.error,
+      marginLeft: 6,
+    },
 
-  // Spacing
-  fieldSpacer: {
-    height: 8,
-  },
+    // Spacing
+    fieldSpacer: {
+      height: 8,
+    },
 
-  // Button
-  buttonContainer: {
-    marginTop: 24,
-  },
-});
+    // Button
+    buttonContainer: {
+      marginTop: 24,
+    },
+  });
+}
 
 export default SignupCredentialsScreen;

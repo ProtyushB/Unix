@@ -13,6 +13,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import OtpInput from '../../components/forms/OtpInput';
 import AppButton from '../../components/common/AppButton';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -46,6 +49,9 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
   const [resending, setResending] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const authService = getAuthService();
 
@@ -127,7 +133,7 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -201,89 +207,91 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      paddingVertical: 40,
+    },
 
-  // Title
-  title: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 28,
-    color: '#f8fafc',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 15,
-    color: '#94a3b8',
-    textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 22,
-  },
-  emailHighlight: {
-    fontFamily: 'Inter-Medium',
-    color: '#f97316',
-  },
+    // Title
+    title: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 28,
+      color: theme.palette.onBackground,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 15,
+      color: theme.palette.muted,
+      textAlign: 'center',
+      marginBottom: 32,
+      lineHeight: 22,
+    },
+    emailHighlight: {
+      fontFamily: 'Inter-Medium',
+      color: theme.colors.primary,
+    },
 
-  // Error
-  errorContainer: {
-    backgroundColor: '#ef444420',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ef444440',
-  },
-  errorText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 13,
-    color: '#fca5a5',
-    textAlign: 'center',
-  },
+    // Error
+    errorContainer: {
+      backgroundColor: theme.palette.error + '20',
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.palette.error + '40',
+    },
+    errorText: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 13,
+      color: theme.palette.error + 'CC',
+      textAlign: 'center',
+    },
 
-  // OTP
-  otpContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
+    // OTP
+    otpContainer: {
+      alignItems: 'center',
+      marginBottom: 24,
+    },
 
-  // Button
-  buttonContainer: {
-    marginTop: 8,
-  },
+    // Button
+    buttonContainer: {
+      marginTop: 8,
+    },
 
-  // Resend
-  resendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-    flexWrap: 'wrap',
-  },
-  resendLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#94a3b8',
-  },
-  resendLink: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    color: '#f97316',
-  },
-  resendDisabled: {
-    color: '#64748b',
-  },
-});
+    // Resend
+    resendRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 24,
+      flexWrap: 'wrap',
+    },
+    resendLabel: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: theme.palette.muted,
+    },
+    resendLink: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 14,
+      color: theme.colors.primary,
+    },
+    resendDisabled: {
+      color: theme.palette.muted,
+    },
+  });
+}
 
 export default ForgotPasswordOtpScreen;

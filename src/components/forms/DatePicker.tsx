@@ -4,7 +4,9 @@ import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { Calendar } from 'lucide-react-native';
-import { darkPalette } from '../../theme/colors';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +43,8 @@ export function DatePicker({
   maximumDate,
   error,
 }: DatePickerProps) {
+  const { palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [show, setShow] = useState(false);
 
   const handleChange = useCallback(
@@ -63,8 +67,6 @@ export function DatePicker({
     setShow(false);
   }, []);
 
-  const borderColor = error ? '#ef4444' : 'rgba(51, 65, 85, 0.7)';
-
   return (
     <View style={styles.container}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
@@ -72,12 +74,12 @@ export function DatePicker({
       <TouchableOpacity
         onPress={handlePress}
         activeOpacity={0.7}
-        style={[styles.field, { borderColor }]}
+        style={[styles.field, error ? styles.fieldError : styles.fieldDefault]}
       >
         <Text style={[styles.fieldText, !value && styles.placeholder]}>
           {value ? formatDisplayDate(value) : 'Select date'}
         </Text>
-        <Calendar size={18} color={darkPalette.muted} />
+        <Calendar size={18} color={palette.muted} />
       </TouchableOpacity>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -106,49 +108,57 @@ export function DatePicker({
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: darkPalette.text,
-    marginBottom: 8,
-  },
-  field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderWidth: 1,
-    borderRadius: 14,
-    minHeight: 50,
-    paddingHorizontal: 14,
-  },
-  fieldText: {
-    fontSize: 16,
-    color: darkPalette.text,
-    flex: 1,
-  },
-  placeholder: {
-    color: darkPalette.muted,
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#ef4444',
-    marginTop: 6,
-    marginLeft: 4,
-  },
-  doneBtn: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    marginTop: 4,
-  },
-  doneBtnText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#f97316',
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      marginBottom: 16,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.palette.onBackground,
+      marginBottom: 8,
+    },
+    field: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.palette.surface + '99',
+      borderWidth: 1,
+      borderRadius: 14,
+      minHeight: 50,
+      paddingHorizontal: 14,
+    },
+    fieldDefault: {
+      borderColor: theme.palette.divider + 'B3',
+    },
+    fieldError: {
+      borderColor: theme.palette.error,
+    },
+    fieldText: {
+      fontSize: 16,
+      color: theme.palette.onBackground,
+      flex: 1,
+    },
+    placeholder: {
+      color: theme.palette.muted,
+    },
+    errorText: {
+      fontSize: 12,
+      color: theme.palette.error,
+      marginTop: 6,
+      marginLeft: 4,
+    },
+    doneBtn: {
+      alignSelf: 'flex-end',
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      marginTop: 4,
+    },
+    doneBtnText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.primary,
+    },
+  });
+}

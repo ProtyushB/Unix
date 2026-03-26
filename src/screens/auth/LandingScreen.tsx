@@ -11,6 +11,9 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppButton from '../../components/common/AppButton';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -55,6 +58,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const LandingScreen: React.FC<Props> = ({ navigation }) => {
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const renderModuleCard = ({ item }: { item: typeof MODULES[number] }) => {
     return (
       <View style={styles.moduleCard}>
@@ -70,7 +76,7 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <ScrollView removeClippedSubviews={false}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -142,147 +148,149 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 24,
+    },
 
-  // Hero
-  heroSection: {
-    alignItems: 'center',
-    paddingTop: 80,
-    paddingBottom: 32,
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  logoText: {
-    fontFamily: 'Inter-ExtraBold',
-    fontSize: 42,
-    color: '#f8fafc',
-    letterSpacing: -1,
-  },
-  logoAccent: {
-    fontFamily: 'Inter-ExtraBold',
-    fontSize: 42,
-    color: '#f97316',
-    letterSpacing: -1,
-  },
-  tagline: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    color: '#94a3b8',
-    marginTop: 12,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
+    // Hero
+    heroSection: {
+      alignItems: 'center',
+      paddingTop: 80,
+      paddingBottom: 32,
+    },
+    logoRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+    },
+    logoText: {
+      fontFamily: 'Inter-ExtraBold',
+      fontSize: 42,
+      color: theme.palette.onBackground,
+      letterSpacing: -1,
+    },
+    logoAccent: {
+      fontFamily: 'Inter-ExtraBold',
+      fontSize: 42,
+      color: theme.colors.primary,
+      letterSpacing: -1,
+    },
+    tagline: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 16,
+      color: theme.palette.muted,
+      marginTop: 12,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
 
-  // CTA
-  ctaSection: {
-    marginTop: 8,
-    marginBottom: 40,
-  },
-  ctaSpacer: {
-    height: 12,
-  },
+    // CTA
+    ctaSection: {
+      marginTop: 8,
+      marginBottom: 40,
+    },
+    ctaSpacer: {
+      height: 12,
+    },
 
-  // Features
-  featuresSection: {
-    marginBottom: 36,
-  },
-  sectionTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 20,
-    color: '#f8fafc',
-    marginBottom: 16,
-  },
-  featuresGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -6,
-  },
-  featureCard: {
-    width: (SCREEN_WIDTH - 48 - 12) / 2,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 6,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  featureIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#f9731615',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  featureTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    color: '#f8fafc',
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 12,
-    color: '#94a3b8',
-    lineHeight: 18,
-  },
+    // Features
+    featuresSection: {
+      marginBottom: 36,
+    },
+    sectionTitle: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 20,
+      color: theme.palette.onBackground,
+      marginBottom: 16,
+    },
+    featuresGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginHorizontal: -6,
+    },
+    featureCard: {
+      width: (SCREEN_WIDTH - 48 - 12) / 2,
+      backgroundColor: theme.palette.surface,
+      borderRadius: 16,
+      padding: 16,
+      marginHorizontal: 6,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    featureIconContainer: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: theme.colors.primary + '14',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    featureTitle: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 14,
+      color: theme.palette.onBackground,
+      marginBottom: 4,
+    },
+    featureDescription: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 12,
+      color: theme.palette.muted,
+      lineHeight: 18,
+    },
 
-  // Modules
-  modulesSection: {
-    marginBottom: 24,
-  },
-  modulesListContent: {
-    paddingRight: 24,
-  },
-  moduleCard: {
-    width: 96,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 14,
-    marginRight: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  moduleIconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  moduleTitle: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 12,
-    color: '#f8fafc',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  moduleIcon: {
-    fontSize: 26,
-  },
-  featureIcon: {
-    fontSize: 20,
-  },
+    // Modules
+    modulesSection: {
+      marginBottom: 24,
+    },
+    modulesListContent: {
+      paddingRight: 24,
+    },
+    moduleCard: {
+      width: 96,
+      backgroundColor: theme.palette.surface,
+      borderRadius: 16,
+      padding: 14,
+      marginRight: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    moduleIconContainer: {
+      width: 52,
+      height: 52,
+      borderRadius: 14,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    moduleTitle: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 12,
+      color: theme.palette.onBackground,
+      textAlign: 'center',
+      lineHeight: 16,
+    },
+    moduleIcon: {
+      fontSize: 26,
+    },
+    featureIcon: {
+      fontSize: 20,
+    },
 
-  bottomSpacer: {
-    height: 40,
-  },
-});
+    bottomSpacer: {
+      height: 40,
+    },
+  });
+}
 
 export default LandingScreen;

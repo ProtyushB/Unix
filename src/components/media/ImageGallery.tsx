@@ -11,7 +11,8 @@ import {
   type NativeScrollEvent,
 } from 'react-native';
 import { Plus, X } from 'lucide-react-native';
-import { darkPalette, themes } from '../../theme/colors';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ const THUMBNAIL_SIZE = SCREEN_WIDTH - 64;
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
+  const styles = useThemedStyles(createStyles);
   const [activeIndex, setActiveIndex] = useState(0);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
@@ -64,7 +66,7 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
         <Image source={{ uri: item.uri }} style={styles.thumbnail} />
       </TouchableOpacity>
     ),
-    [openViewer],
+    [openViewer, styles.thumbnail],
   );
 
   const renderViewerItem = useCallback(
@@ -77,7 +79,7 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
         />
       </View>
     ),
-    [],
+    [styles.viewerImageContainer, styles.viewerImage],
   );
 
   return (
@@ -164,70 +166,72 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  galleryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  listContent: {
-    gap: 0,
-  },
-  thumbnail: {
-    width: THUMBNAIL_SIZE,
-    height: THUMBNAIL_SIZE * 0.6,
-    borderRadius: 14,
-    backgroundColor: darkPalette.border,
-  },
-  addBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: themes.default.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 10,
-    gap: 6,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  dotActive: {
-    backgroundColor: themes.default.primary,
-  },
-  dotInactive: {
-    backgroundColor: darkPalette.border,
-  },
-  viewer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-    justifyContent: 'center',
-  },
-  closeBtn: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 10,
-    padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 20,
-  },
-  viewerImageContainer: {
-    width: SCREEN_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  viewerImage: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      marginBottom: 16,
+    },
+    galleryRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    listContent: {
+      gap: 0,
+    },
+    thumbnail: {
+      width: THUMBNAIL_SIZE,
+      height: THUMBNAIL_SIZE * 0.6,
+      borderRadius: 14,
+      backgroundColor: theme.palette.divider,
+    },
+    addBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: theme.colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 12,
+    },
+    dots: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 10,
+      gap: 6,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    dotActive: {
+      backgroundColor: theme.colors.primary,
+    },
+    dotInactive: {
+      backgroundColor: theme.palette.divider,
+    },
+    viewer: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.95)',
+      justifyContent: 'center',
+    },
+    closeBtn: {
+      position: 'absolute',
+      top: 50,
+      right: 20,
+      zIndex: 10,
+      padding: 8,
+      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+      borderRadius: 20,
+    },
+    viewerImageContainer: {
+      width: SCREEN_WIDTH,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    viewerImage: {
+      width: SCREEN_WIDTH,
+      height: SCREEN_WIDTH,
+    },
+  });
+}

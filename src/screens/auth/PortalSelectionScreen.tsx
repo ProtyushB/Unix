@@ -12,6 +12,9 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getLoggedInUser, LoggedInUser } from '../../storage/auth.storage';
 import { getUserProfile, setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -42,6 +45,9 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const autoNavRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const isBusinessOwner = user?.roles?.includes('BUSINESS_OWNER') ?? false;
   const isCustomer = user?.roles?.includes('CUSTOMER') ?? true;
@@ -128,7 +134,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+        <StatusBar barStyle="light-content" backgroundColor={palette.background} />
         <View style={styles.centered}>
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
@@ -138,7 +144,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <ScrollView removeClippedSubviews={false}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -228,137 +234,139 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 16,
-    color: '#94a3b8',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 40,
-  },
-  content: {
-    flex: 1,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingText: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 16,
+      color: theme.palette.muted,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 80,
+      paddingBottom: 40,
+    },
+    content: {
+      flex: 1,
+    },
 
-  // Success icon
-  successIconContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  successIconText: {
-    fontSize: 56,
-    color: '#22c55e',
-  },
-  portalIconText: {
-    fontSize: 28,
-  },
+    // Success icon
+    successIconContainer: {
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    successIconText: {
+      fontSize: 56,
+      color: theme.palette.success,
+    },
+    portalIconText: {
+      fontSize: 28,
+    },
 
-  // Welcome
-  welcomeTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 32,
-    color: '#f8fafc',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  welcomeName: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 20,
-    color: '#f97316',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
+    // Welcome
+    welcomeTitle: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 32,
+      color: theme.palette.onBackground,
+      textAlign: 'center',
+      marginBottom: 4,
+    },
+    welcomeName: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 20,
+      color: theme.colors.primary,
+      textAlign: 'center',
+      marginBottom: 24,
+    },
 
-  // Success card
-  successCard: {
-    backgroundColor: '#22c55e15',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 32,
-    borderWidth: 1,
-    borderColor: '#22c55e30',
-  },
-  successText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#86efac',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
+    // Success card
+    successCard: {
+      backgroundColor: '#22c55e15',
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 32,
+      borderWidth: 1,
+      borderColor: '#22c55e30',
+    },
+    successText: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: '#86efac',
+      textAlign: 'center',
+      lineHeight: 22,
+    },
 
-  // Portal section
-  portalSection: {
-    gap: 16,
-  },
-  portalCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  portalIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    backgroundColor: '#f9731615',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  portalIconCustomer: {
-    backgroundColor: '#0ea5e915',
-  },
-  portalCardContent: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  portalCardTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 17,
-    color: '#f8fafc',
-    marginBottom: 4,
-  },
-  portalCardDescription: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13,
-    color: '#94a3b8',
-    lineHeight: 19,
-  },
-  portalArrow: {
-    marginLeft: 8,
-  },
-  portalArrowText: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 20,
-    color: '#64748b',
-  },
+    // Portal section
+    portalSection: {
+      gap: 16,
+    },
+    portalCard: {
+      backgroundColor: theme.palette.surface,
+      borderRadius: 20,
+      padding: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    portalIconContainer: {
+      width: 60,
+      height: 60,
+      borderRadius: 16,
+      backgroundColor: theme.colors.primary + '14',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    portalIconCustomer: {
+      backgroundColor: '#0ea5e915',
+    },
+    portalCardContent: {
+      flex: 1,
+      marginLeft: 16,
+    },
+    portalCardTitle: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 17,
+      color: theme.palette.onBackground,
+      marginBottom: 4,
+    },
+    portalCardDescription: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 13,
+      color: theme.palette.muted,
+      lineHeight: 19,
+    },
+    portalArrow: {
+      marginLeft: 8,
+    },
+    portalArrowText: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 20,
+      color: theme.palette.muted,
+    },
 
-  // Auto-nav hint
-  autoNavHint: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13,
-    color: '#64748b',
-    textAlign: 'center',
-    marginTop: 24,
-  },
-});
+    // Auto-nav hint
+    autoNavHint: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 13,
+      color: theme.palette.muted,
+      textAlign: 'center',
+      marginTop: 24,
+    },
+  });
+}
 
 export default PortalSelectionScreen;

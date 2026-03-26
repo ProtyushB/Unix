@@ -8,7 +8,9 @@ import {
   type ViewStyle,
   type TextInputProps,
 } from 'react-native';
-import { darkPalette } from '../../theme/colors';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -53,13 +55,15 @@ export const AppInput = React.forwardRef<TextInput, AppInputProps>(function AppI
   autoComplete,
   maxLength,
 }, ref) {
+  const { palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [isFocused, setIsFocused] = useState(false);
 
-  const borderColor = error
-    ? '#ef4444'
+  const borderStyle = error
+    ? styles.borderError
     : isFocused
-      ? '#f97316'
-      : 'rgba(51, 65, 85, 0.7)';
+      ? styles.borderFocused
+      : styles.borderDefault;
 
   return (
     <View style={[styles.container, style]}>
@@ -68,7 +72,7 @@ export const AppInput = React.forwardRef<TextInput, AppInputProps>(function AppI
       <View
         style={[
           styles.inputRow,
-          { borderColor },
+          borderStyle,
           disabled && styles.inputDisabled,
           multiline && styles.inputMultiline,
         ]}
@@ -81,7 +85,7 @@ export const AppInput = React.forwardRef<TextInput, AppInputProps>(function AppI
           defaultValue={defaultValue}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={darkPalette.muted}
+          placeholderTextColor={palette.muted}
           editable={!disabled}
           keyboardType={keyboardType}
           secureTextEntry={secureTextEntry}
@@ -112,59 +116,54 @@ export const AppInput = React.forwardRef<TextInput, AppInputProps>(function AppI
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: darkPalette.text,
-    marginBottom: 8,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderWidth: 1,
-    borderRadius: 14,
-    minHeight: 50,
-    paddingHorizontal: 14,
-  },
-  inputDisabled: {
-    opacity: 0.5,
-  },
-  inputMultiline: {
-    minHeight: 100,
-    alignItems: 'flex-start',
-    paddingVertical: 12,
-  },
-  iconLeft: {
-    marginRight: 10,
-  },
-  iconRight: {
-    marginLeft: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: darkPalette.text,
-    paddingVertical: 12,
-  },
-  inputWithLeftIcon: {
-    paddingLeft: 0,
-  },
-  inputWithRightIcon: {
-    paddingRight: 0,
-  },
-  multilineInput: {
-    minHeight: 76,
-    paddingTop: 0,
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#ef4444',
-    marginTop: 6,
-    marginLeft: 4,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      marginBottom: 16,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.palette.onBackground,
+      marginBottom: 8,
+    },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.palette.background + '99',
+      borderWidth: 1,
+      borderRadius: 14,
+      minHeight: 50,
+      paddingHorizontal: 14,
+    },
+    borderDefault: { borderColor: theme.palette.divider + 'B3' },
+    borderFocused: { borderColor: theme.colors.primary },
+    borderError:   { borderColor: theme.palette.error },
+    inputDisabled: { opacity: 0.5 },
+    inputMultiline: {
+      minHeight: 100,
+      alignItems: 'flex-start',
+      paddingVertical: 12,
+    },
+    iconLeft:  { marginRight: 10 },
+    iconRight: { marginLeft: 10 },
+    input: {
+      flex: 1,
+      fontSize: 16,
+      color: theme.palette.onBackground,
+      paddingVertical: 12,
+    },
+    inputWithLeftIcon:  { paddingLeft: 0 },
+    inputWithRightIcon: { paddingRight: 0 },
+    multilineInput: {
+      minHeight: 76,
+      paddingTop: 0,
+    },
+    errorText: {
+      fontSize: 12,
+      color: theme.palette.error,
+      marginTop: 6,
+      marginLeft: 4,
+    },
+  });
+}

@@ -15,6 +15,9 @@ import AppButton from '../../components/common/AppButton';
 import StepProgress from '../../components/common/StepProgress';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
 import { validateEmail } from '../../utils/validators';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -42,6 +45,9 @@ const SignupEmailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [email, setEmail] = useState(route.params?.prefillEmail ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const authService = getAuthService();
 
@@ -74,7 +80,7 @@ const SignupEmailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -153,73 +159,75 @@ const SignupEmailScreen: React.FC<Props> = ({ navigation, route }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 32,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 20,
+      paddingBottom: 32,
+    },
 
-  // Title
-  title: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 28,
-    color: '#f8fafc',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 15,
-    color: '#94a3b8',
-    marginBottom: 32,
-    lineHeight: 22,
-  },
+    // Title
+    title: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 28,
+      color: theme.palette.onBackground,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 15,
+      color: theme.palette.muted,
+      marginBottom: 32,
+      lineHeight: 22,
+    },
 
-  // Error
-  errorContainer: {
-    backgroundColor: '#ef444420',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ef444440',
-  },
-  errorText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 13,
-    color: '#fca5a5',
-    textAlign: 'center',
-  },
+    // Error
+    errorContainer: {
+      backgroundColor: theme.palette.error + '20',
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.palette.error + '40',
+    },
+    errorText: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 13,
+      color: theme.palette.error + 'CC',
+      textAlign: 'center',
+    },
 
-  // Button
-  buttonContainer: {
-    marginTop: 12,
-  },
+    // Button
+    buttonContainer: {
+      marginTop: 12,
+    },
 
-  // Login link
-  loginRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  loginLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#94a3b8',
-  },
-  loginLink: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    color: '#f97316',
-  },
-});
+    // Login link
+    loginRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 24,
+    },
+    loginLabel: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: theme.palette.muted,
+    },
+    loginLink: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 14,
+      color: theme.colors.primary,
+    },
+  });
+}
 
 export default SignupEmailScreen;

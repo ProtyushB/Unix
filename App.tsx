@@ -10,6 +10,7 @@ import React from 'react';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {StyleSheet} from 'react-native';
+import {ThemeProvider} from './src/context/ThemeContext';
 import {AppProvider} from './src/context/AppContext';
 import {RootNavigator} from './src/navigation/RootNavigator';
 
@@ -17,9 +18,11 @@ const App: React.FC = () => {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <AppProvider>
-          <RootNavigator />
-        </AppProvider>
+        <ThemeProvider>
+          <AppProvider>
+            <RootNavigator />
+          </AppProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

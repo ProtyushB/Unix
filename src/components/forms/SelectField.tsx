@@ -8,7 +8,9 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
-import { darkPalette, themes } from '../../theme/colors';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -42,6 +44,8 @@ export function SelectField({
   placeholder = 'Select an option',
   error,
 }: SelectFieldProps) {
+  const { palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const triggerRef = useRef<TouchableOpacity>(null);
   const searchRef = useRef<TextInput>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -76,8 +80,6 @@ export function SelectField({
     closeDropdown();
   };
 
-  const borderColor = error ? '#ef4444' : 'rgba(51, 65, 85, 0.7)';
-
   return (
     <View style={styles.container}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
@@ -85,7 +87,7 @@ export function SelectField({
       <TouchableOpacity
         ref={triggerRef}
         onPress={openDropdown}
-        style={[styles.field, { borderColor }]}
+        style={[styles.field, error ? styles.fieldError : styles.fieldDefault]}
         activeOpacity={0.7}
       >
         <Text style={[styles.fieldText, !selectedLabel && styles.placeholder]}>
@@ -130,7 +132,7 @@ export function SelectField({
               value={search}
               onChangeText={setSearch}
               placeholder="Search..."
-              placeholderTextColor={darkPalette.muted}
+              placeholderTextColor={palette.muted}
               autoCorrect={false}
               autoCapitalize="none"
             />
@@ -182,124 +184,132 @@ export function SelectField({
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: darkPalette.text,
-    marginBottom: 8,
-  },
-  field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderWidth: 1,
-    borderRadius: 14,
-    minHeight: 50,
-    paddingHorizontal: 14,
-  },
-  fieldText: {
-    fontSize: 16,
-    color: darkPalette.text,
-    flex: 1,
-  },
-  placeholder: {
-    color: darkPalette.muted,
-  },
-  arrow: {
-    fontSize: 16,
-    color: darkPalette.muted,
-  },
-  arrowOpen: {
-    color: themes.default.primary,
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#ef4444',
-    marginTop: 6,
-    marginLeft: 4,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      marginBottom: 16,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.palette.onBackground,
+      marginBottom: 8,
+    },
+    field: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.palette.surface + '99',
+      borderWidth: 1,
+      borderRadius: 14,
+      minHeight: 50,
+      paddingHorizontal: 14,
+    },
+    fieldDefault: {
+      borderColor: theme.palette.divider + 'B3',
+    },
+    fieldError: {
+      borderColor: theme.palette.error,
+    },
+    fieldText: {
+      fontSize: 16,
+      color: theme.palette.onBackground,
+      flex: 1,
+    },
+    placeholder: {
+      color: theme.palette.muted,
+    },
+    arrow: {
+      fontSize: 16,
+      color: theme.palette.muted,
+    },
+    arrowOpen: {
+      color: theme.colors.primary,
+    },
+    errorText: {
+      fontSize: 12,
+      color: theme.palette.error,
+      marginTop: 6,
+      marginLeft: 4,
+    },
 
-  // Dropdown container
-  dropdown: {
-    position: 'absolute',
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    overflow: 'hidden',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-  },
+    // Dropdown container
+    dropdown: {
+      position: 'absolute',
+      backgroundColor: theme.palette.surface,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      overflow: 'hidden',
+      elevation: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 10,
+    },
 
-  // Search
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 48,
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  searchIcon: {
-    fontSize: 18,
-    color: darkPalette.muted,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: darkPalette.text,
-    paddingVertical: 0,
-  },
-  clearIcon: {
-    fontSize: 13,
-    color: darkPalette.muted,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#334155',
-  },
+    // Search
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: 48,
+      paddingHorizontal: 12,
+      gap: 8,
+    },
+    searchIcon: {
+      fontSize: 18,
+      color: theme.palette.muted,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 14,
+      color: theme.palette.onBackground,
+      paddingVertical: 0,
+    },
+    clearIcon: {
+      fontSize: 13,
+      color: theme.palette.muted,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.palette.divider,
+    },
 
-  // Options
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    height: OPTION_HEIGHT,
-  },
-  optionSelected: {
-    backgroundColor: 'rgba(249, 115, 22, 0.1)',
-  },
-  optionText: {
-    fontSize: 15,
-    color: darkPalette.text,
-    flex: 1,
-  },
-  optionTextSelected: {
-    fontWeight: '600',
-    color: themes.default.primary,
-  },
-  checkmark: {
-    fontSize: 16,
-    color: themes.default.primary,
-  },
-  emptyRow: {
-    height: OPTION_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: darkPalette.muted,
-  },
-});
+    // Options
+    option: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      height: OPTION_HEIGHT,
+    },
+    optionSelected: {
+      backgroundColor: theme.colors.primary + '1A',
+    },
+    optionText: {
+      fontSize: 15,
+      color: theme.palette.onBackground,
+      flex: 1,
+    },
+    optionTextSelected: {
+      fontWeight: '600',
+      color: theme.colors.primary,
+    },
+    checkmark: {
+      fontSize: 16,
+      color: theme.colors.primary,
+    },
+    emptyRow: {
+      height: OPTION_HEIGHT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyText: {
+      fontSize: 14,
+      color: theme.palette.muted,
+    },
+  });
+}
 
 export default SelectField;

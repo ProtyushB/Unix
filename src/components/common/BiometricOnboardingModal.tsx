@@ -5,14 +5,16 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  ActivityIndicator,
 } from 'react-native';
 import {biometricStorage} from '../../storage/biometric.storage';
 import {useBiometric} from '../../hooks/useBiometric';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 export function BiometricOnboardingModal() {
   const [visible, setVisible] = useState(false);
   const {available, biometryLabel, loading, enable} = useBiometric();
+  const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
     if (loading) return;
@@ -65,47 +67,49 @@ export function BiometricOnboardingModal() {
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  card: {
-    backgroundColor: '#1e293b',
-    borderRadius: 24,
-    padding: 28,
-    width: '100%',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  icon: {fontSize: 48, marginBottom: 16},
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    textAlign: 'center',
-    lineHeight: 21,
-    marginBottom: 28,
-  },
-  primaryBtn: {
-    width: '100%',
-    backgroundColor: '#f97316',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  primaryBtnText: {fontSize: 16, fontWeight: '700', color: '#fff'},
-  skipBtn: {paddingVertical: 8},
-  skipBtnText: {fontSize: 14, color: '#64748b', fontWeight: '500'},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.65)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 32,
+    },
+    card: {
+      backgroundColor: theme.palette.surface,
+      borderRadius: 24,
+      padding: 28,
+      width: '100%',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    icon: {fontSize: 48, marginBottom: 16},
+    title: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      marginBottom: 10,
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: 14,
+      color: theme.palette.onSurface,
+      textAlign: 'center',
+      lineHeight: 21,
+      marginBottom: 28,
+    },
+    primaryBtn: {
+      width: '100%',
+      backgroundColor: theme.colors.primary,
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    primaryBtnText: {fontSize: 16, fontWeight: '700', color: '#fff'},
+    skipBtn: {paddingVertical: 8},
+    skipBtnText: {fontSize: 14, color: theme.palette.muted, fontWeight: '500'},
+  });
+}

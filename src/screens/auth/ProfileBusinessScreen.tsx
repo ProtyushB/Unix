@@ -16,6 +16,9 @@ import SelectField from '../../components/forms/SelectField';
 import StepProgress from '../../components/common/StepProgress';
 import { validatePhone, validateEmail } from '../../utils/validators';
 import { BUSINESS_TYPES } from '../../utils/businessTypes';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -69,6 +72,9 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
   const [hasBusiness, setHasBusiness] = useState<boolean | null>(null);
   const [businesses, setBusinesses] = useState<BusinessForm[]>([createEmptyBusiness()]);
   const [errors, setErrors] = useState<Record<string, Record<string, string>>>({});
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const innerViewY = useRef(0);
@@ -201,7 +207,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -276,7 +282,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                           onPress={() => removeBusiness(biz.id)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Text style={{ fontSize: 16, color: '#ef4444' }}>🗑</Text>
+                          <Text style={{ fontSize: 16, color: palette.error }}>🗑</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -366,7 +372,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                   onPress={addBusiness}
                   activeOpacity={0.7}
                 >
-                  <Text style={{ fontSize: 18, color: '#f97316' }}>+</Text>
+                  <Text style={{ fontSize: 18, color: colors.primary }}>+</Text>
                   <Text style={styles.addButtonText}>Add Another Business</Text>
                 </TouchableOpacity>
               </View>
@@ -400,130 +406,132 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 32,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 20,
+      paddingBottom: 32,
+    },
 
-  // Title
-  title: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 28,
-    color: '#f8fafc',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 15,
-    color: '#94a3b8',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
+    // Title
+    title: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 28,
+      color: theme.palette.onBackground,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 15,
+      color: theme.palette.muted,
+      marginBottom: 24,
+      lineHeight: 22,
+    },
 
-  // Toggle
-  toggleRow: {
-    flexDirection: 'row',
-    marginBottom: 24,
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#1e293b',
-    alignItems: 'center',
-  },
-  toggleButtonActive: {
-    borderColor: '#f97316',
-    backgroundColor: '#f9731615',
-  },
-  toggleText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 15,
-    color: '#94a3b8',
-  },
-  toggleTextActive: {
-    color: '#f97316',
-  },
-  toggleSpacer: {
-    width: 12,
-  },
+    // Toggle
+    toggleRow: {
+      flexDirection: 'row',
+      marginBottom: 24,
+    },
+    toggleButton: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      backgroundColor: theme.palette.surface,
+      alignItems: 'center',
+    },
+    toggleButtonActive: {
+      borderColor: theme.colors.primary,
+      backgroundColor: theme.colors.softBg,
+    },
+    toggleText: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 15,
+      color: theme.palette.muted,
+    },
+    toggleTextActive: {
+      color: theme.colors.primary,
+    },
+    toggleSpacer: {
+      width: 12,
+    },
 
-  // Business forms
-  businessFormsSection: {
-    marginBottom: 8,
-  },
-  businessCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  businessCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  businessCardTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
-    color: '#f8fafc',
-  },
+    // Business forms
+    businessFormsSection: {
+      marginBottom: 8,
+    },
+    businessCard: {
+      backgroundColor: theme.palette.surface,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    businessCardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    businessCardTitle: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 16,
+      color: theme.palette.onBackground,
+    },
 
-  // Add button
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#f9731640',
-    borderStyle: 'dashed',
-    marginBottom: 8,
-  },
-  addButtonText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    color: '#f97316',
-    marginLeft: 8,
-  },
+    // Add button
+    addButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderStyle: 'dashed',
+      marginBottom: 8,
+    },
+    addButtonText: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 14,
+      color: theme.colors.primary,
+      marginLeft: 8,
+    },
 
-  // No business card
-  noBizCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  noBizText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#94a3b8',
-    lineHeight: 22,
-    textAlign: 'center',
-  },
+    // No business card
+    noBizCard: {
+      backgroundColor: theme.palette.surface,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    noBizText: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: theme.palette.muted,
+      lineHeight: 22,
+      textAlign: 'center',
+    },
 
-  // Button
-  buttonContainer: {
-    marginTop: 16,
-  },
-});
+    // Button
+    buttonContainer: {
+      marginTop: 16,
+    },
+  });
+}
 
 export default ProfileBusinessScreen;

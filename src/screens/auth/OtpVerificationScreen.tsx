@@ -14,6 +14,9 @@ import OtpInput from '../../components/forms/OtpInput';
 import AppButton from '../../components/common/AppButton';
 import StepProgress from '../../components/common/StepProgress';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -47,6 +50,9 @@ const OtpVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
   const [resending, setResending] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   // Sync email + reset OTP if user comes back after editing it
   useEffect(() => {
@@ -131,7 +137,7 @@ const OtpVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -234,115 +240,117 @@ const OtpVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 32,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 20,
+      paddingBottom: 32,
+    },
 
-  // Title
-  title: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 28,
-    color: '#f8fafc',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 15,
-    color: '#94a3b8',
-    marginBottom: 4,
-    lineHeight: 22,
-  },
-  emailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  emailText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 15,
-    color: '#f8fafc',
-    flexShrink: 1,
-  },
-  editButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    backgroundColor: '#f9731620',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#f9731640',
-  },
-  editButtonText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 12,
-    color: '#f97316',
-  },
-  editHint: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 28,
-    lineHeight: 18,
-  },
+    // Title
+    title: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 28,
+      color: theme.palette.onBackground,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 15,
+      color: theme.palette.muted,
+      marginBottom: 4,
+      lineHeight: 22,
+    },
+    emailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 4,
+      marginBottom: 6,
+    },
+    emailText: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 15,
+      color: theme.palette.onBackground,
+      flexShrink: 1,
+    },
+    editButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      backgroundColor: theme.colors.primary + '33',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    editButtonText: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 12,
+      color: theme.colors.primary,
+    },
+    editHint: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 12,
+      color: theme.palette.muted,
+      marginBottom: 28,
+      lineHeight: 18,
+    },
 
-  // Error
-  errorContainer: {
-    backgroundColor: '#ef444420',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ef444440',
-  },
-  errorText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 13,
-    color: '#fca5a5',
-    textAlign: 'center',
-  },
+    // Error
+    errorContainer: {
+      backgroundColor: theme.palette.error + '20',
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.palette.error + '40',
+    },
+    errorText: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 13,
+      color: theme.palette.error + 'CC',
+      textAlign: 'center',
+    },
 
-  // OTP
-  otpContainer: {
-    marginBottom: 24,
-  },
+    // OTP
+    otpContainer: {
+      marginBottom: 24,
+    },
 
-  // Button
-  buttonContainer: {
-    marginTop: 12,
-  },
+    // Button
+    buttonContainer: {
+      marginTop: 12,
+    },
 
-  // Resend
-  resendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-    flexWrap: 'wrap',
-  },
-  resendLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#94a3b8',
-  },
-  resendLink: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    color: '#f97316',
-  },
-  resendDisabled: {
-    color: '#64748b',
-  },
-});
+    // Resend
+    resendRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 24,
+      flexWrap: 'wrap',
+    },
+    resendLabel: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: theme.palette.muted,
+    },
+    resendLink: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 14,
+      color: theme.colors.primary,
+    },
+    resendDisabled: {
+      color: theme.palette.muted,
+    },
+  });
+}
 
 export default OtpVerificationScreen;

@@ -14,6 +14,9 @@ import {BusinessCard} from '../../components/list/BusinessCard';
 import {SectionHeader} from '../../components/common/SectionHeader';
 import {EmptyState} from '../../components/common/EmptyState';
 import {LoadingSpinner} from '../../components/common/LoadingSpinner';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 const CATEGORIES = [
   {key: 'All', label: 'All'},
@@ -29,6 +32,9 @@ export const ExploreScreen: React.FC = () => {
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const filteredBusinesses = businesses.filter(b => {
     const matchesSearch =
@@ -58,7 +64,7 @@ export const ExploreScreen: React.FC = () => {
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search businesses..."
-          leftIcon={<Text style={{ fontSize: 16, color: '#64748b' }}>🔍</Text>}
+          leftIcon={<Text style={{ fontSize: 16, color: palette.muted }}>🔍</Text>}
         />
 
         <ScrollView
@@ -107,7 +113,7 @@ export const ExploreScreen: React.FC = () => {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor="#f97316"
+                tintColor={colors.primary}
               />
             }
             contentContainerStyle={styles.listContent}
@@ -119,49 +125,51 @@ export const ExploreScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  categoryRow: {
-    marginTop: 12,
-    marginBottom: 8,
-    maxHeight: 44,
-  },
-  categoryContent: {
-    gap: 8,
-    paddingRight: 16,
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(30,41,59,0.6)',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  categoryChipActive: {
-    backgroundColor: 'rgba(249,115,22,0.15)',
-    borderColor: '#f97316',
-  },
-  categoryText: {
-    fontSize: 14,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  categoryTextActive: {
-    color: '#f97316',
-  },
-  listContent: {
-    paddingBottom: 24,
-    gap: 12,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingHorizontal: 16,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      marginTop: 16,
+      marginBottom: 16,
+    },
+    categoryRow: {
+      marginTop: 12,
+      marginBottom: 8,
+      maxHeight: 44,
+    },
+    categoryContent: {
+      gap: 8,
+      paddingRight: 16,
+    },
+    categoryChip: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: theme.palette.surface + '99',
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    categoryChipActive: {
+      backgroundColor: theme.colors.softBg,
+      borderColor: theme.colors.primary,
+    },
+    categoryText: {
+      fontSize: 14,
+      color: theme.palette.muted,
+      fontWeight: '500',
+    },
+    categoryTextActive: {
+      color: theme.colors.primary,
+    },
+    listContent: {
+      paddingBottom: 24,
+      gap: 12,
+    },
+  });
+}

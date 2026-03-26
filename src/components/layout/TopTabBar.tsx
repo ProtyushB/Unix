@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { darkPalette, themes } from '../../theme/colors';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,8 @@ interface TopTabBarProps {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function TopTabBar({ tabs, activeTab, onTabChange }: TopTabBarProps) {
+  const styles = useThemedStyles(createStyles);
+
   const renderTab = useCallback(
     (tab: Tab) => {
       const isActive = tab.key === activeTab;
@@ -39,7 +42,7 @@ export function TopTabBar({ tabs, activeTab, onTabChange }: TopTabBarProps) {
         </TouchableOpacity>
       );
     },
-    [activeTab, onTabChange],
+    [activeTab, onTabChange, styles],
   );
 
   return (
@@ -55,34 +58,36 @@ export function TopTabBar({ tabs, activeTab, onTabChange }: TopTabBarProps) {
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  pill: {
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    borderRadius: 9999,
-  },
-  pillActive: {
-    backgroundColor: themes.default.primary,
-  },
-  pillInactive: {
-    backgroundColor: darkPalette.surface,
-    borderWidth: 1,
-    borderColor: darkPalette.border,
-  },
-  pillText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  pillTextActive: {
-    color: '#ffffff',
-  },
-  pillTextInactive: {
-    color: darkPalette.muted,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      gap: 8,
+    },
+    pill: {
+      paddingHorizontal: 18,
+      paddingVertical: 9,
+      borderRadius: 9999,
+    },
+    pillActive: {
+      backgroundColor: theme.colors.primary,
+    },
+    pillInactive: {
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    pillText: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    pillTextActive: {
+      color: '#ffffff',
+    },
+    pillTextInactive: {
+      color: theme.palette.muted,
+    },
+  });
+}

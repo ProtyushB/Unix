@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { darkPalette, themes } from '../../theme/colors';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -15,10 +17,13 @@ interface ProgressBarProps {
 
 export function ProgressBar({
   progress,
-  color = themes.default.primary,
+  color,
   height = 8,
   label,
 }: ProgressBarProps) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const fillColor = color ?? colors.primary;
   const clampedProgress = Math.min(1, Math.max(0, progress));
   const percentage = Math.round(clampedProgress * 100);
 
@@ -32,7 +37,7 @@ export function ProgressBar({
               width: `${percentage}%`,
               height,
               borderRadius: height / 2,
-              backgroundColor: color,
+              backgroundColor: fillColor,
             },
           ]}
         />
@@ -46,23 +51,25 @@ export function ProgressBar({
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-  },
-  track: {
-    backgroundColor: darkPalette.border,
-    overflow: 'hidden',
-  },
-  fill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-  },
-  label: {
-    fontSize: 12,
-    color: darkPalette.muted,
-    marginTop: 6,
-    textAlign: 'right',
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      width: '100%',
+    },
+    track: {
+      backgroundColor: theme.palette.divider,
+      overflow: 'hidden',
+    },
+    fill: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+    },
+    label: {
+      fontSize: 12,
+      color: theme.palette.muted,
+      marginTop: 6,
+      textAlign: 'right',
+    },
+  });
+}

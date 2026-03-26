@@ -1,36 +1,18 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface AvatarBadgeProps {
   name: string;
   size?: number;
+  /** Override background colour (bypasses theme pool). */
   color?: string;
   showBadge?: boolean;
   badgeColor?: string;
-}
-
-// ─── Default Colors (picked based on name hash) ────────────────────────────
-
-const AVATAR_COLORS = [
-  '#f97316',
-  '#0ea5e9',
-  '#10b981',
-  '#8b5cf6',
-  '#e11d48',
-  '#f59e0b',
-  '#14b8a6',
-  '#6366f1',
-] as const;
-
-function getColorFromName(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[index];
 }
 
 // ─── Initials ───────────────────────────────────────────────────────────────
@@ -50,11 +32,17 @@ export function AvatarBadge({
   size = 40,
   color,
   showBadge = false,
-  badgeColor = '#10b981',
+  badgeColor,
 }: AvatarBadgeProps) {
-  const bgColor = color ?? getColorFromName(name);
+  const { avatar, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const pair = useMemo(() => avatar.forName(name), [avatar, name]);
+
+  const bgColor = color ?? pair.bg;
+  const textColor = color ? '#ffffff' : pair.text;
+  const resolvedBadgeColor = badgeColor ?? palette.success;
   const initials = useMemo(() => getInitials(name), [name]);
-  const fontSize = Math.round(size * 0.38);
+  const initFontSize = Math.round(size * 0.38);
   const badgeSize = Math.round(size * 0.28);
 
   return (
@@ -70,7 +58,9 @@ export function AvatarBadge({
           },
         ]}
       >
-        <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
+        <Text style={[styles.initials, { fontSize: initFontSize, color: textColor }]}>
+          {initials}
+        </Text>
       </View>
 
       {showBadge ? (
@@ -81,9 +71,9 @@ export function AvatarBadge({
               width: badgeSize,
               height: badgeSize,
               borderRadius: badgeSize / 2,
-              backgroundColor: badgeColor,
+              backgroundColor: resolvedBadgeColor,
               borderWidth: 2,
-              borderColor: '#0f172a',
+              borderColor: palette.background,
             },
           ]}
         />
@@ -94,21 +84,22 @@ export function AvatarBadge({
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    position: 'relative',
-  },
-  circle: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initials: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  badge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-  },
-});
+function createStyles(_theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      position: 'relative',
+    },
+    circle: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    initials: {
+      fontWeight: '700',
+    },
+    badge: {
+      position: 'absolute',
+      bottom: 0,
+      right: 0,
+    },
+  });
+}

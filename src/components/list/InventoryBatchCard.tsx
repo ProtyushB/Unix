@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Pencil, Trash2 } from 'lucide-react-native';
-import { darkPalette } from '../../theme/colors';
 import { formatDate } from '../../utils/formatters';
 import { StatusPill } from '../common/StatusPill';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -27,27 +29,34 @@ interface InventoryBatchCardProps {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function getQuantityColor(remaining: number, purchased: number): string {
-  if (purchased === 0) return darkPalette.muted;
+function getQuantityColor(
+  remaining: number,
+  purchased: number,
+  palette: AppTheme['palette'],
+): string {
+  if (purchased === 0) return palette.muted;
   const ratio = remaining / purchased;
-  if (ratio > 0.5) return '#10b981';
-  if (ratio >= 0.2) return '#f59e0b';
-  return '#ef4444';
+  if (ratio > 0.5) return palette.success;
+  if (ratio >= 0.2) return palette.warning;
+  return palette.error;
 }
 
-function getExpiryInfo(expiryDate: string): { color: string; isExpired: boolean } {
+function getExpiryInfo(
+  expiryDate: string,
+  palette: AppTheme['palette'],
+): { color: string; isExpired: boolean } {
   const now = new Date();
   const expiry = new Date(expiryDate);
   const diffMs = expiry.getTime() - now.getTime();
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
 
   if (diffDays < 0) {
-    return { color: '#ef4444', isExpired: true };
+    return { color: palette.error, isExpired: true };
   }
   if (diffDays <= 30) {
-    return { color: '#ef4444', isExpired: false };
+    return { color: palette.error, isExpired: false };
   }
-  return { color: darkPalette.muted, isExpired: false };
+  return { color: palette.muted, isExpired: false };
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -58,14 +67,17 @@ export function InventoryBatchCard({
   onEdit,
   onDelete,
 }: InventoryBatchCardProps) {
+  const { palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const quantityColor = useMemo(
-    () => getQuantityColor(batch.remainingQuantity, batch.purchasedQuantity),
-    [batch.remainingQuantity, batch.purchasedQuantity],
+    () => getQuantityColor(batch.remainingQuantity, batch.purchasedQuantity, palette),
+    [batch.remainingQuantity, batch.purchasedQuantity, palette],
   );
 
   const expiryInfo = useMemo(
-    () => getExpiryInfo(batch.expiryDate),
-    [batch.expiryDate],
+    () => getExpiryInfo(batch.expiryDate, palette),
+    [batch.expiryDate, palette],
   );
 
   return (
@@ -112,7 +124,7 @@ export function InventoryBatchCard({
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.actionBtn}
               >
-                <Pencil size={16} color={darkPalette.muted} />
+                <Pencil size={16} color={palette.muted} />
               </TouchableOpacity>
             ) : null}
             {onDelete ? (
@@ -121,7 +133,7 @@ export function InventoryBatchCard({
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.actionBtn}
               >
-                <Trash2 size={16} color="#ef4444" />
+                <Trash2 size={16} color={palette.error} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -133,62 +145,64 @@ export function InventoryBatchCard({
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: 'rgba(30, 41, 59, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(71, 85, 105, 0.5)',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  topLeft: {
-    flex: 1,
-    marginRight: 10,
-  },
-  productName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: darkPalette.text,
-    marginBottom: 2,
-  },
-  batchNum: {
-    fontSize: 12,
-    color: darkPalette.muted,
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  statCol: {
-    marginRight: 20,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: darkPalette.muted,
-    marginBottom: 2,
-  },
-  statValue: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  expired: {
-    textDecorationLine: 'line-through',
-  },
-  actions: {
-    flexDirection: 'row',
-    marginLeft: 'auto',
-    gap: 10,
-  },
-  actionBtn: {
-    padding: 6,
-    backgroundColor: 'rgba(51, 65, 85, 0.5)',
-    borderRadius: 8,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: theme.palette.surface + '99',
+      borderWidth: 1,
+      borderColor: theme.palette.divider + '80',
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 10,
+    },
+    topRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    topLeft: {
+      flex: 1,
+      marginRight: 10,
+    },
+    productName: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.palette.onBackground,
+      marginBottom: 2,
+    },
+    batchNum: {
+      fontSize: 12,
+      color: theme.palette.muted,
+    },
+    bottomRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+    },
+    statCol: {
+      marginRight: 20,
+    },
+    statLabel: {
+      fontSize: 11,
+      color: theme.palette.muted,
+      marginBottom: 2,
+    },
+    statValue: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    expired: {
+      textDecorationLine: 'line-through',
+    },
+    actions: {
+      flexDirection: 'row',
+      marginLeft: 'auto',
+      gap: 10,
+    },
+    actionBtn: {
+      padding: 6,
+      backgroundColor: theme.palette.divider + '80',
+      borderRadius: 8,
+    },
+  });
+}

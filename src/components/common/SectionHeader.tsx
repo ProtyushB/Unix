@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { darkPalette, themes } from '../../theme/colors';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,8 @@ export function SectionHeader({
   actionLabel,
   onAction,
 }: SectionHeaderProps) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <View style={styles.left}>
@@ -37,27 +40,29 @@ export function SectionHeader({
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  left: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: darkPalette.text,
-  },
-  action: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: themes.default.primary,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    left: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    title: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+    },
+    action: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.colors.primary,
+    },
+  });
+}

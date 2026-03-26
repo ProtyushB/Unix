@@ -7,6 +7,9 @@ import {OrderCard} from '../../components/list/OrderCard';
 import {EmptyState} from '../../components/common/EmptyState';
 import {LoadingSpinner} from '../../components/common/LoadingSpinner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 const TABS = [
   {key: 'active', label: 'Active'},
@@ -19,6 +22,9 @@ export const CustomerOrdersScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [personId, setPersonId] = useState<number | null>(null);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
     const loadPersonId = async () => {
@@ -81,7 +87,7 @@ export const CustomerOrdersScreen: React.FC = () => {
           <LoadingSpinner />
         ) : filteredOrders.length === 0 ? (
           <EmptyState
-            icon={<ShoppingBag size={48} color="#64748b" />}
+            icon={<ShoppingBag size={48} color={palette.muted} />}
             title={
               activeTab === 'active' ? 'No active orders' : 'No order history'
             }
@@ -105,7 +111,7 @@ export const CustomerOrdersScreen: React.FC = () => {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor="#f97316"
+                tintColor={colors.primary}
               />
             }
             contentContainerStyle={styles.listContent}
@@ -117,21 +123,23 @@ export const CustomerOrdersScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  listContent: {
-    paddingBottom: 24,
-    gap: 12,
-    paddingTop: 12,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingHorizontal: 16,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      marginTop: 16,
+      marginBottom: 16,
+    },
+    listContent: {
+      paddingBottom: 24,
+      gap: 12,
+      paddingTop: 12,
+    },
+  });
+}

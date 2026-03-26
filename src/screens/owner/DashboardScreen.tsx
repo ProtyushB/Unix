@@ -23,6 +23,9 @@ import { getBusinessTypeMap, type BusinessTypeMap, type Business } from '../../s
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { getStatusColor } from '../../utils/statusColors';
 import { getBusinessTypeLabel } from '../../utils/businessTypes';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -54,6 +57,9 @@ export default function DashboardScreen() {
 
   // Resolve business ID from stable string
   const [selectedBusinessId, setSelectedBusinessId] = useState<number | null>(null);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
     (async () => {
@@ -184,7 +190,7 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -202,7 +208,7 @@ export default function DashboardScreen() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#f97316" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <ScrollView
@@ -345,282 +351,283 @@ export default function DashboardScreen() {
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: '#0f172a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f8fafc',
-  },
-  businessSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    maxWidth: 200,
-    gap: 6,
-  },
-  businessSelectorText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#f8fafc',
-    flexShrink: 1,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  statCard: {
-    minWidth: 120,
-    marginRight: 12,
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#94a3b8',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#f8fafc',
-    marginBottom: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  seeAll: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#f97316',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  quickActionBtn: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginHorizontal: 4,
-  },
-  quickActionIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    marginBottom: 6,
-  },
-  quickActionLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#94a3b8',
-  },
-  listCard: {
-    marginBottom: 16,
-    padding: 0,
-
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  listItemLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  listItemRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  listItemTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#f8fafc',
-    marginBottom: 2,
-  },
-  listItemSub: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  listItemAmount: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#f8fafc',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#334155',
-    marginHorizontal: 16,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#64748b',
-  },
-  bottomSpacer: {
-    height: 32,
-  },
-  // ─── Bottom Sheet ───────────────────────────────────
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  bottomSheet: {
-    backgroundColor: '#1e293b',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
-    paddingBottom: 32,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#475569',
-    alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f8fafc',
-  },
-  sheetBody: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  sheetSubtitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  sheetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 4,
-  },
-  sheetRowActive: {
-    backgroundColor: '#f9731615',
-    borderWidth: 1,
-    borderColor: '#f9731640',
-  },
-  sheetRowText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#f8fafc',
-  },
-  sheetRowTextActive: {
-    color: '#f97316',
-    fontWeight: '600',
-  },
-  sheetSection: {
-    marginBottom: 20,
-  },
-  activeCheckIcon: {
-    fontSize: 16,
-    color: '#f97316',
-    fontWeight: '700',
-  },
-  headerIcon: {
-    fontSize: 22,
-    color: '#f97316',
-  },
-  chevronIcon: {
-    fontSize: 18,
-    color: '#94a3b8',
-  },
-  closeIcon: {
-    fontSize: 22,
-    color: '#94a3b8',
-  },
-  quickActionIconText: {
-    fontSize: 22,
-    marginBottom: 2,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 12,
+      backgroundColor: theme.palette.background,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider,
+    },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+    },
+    businessSelector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      maxWidth: 200,
+      gap: 6,
+    },
+    businessSelectorText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.palette.onBackground,
+      flexShrink: 1,
+    },
+    centered: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 16,
+      paddingTop: 16,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      marginBottom: 20,
+    },
+    statCard: {
+      minWidth: 120,
+      marginRight: 12,
+      alignItems: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+    },
+    statValue: {
+      fontSize: 22,
+      fontWeight: '700',
+      marginBottom: 4,
+    },
+    statLabel: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.palette.muted,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.palette.onBackground,
+      marginBottom: 12,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+      marginTop: 8,
+    },
+    seeAll: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.colors.primary,
+    },
+    quickActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 24,
+    },
+    quickActionBtn: {
+      flex: 1,
+      alignItems: 'center',
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      borderRadius: 14,
+      paddingVertical: 14,
+      marginHorizontal: 4,
+    },
+    quickActionIcon: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      marginBottom: 6,
+    },
+    quickActionLabel: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: theme.palette.muted,
+    },
+    listCard: {
+      marginBottom: 16,
+      padding: 0,
+    },
+    listItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    listItemLeft: {
+      flex: 1,
+      marginRight: 12,
+    },
+    listItemRight: {
+      alignItems: 'flex-end',
+      gap: 4,
+    },
+    listItemTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.palette.onBackground,
+      marginBottom: 2,
+    },
+    listItemSub: {
+      fontSize: 12,
+      color: theme.palette.muted,
+    },
+    listItemAmount: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.palette.onBackground,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    statusText: {
+      fontSize: 10,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.palette.divider,
+      marginHorizontal: 16,
+    },
+    emptyCard: {
+      alignItems: 'center',
+      paddingVertical: 24,
+      marginBottom: 16,
+    },
+    emptyText: {
+      fontSize: 14,
+      color: theme.palette.muted,
+    },
+    bottomSpacer: {
+      height: 32,
+    },
+    // ─── Bottom Sheet ───────────────────────────────────
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: theme.palette.overlay,
+      justifyContent: 'flex-end',
+    },
+    bottomSheet: {
+      backgroundColor: theme.palette.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '70%',
+      paddingBottom: 32,
+    },
+    sheetHandle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.palette.muted,
+      alignSelf: 'center',
+      marginTop: 12,
+      marginBottom: 8,
+    },
+    sheetHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider,
+    },
+    sheetTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+    },
+    sheetBody: {
+      paddingHorizontal: 20,
+      paddingTop: 16,
+    },
+    sheetSubtitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.palette.muted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 12,
+    },
+    sheetRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      marginBottom: 4,
+    },
+    sheetRowActive: {
+      backgroundColor: theme.colors.softBg,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    sheetRowText: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: theme.palette.onBackground,
+    },
+    sheetRowTextActive: {
+      color: theme.colors.primary,
+      fontWeight: '600',
+    },
+    sheetSection: {
+      marginBottom: 20,
+    },
+    activeCheckIcon: {
+      fontSize: 16,
+      color: theme.colors.primary,
+      fontWeight: '700',
+    },
+    headerIcon: {
+      fontSize: 22,
+      color: theme.colors.primary,
+    },
+    chevronIcon: {
+      fontSize: 18,
+      color: theme.palette.muted,
+    },
+    closeIcon: {
+      fontSize: 22,
+      color: theme.palette.muted,
+    },
+    quickActionIconText: {
+      fontSize: 22,
+      marginBottom: 2,
+    },
+  });
+}

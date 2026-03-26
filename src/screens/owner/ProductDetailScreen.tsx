@@ -33,6 +33,9 @@ import { getBusinessTypeMap, type Business } from '../../storage/session.storage
 import { formatCurrency } from '../../utils/formatters';
 import { getStatusColor } from '../../utils/statusColors';
 import type { CatalogStackParamList } from '../../navigation/OwnerTabNavigator';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +89,9 @@ export default function ProductDetailScreen({ navigation, route }: Props) {
   const [saving, setSaving] = useState(false);
   const [images, setImages] = useState<any[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState<number | null>(null);
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   // Resolve business ID
   useEffect(() => {
@@ -211,9 +217,9 @@ export default function ProductDetailScreen({ navigation, route }: Props) {
   if (loading) {
     return (
       <View style={styles.screen}>
-        <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+        <StatusBar barStyle="light-content" backgroundColor={palette.background} />
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#f97316" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </View>
     );
@@ -223,12 +229,12 @@ export default function ProductDetailScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <ArrowLeft size={22} color="#f8fafc" />
+          <ArrowLeft size={22} color={palette.onBackground} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {mode === 'add' ? 'New Product' : mode === 'edit' ? 'Edit Product' : 'Product'}
@@ -236,7 +242,7 @@ export default function ProductDetailScreen({ navigation, route }: Props) {
         <View style={styles.headerRight}>
           {mode === 'view' && (
             <TouchableOpacity onPress={() => setMode('edit')} style={styles.headerBtn}>
-              <Edit3 size={20} color="#f97316" />
+              <Edit3 size={20} color={colors.primary} />
             </TouchableOpacity>
           )}
           {isEditing && (
@@ -260,13 +266,13 @@ export default function ProductDetailScreen({ navigation, route }: Props) {
                 }}
                 style={styles.headerBtn}
               >
-                <X size={20} color="#94a3b8" />
+                <X size={20} color={palette.muted} />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerBtn}>
                 {saving ? (
-                  <ActivityIndicator size="small" color="#f97316" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Save size={20} color="#f97316" />
+                  <Save size={20} color={colors.primary} />
                 )}
               </TouchableOpacity>
             </>
@@ -294,13 +300,13 @@ export default function ProductDetailScreen({ navigation, route }: Props) {
             />
           ) : (
             <View style={styles.galleryPlaceholder}>
-              <ImageIcon size={40} color="#475569" />
+              <ImageIcon size={40} color={palette.muted} />
               <Text style={styles.galleryPlaceholderText}>No images</Text>
             </View>
           )}
           {isEditing && (
             <TouchableOpacity style={styles.addImageBtn} onPress={handleAddImage} activeOpacity={0.7}>
-              <Plus size={20} color="#f97316" />
+              <Plus size={20} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -416,6 +422,7 @@ export default function ProductDetailScreen({ navigation, route }: Props) {
 // ─── Field Row Helper ───────────────────────────────────────────────────────
 
 function FieldRow({ label, value, isStatus }: { label: string; value?: string; isStatus?: boolean }) {
+  const fieldStyles = useThemedStyles(createFieldStyles);
   if (!value) return null;
   return (
     <View style={fieldStyles.row}>
@@ -431,167 +438,171 @@ function FieldRow({ label, value, isStatus }: { label: string; value?: string; i
   );
 }
 
-const fieldStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#33415540',
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#94a3b8',
-  },
-  value: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#f8fafc',
-    maxWidth: '60%',
-    textAlign: 'right',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-});
+function createFieldStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider + '40',
+    },
+    label: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.palette.muted,
+    },
+    value: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.palette.onBackground,
+      maxWidth: '60%',
+      textAlign: 'right',
+    },
+    statusBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    statusText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+  });
+}
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f8fafc',
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerBtn: {
-    padding: 6,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  gallery: {
-    height: 200,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  galleryContent: {
-    paddingHorizontal: 8,
-    alignItems: 'center',
-  },
-  galleryImage: {
-    width: 180,
-    height: 180,
-    borderRadius: 12,
-    marginHorizontal: 6,
-  },
-  galleryPlaceholder: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  galleryPlaceholderText: {
-    fontSize: 13,
-    color: '#475569',
-  },
-  addImageBtn: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f9731620',
-    borderWidth: 1,
-    borderColor: '#f97316',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  formCard: {
-    marginBottom: 16,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfField: {
-    flex: 1,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#f8fafc',
-    marginBottom: 8,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  statusChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#0f172a',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  statusChipActive: {
-    backgroundColor: '#f9731620',
-    borderColor: '#f97316',
-  },
-  statusChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#94a3b8',
-  },
-  statusChipTextActive: {
-    color: '#f97316',
-  },
-  deleteBtn: {
-    marginBottom: 16,
-  },
-  bottomSpacer: {
-    height: 32,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    centered: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      flex: 1,
+      textAlign: 'center',
+    },
+    headerBtn: {
+      padding: 6,
+    },
+    headerRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 16,
+      paddingTop: 16,
+    },
+    gallery: {
+      height: 200,
+      backgroundColor: theme.palette.surface,
+      borderRadius: 16,
+      marginBottom: 16,
+      overflow: 'hidden',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    galleryContent: {
+      paddingHorizontal: 8,
+      alignItems: 'center',
+    },
+    galleryImage: {
+      width: 180,
+      height: 180,
+      borderRadius: 12,
+      marginHorizontal: 6,
+    },
+    galleryPlaceholder: {
+      alignItems: 'center',
+      gap: 8,
+    },
+    galleryPlaceholderText: {
+      fontSize: 13,
+      color: theme.palette.muted,
+    },
+    addImageBtn: {
+      position: 'absolute',
+      bottom: 12,
+      right: 12,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: theme.colors.primary + '33',
+      borderWidth: 1,
+      borderColor: theme.colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    formCard: {
+      marginBottom: 16,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    halfField: {
+      flex: 1,
+    },
+    fieldLabel: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.palette.onBackground,
+      marginBottom: 8,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 16,
+    },
+    statusChip: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: theme.palette.background,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    statusChipActive: {
+      backgroundColor: theme.colors.primary + '33',
+      borderColor: theme.colors.primary,
+    },
+    statusChipText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.palette.muted,
+    },
+    statusChipTextActive: {
+      color: theme.colors.primary,
+    },
+    deleteBtn: {
+      marginBottom: 16,
+    },
+    bottomSpacer: {
+      height: 32,
+    },
+  });
+}

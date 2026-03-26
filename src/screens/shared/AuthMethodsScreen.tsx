@@ -11,10 +11,16 @@ import {useNavigation} from '@react-navigation/native';
 import {ChevronLeft, KeyRound, Fingerprint} from 'lucide-react-native';
 import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
 import {useBiometric} from '../../hooks/useBiometric';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 export function AuthMethodsScreen() {
   const navigation = useNavigation();
   const {available, biometryLabel, enabled, loading, enable, disable} = useBiometric();
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const handleToggle = async (val: boolean) => {
     if (val) {
@@ -34,7 +40,7 @@ export function AuthMethodsScreen() {
             style={styles.backBtn}
             activeOpacity={0.7}
             hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-            <ChevronLeft size={24} color="#f8fafc" />
+            <ChevronLeft size={24} color={palette.onBackground} />
           </TouchableOpacity>
           <Text style={styles.title}>Authentication Methods</Text>
         </View>
@@ -62,7 +68,7 @@ export function AuthMethodsScreen() {
         </View>
         <View style={styles.methodRow}>
           <View style={[styles.methodIcon, !available && styles.methodIconMuted]}>
-            <Fingerprint size={20} color={available ? '#f97316' : '#475569'} />
+            <Fingerprint size={20} color={available ? colors.primary : palette.muted} />
           </View>
           <View style={styles.methodContent}>
             <Text style={styles.methodLabel}>{biometryLabel} Login</Text>
@@ -75,13 +81,13 @@ export function AuthMethodsScreen() {
             </Text>
           </View>
           {loading ? (
-            <ActivityIndicator size="small" color="#64748b" />
+            <ActivityIndicator size="small" color={palette.muted} />
           ) : available ? (
             <Switch
               value={enabled}
               onValueChange={handleToggle}
-              trackColor={{false: '#334155', true: 'rgba(249,115,22,0.4)'}}
-              thumbColor={enabled ? '#f97316' : '#64748b'}
+              trackColor={{false: palette.divider, true: colors.border}}
+              thumbColor={enabled ? colors.primary : palette.muted}
             />
           ) : (
             <Text style={styles.unavailableText}>—</Text>
@@ -100,50 +106,52 @@ export function AuthMethodsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {flex: 1, paddingHorizontal: 16},
-  header: {flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 24, gap: 12},
-  backBtn: {padding: 4},
-  title: {fontSize: 24, fontWeight: '700', color: '#f8fafc', flex: 1},
-  sectionLabel: {marginBottom: 8, paddingHorizontal: 4},
-  sectionText: {fontSize: 11, fontWeight: '700', color: '#475569', letterSpacing: 1},
-  methodRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 16,
-    gap: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  methodIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(249,115,22,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  methodIconMuted: {backgroundColor: 'rgba(51,65,85,0.5)'},
-  methodContent: {flex: 1},
-  methodLabel: {fontSize: 16, fontWeight: '600', color: '#f8fafc'},
-  methodSub: {fontSize: 13, color: '#64748b', marginTop: 2},
-  activeBadge: {
-    backgroundColor: 'rgba(34,197,94,0.15)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
-  },
-  activeBadgeText: {fontSize: 12, fontWeight: '600', color: '#22c55e'},
-  unavailableText: {fontSize: 16, color: '#475569'},
-  hint: {
-    fontSize: 13,
-    color: '#475569',
-    marginTop: 12,
-    paddingHorizontal: 4,
-    lineHeight: 19,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {flex: 1, paddingHorizontal: 16},
+    header: {flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 24, gap: 12},
+    backBtn: {padding: 4},
+    title: {fontSize: 24, fontWeight: '700', color: theme.palette.onBackground, flex: 1},
+    sectionLabel: {marginBottom: 8, paddingHorizontal: 4},
+    sectionText: {fontSize: 11, fontWeight: '700', color: theme.palette.muted, letterSpacing: 1},
+    methodRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.palette.surface,
+      borderRadius: 16,
+      padding: 16,
+      gap: 14,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    methodIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: theme.colors.primary + '14',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    methodIconMuted: {backgroundColor: theme.palette.divider + '80'},
+    methodContent: {flex: 1},
+    methodLabel: {fontSize: 16, fontWeight: '600', color: theme.palette.onBackground},
+    methodSub: {fontSize: 13, color: theme.palette.muted, marginTop: 2},
+    activeBadge: {
+      backgroundColor: 'rgba(34,197,94,0.15)',
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderWidth: 1,
+      borderColor: 'rgba(34,197,94,0.3)',
+    },
+    activeBadgeText: {fontSize: 12, fontWeight: '600', color: '#22c55e'},
+    unavailableText: {fontSize: 16, color: theme.palette.muted},
+    hint: {
+      fontSize: 13,
+      color: theme.palette.muted,
+      marginTop: 12,
+      paddingHorizontal: 4,
+      lineHeight: 19,
+    },
+  });
+}

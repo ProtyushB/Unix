@@ -8,6 +8,9 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getAccessToken } from '../../storage/auth.storage';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -34,6 +37,9 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Splash'>;
 const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
     // Start fade-in and scale animation
@@ -87,7 +93,7 @@ const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <Animated.View
         style={[
           styles.logoContainer,
@@ -109,36 +115,38 @@ const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  logoText: {
-    fontFamily: 'Inter-ExtraBold',
-    fontSize: 48,
-    color: '#f8fafc',
-    letterSpacing: -1,
-  },
-  logoAccent: {
-    fontFamily: 'Inter-ExtraBold',
-    fontSize: 48,
-    color: '#f97316',
-    letterSpacing: -1,
-  },
-  tagline: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 12,
-    letterSpacing: 0.5,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    logoContainer: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+    },
+    logoText: {
+      fontFamily: 'Inter-ExtraBold',
+      fontSize: 48,
+      color: theme.palette.onBackground,
+      letterSpacing: -1,
+    },
+    logoAccent: {
+      fontFamily: 'Inter-ExtraBold',
+      fontSize: 48,
+      color: theme.colors.primary,
+      letterSpacing: -1,
+    },
+    tagline: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: theme.palette.muted,
+      marginTop: 12,
+      letterSpacing: 0.5,
+    },
+  });
+}
 
 export default SplashScreen;

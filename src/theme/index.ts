@@ -1,3 +1,4 @@
+// ─── Legacy token exports (kept for backward compatibility) ──────────────────
 export {
   darkPalette,
   themes,
@@ -17,3 +18,8 @@ export {
   spacing,
   borderRadius,
 } from './spacing';
+
+// ─── New theme system ─────────────────────────────────────────────────────────
+export { buildTheme } from './buildTheme';
+export type { AppTheme, AccentName, ThemeMode, ThemeActions, StatusColorSet, AvatarColorPair, GradientConfig } from './theme.types';
+export { DARK_STATUS, FALLBACK_STATUS, AVATAR_POOLS } from './tokens';

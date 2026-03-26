@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { darkPalette } from '../../theme/colors';
 import { AvatarBadge } from '../common/AvatarBadge';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ interface PersonCardProps {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function PersonCard({ person, onPress }: PersonCardProps) {
+  const styles = useThemedStyles(createStyles);
   const fullName = `${person.firstName} ${person.lastName}`.trim();
 
   return (
@@ -45,34 +47,36 @@ export function PersonCard({ person, onPress }: PersonCardProps) {
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(71, 85, 105, 0.5)',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
-    gap: 12,
-  },
-  info: {
-    flex: 1,
-  },
-  name: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: darkPalette.text,
-    marginBottom: 2,
-  },
-  role: {
-    fontSize: 12,
-    color: darkPalette.muted,
-    textTransform: 'capitalize',
-  },
-  phone: {
-    fontSize: 13,
-    color: darkPalette.muted,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.palette.surface + '99',
+      borderWidth: 1,
+      borderColor: theme.palette.divider + '80',
+      borderRadius: 14,
+      padding: 12,
+      marginBottom: 10,
+      gap: 12,
+    },
+    info: {
+      flex: 1,
+    },
+    name: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.palette.onBackground,
+      marginBottom: 2,
+    },
+    role: {
+      fontSize: 12,
+      color: theme.palette.muted,
+      textTransform: 'capitalize',
+    },
+    phone: {
+      fontSize: 13,
+      color: theme.palette.muted,
+    },
+  });
+}

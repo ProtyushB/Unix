@@ -14,6 +14,9 @@ import {AppInput} from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
 import { validateEmail } from '../../utils/validators';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -41,6 +44,9 @@ const ForgotPasswordEmailScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const authService = getAuthService();
 
@@ -73,7 +79,7 @@ const ForgotPasswordEmailScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -144,88 +150,90 @@ const ForgotPasswordEmailScreen: React.FC<Props> = ({ navigation }) => {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-  },
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.palette.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      paddingVertical: 40,
+    },
 
-  // Icon
-  iconContainer: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#f9731615',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f9731630',
-  },
+    // Icon
+    iconContainer: {
+      alignItems: 'center',
+      marginBottom: 28,
+    },
+    iconCircle: {
+      width: 72,
+      height: 72,
+      borderRadius: 20,
+      backgroundColor: theme.colors.primary + '14',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.primary + '33',
+    },
 
-  // Title
-  title: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 28,
-    color: '#f8fafc',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 15,
-    color: '#94a3b8',
-    textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 22,
-    paddingHorizontal: 12,
-  },
+    // Title
+    title: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 28,
+      color: theme.palette.onBackground,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 15,
+      color: theme.palette.muted,
+      textAlign: 'center',
+      marginBottom: 32,
+      lineHeight: 22,
+      paddingHorizontal: 12,
+    },
 
-  // Error
-  errorContainer: {
-    backgroundColor: '#ef444420',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ef444440',
-  },
-  errorText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 13,
-    color: '#fca5a5',
-    textAlign: 'center',
-  },
+    // Error
+    errorContainer: {
+      backgroundColor: theme.palette.error + '20',
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.palette.error + '40',
+    },
+    errorText: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 13,
+      color: theme.palette.error + 'CC',
+      textAlign: 'center',
+    },
 
-  // Button
-  buttonContainer: {
-    marginTop: 8,
-  },
+    // Button
+    buttonContainer: {
+      marginTop: 8,
+    },
 
-  // Back link
-  backLink: {
-    alignSelf: 'center',
-    marginTop: 24,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  backLinkText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14,
-    color: '#f97316',
-  },
-});
+    // Back link
+    backLink: {
+      alignSelf: 'center',
+      marginTop: 24,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+    },
+    backLinkText: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 14,
+      color: theme.colors.primary,
+    },
+  });
+}
 
 export default ForgotPasswordEmailScreen;

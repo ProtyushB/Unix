@@ -32,6 +32,9 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
 import {ProfileStackParamList} from '../../navigation/types';
 import {biometricStorage} from '../../storage/biometric.storage';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import type { AppTheme } from '../../theme/theme.types';
 
 interface UserProfile {
   id: number;
@@ -57,6 +60,9 @@ export const CustomerProfileScreen: React.FC = () => {
   const [showPortalSheet, setShowPortalSheet] = useState(false);
   const slideAnim = useRef(new Animated.Value(300)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
+
+  const { colors, palette } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const openPortalSheet = () => {
     slideAnim.setValue(300);
@@ -153,9 +159,9 @@ export const CustomerProfileScreen: React.FC = () => {
               style={styles.rolePill}
               onPress={() => canSwitchPortal && openPortalSheet()}
               activeOpacity={canSwitchPortal ? 0.7 : 1}>
-              <User size={11} color="#f97316" />
+              <User size={11} color={colors.primary} />
               <Text style={styles.rolePillText}>Customer</Text>
-              {canSwitchPortal && <ChevronDown size={11} color="#f97316" />}
+              {canSwitchPortal && <ChevronDown size={11} color={colors.primary} />}
             </TouchableOpacity>
           </View>
         </AppCard>
@@ -165,9 +171,9 @@ export const CustomerProfileScreen: React.FC = () => {
           style={styles.securityRow}
           onPress={() => profileNav.navigate('Security')}
           activeOpacity={0.7}>
-          <Shield size={20} color="#64748b" />
+          <Shield size={20} color={palette.muted} />
           <Text style={styles.settingLabel}>Security</Text>
-          <ChevronRight size={18} color="#334155" />
+          <ChevronRight size={18} color={palette.divider} />
         </TouchableOpacity>
 
         <View style={styles.settingsSection}>
@@ -180,9 +186,9 @@ export const CustomerProfileScreen: React.FC = () => {
                 style={styles.settingRow}
                 onPress={() => handleSettingPress(row.key)}
                 activeOpacity={0.7}>
-                <Icon size={20} color="#64748b" />
+                <Icon size={20} color={palette.muted} />
                 <Text style={styles.settingLabel}>{row.label}</Text>
-                <ChevronRight size={18} color="#334155" />
+                <ChevronRight size={18} color={palette.divider} />
               </TouchableOpacity>
             );
           })}
@@ -221,80 +227,82 @@ export const CustomerProfileScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 16,
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f8fafc',
-  },
-  profileEmail: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 2,
-  },
-  profilePhone: {
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  rolePill: {marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(249,115,22,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(249,115,22,0.25)'},
-  rolePillText: {fontSize: 11, color: '#f97316', fontWeight: '700', letterSpacing: 0.5},
-  settingsSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#94a3b8',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(51,65,85,0.3)',
-  },
-  securityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(51,65,85,0.3)',
-    marginBottom: 16,
-  },
-  settingLabel: {
-    flex: 1,
-    fontSize: 16,
-    color: '#f8fafc',
-  },
-  logoutButton: {
-    marginBottom: 32,
-  },
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingHorizontal: 16,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      marginTop: 16,
+      marginBottom: 16,
+    },
+    profileCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+      marginBottom: 16,
+    },
+    profileInfo: {
+      flex: 1,
+    },
+    profileName: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+    },
+    profileEmail: {
+      fontSize: 14,
+      color: theme.palette.muted,
+      marginTop: 2,
+    },
+    profilePhone: {
+      fontSize: 14,
+      color: theme.palette.muted,
+      marginTop: 2,
+    },
+    rolePill: {marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: theme.colors.softBg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', borderWidth: 1, borderColor: theme.colors.border},
+    rolePillText: {fontSize: 11, color: theme.colors.primary, fontWeight: '700', letterSpacing: 0.5},
+    settingsSection: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.palette.muted,
+      marginBottom: 12,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    settingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      gap: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider + '80',
+    },
+    securityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      gap: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider + '80',
+      marginBottom: 16,
+    },
+    settingLabel: {
+      flex: 1,
+      fontSize: 16,
+      color: theme.palette.onBackground,
+    },
+    logoutButton: {
+      marginBottom: 32,
+    },
+  });
+}
