@@ -4,8 +4,8 @@ const path = require('path');
 const config = {
   resolver: {
     blockList: [
-      /android\/.*/,
-      /ios\/.*/,
+      /.*\/android\/.*/,
+      /.*\/ios\/.*/,
     ],
   },
 };
