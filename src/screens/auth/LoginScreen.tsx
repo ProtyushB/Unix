@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   InteractionManager,
+  ActivityIndicator,
 } from 'react-native';
+import {Fingerprint} from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {AppInput} from '../../components/common/AppInput';
 import PasswordInput from '../../components/forms/PasswordInput';
@@ -18,9 +20,15 @@ import { getAuthService } from '../../backend/auth/provider/auth.provider';
 import { getPersonService } from '../../backend/person/provider/person.provider';
 import {
   setLoggedInUser,
+  getLoggedInUser,
+  getRefreshToken,
 } from '../../storage/auth.storage';
 import { setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
 import { setDmsFolderMap, DmsFolderMap } from '../../storage/dms.storage';
+import {biometricStorage} from '../../storage/biometric.storage';
+import {promptBiometric} from '../../hooks/useBiometric';
+import {PORTALS, isBusinessUser} from '../../utils/portals';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
@@ -49,9 +57,99 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [biometricReady, setBiometricReady] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
 
   const authService = getAuthService();
   const personService = getPersonService();
+
+  const navigateToPortal = useCallback(
+    async (roles: string[], types: string[] = []) => {
+      const savedPortal = await AsyncStorage.getItem('session:activeProfile');
+      const isBusiness = isBusinessUser(roles, types);
+      let portalKey: string;
+      if (savedPortal === PORTALS.customer.key) {
+        portalKey = PORTALS.customer.key;
+      } else if (savedPortal === PORTALS.business.key && isBusiness) {
+        portalKey = PORTALS.business.key;
+      } else {
+        portalKey = isBusiness ? PORTALS.business.key : PORTALS.customer.key;
+      }
+      await AsyncStorage.setItem('session:activeProfile', portalKey);
+      const targetRoute = portalKey === PORTALS.business.key
+        ? PORTALS.business.route
+        : PORTALS.customer.route;
+      InteractionManager.runAfterInteractions(() => {
+        const parent = navigation.getParent();
+        (parent ?? navigation).reset({index: 0, routes: [{name: targetRoute as any}]});
+      });
+    },
+    [navigation],
+  );
+
+  const handleBiometricLogin = useCallback(async () => {
+    setBiometricLoading(true);
+    try {
+      const passed = await promptBiometric('Sign in to Unix');
+      if (!passed) {
+        setBiometricLoading(false);
+        return;
+      }
+      // Use the stored refresh token to silently get a new access token
+      await authService.refreshToken();
+      const storedUser = await getLoggedInUser();
+
+      // Restore session profile (cleared on logout) so portals and features work correctly
+      let profileTypes: string[] = storedUser?.types ?? [];
+      if (storedUser?.username) {
+        try {
+          const profileResult = await personService.getPersonByUsername(storedUser.username);
+          if (profileResult.success && profileResult.data) {
+            const userProfile = profileResult.data;
+            profileTypes = (userProfile.types as string[]) ?? profileTypes;
+            await setUserProfile(userProfile);
+            // Keep loggedInUser.types up to date
+            await setLoggedInUser({...storedUser, types: profileTypes});
+            if (userProfile.business && (userProfile.business as any[]).length > 0) {
+              const typeMap: Record<string, any[]> = {};
+              (userProfile.business as any[]).forEach((biz: any) => {
+                const type = biz.businessType || 'CUSTOM';
+                if (!typeMap[type]) typeMap[type] = [];
+                typeMap[type].push(biz);
+              });
+              await setBusinessTypeMap(typeMap);
+            }
+          }
+        } catch {
+          // Continue even if profile restore fails
+        }
+      }
+
+      await navigateToPortal(storedUser?.roles ?? [], profileTypes);
+    } catch {
+      // Refresh token expired — clear biometric session, fall back to password
+      await AsyncStorage.multiRemove(['refreshToken', 'loggedInUser']);
+      setBiometricReady(false);
+      setBiometricLoading(false);
+      setError('Your session expired. Please sign in with your password.');
+    }
+  }, [authService, personService, navigateToPortal]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const enabled = await biometricStorage.isEnabled();
+      const token = await getRefreshToken();
+      if (enabled && token) {
+        if (mounted) setBiometricReady(true);
+        // Auto-prompt after the screen finishes animating in
+        setTimeout(() => {
+          if (mounted) handleBiometricLogin();
+        }, 400);
+      }
+    })();
+    return () => {mounted = false;};
+  }, []);
 
   const handleLogin = async () => {
     setError('');
@@ -81,17 +179,28 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       // Step 2: Fetch person profile by username
-      let personTypes: string[] = user?.roles || [];
+      let personTypes: string[] = [];
       try {
         const profileResult = await personService.getPersonByUsername(username.trim());
         if (profileResult.success && profileResult.data) {
           const userProfile = profileResult.data;
 
+          // Capture person types (source of truth for portal access)
+          personTypes = (userProfile.types as string[]) || [];
+
+          // Update loggedInUser with types so RootNavigator can use them on next open
+          if (user) {
+            await setLoggedInUser({
+              id: user.id,
+              username: user.username,
+              roles: user.roles || [],
+              types: personTypes,
+              email: user.email || '',
+            });
+          }
+
           // Store user profile
           await setUserProfile(userProfile);
-
-          // Capture person types from profile
-          personTypes = (userProfile.types as string[]) || personTypes;
 
           // Build and store businessTypeMap
           if (userProfile.business && (userProfile.business as any[]).length > 0) {
@@ -131,9 +240,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         // Continue with navigation even if profile fetch fails
       }
 
-      // Step 3: Navigate directly to the right portal
-      const isBusinessOwner = personTypes.includes('BUSINESS_OWNER');
-      const targetRoute = isBusinessOwner ? 'OwnerTabs' : 'CustomerTabs';
+      // Step 3: Navigate directly to the right portal and persist the choice
+      const isBusiness = isBusinessUser(user?.roles || [], personTypes);
+      const portalKey = isBusiness ? PORTALS.business.key : PORTALS.customer.key;
+      const targetRoute = isBusiness ? PORTALS.business.route : PORTALS.customer.route;
+      await AsyncStorage.setItem('session:activeProfile', portalKey);
+      // navigateToPortal is also called here via direct reset — types already persisted above
 
       InteractionManager.runAfterInteractions(() => {
         const parent = navigation.getParent();
@@ -225,8 +337,33 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               onPress={handleLogin}
               variant="primary"
               loading={loading}
-              disabled={loading}
+              disabled={loading || biometricLoading}
             />
+
+            {/* Biometric Quick-Login */}
+            {biometricReady && (
+              <>
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+                <TouchableOpacity
+                  style={styles.biometricButton}
+                  onPress={handleBiometricLogin}
+                  disabled={biometricLoading || loading}
+                  activeOpacity={0.7}>
+                  {biometricLoading ? (
+                    <ActivityIndicator size="small" color="#f97316" />
+                  ) : (
+                    <Fingerprint size={22} color="#f97316" />
+                  )}
+                  <Text style={styles.biometricText}>
+                    {biometricLoading ? 'Verifying...' : 'Sign in with Fingerprint'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
 
             {/* Sign Up Link */}
             <View style={styles.signupRow}>
@@ -344,6 +481,40 @@ const styles = StyleSheet.create({
   signupLink: {
     fontFamily: 'Inter-SemiBold',
     fontSize: 14,
+    color: '#f97316',
+  },
+
+  // Biometric
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+    gap: 8,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#334155',
+  },
+  dividerText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 13,
+    color: '#64748b',
+  },
+  biometricButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(249,115,22,0.35)',
+    backgroundColor: 'rgba(249,115,22,0.08)',
+  },
+  biometricText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 15,
     color: '#f97316',
   },
 });

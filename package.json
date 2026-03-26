@@ -21,6 +21,7 @@
     "lucide-react-native": "^0.474.0",
     "react": "18.3.1",
     "react-native": "0.76.7",
+    "react-native-biometrics": "^3.0.1",
     "react-native-blob-util": "^0.21.2",
     "react-native-config": "^1.5.3",
     "react-native-document-picker": "^9.3.1",

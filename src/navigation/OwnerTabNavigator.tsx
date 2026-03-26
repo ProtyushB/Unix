@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { darkPalette, themes } from '../theme/colors';
@@ -9,6 +9,7 @@ import type {
   OperationsStackParamList,
   InventoryStackParamList,
   PeopleStackParamList,
+  ProfileStackParamList,
 } from './types';
 import DashboardScreen from '../screens/owner/DashboardScreen';
 import CatalogScreen from '../screens/owner/CatalogScreen';
@@ -21,6 +22,23 @@ import { BillingDetailScreen } from '../screens/owner/BillingDetailScreen';
 import { InventoryScreen } from '../screens/owner/InventoryScreen';
 import { PeopleScreen } from '../screens/owner/PeopleScreen';
 import { AccountScreen } from '../screens/owner/AccountScreen';
+import { SecurityScreen } from '../screens/shared/SecurityScreen';
+import { AuthMethodsScreen } from '../screens/shared/AuthMethodsScreen';
+import { BiometricOnboardingModal } from '../components/common/BiometricOnboardingModal';
+
+// ─── Account/Profile Stack ───────────────────────────────────────────────────
+
+const AccountProfileStack = createNativeStackNavigator<ProfileStackParamList>();
+
+function AccountNavigator() {
+  return (
+    <AccountProfileStack.Navigator screenOptions={{ headerShown: false }}>
+      <AccountProfileStack.Screen name="ProfileMain" component={AccountScreen} />
+      <AccountProfileStack.Screen name="Security" component={SecurityScreen} />
+      <AccountProfileStack.Screen name="AuthMethods" component={AuthMethodsScreen} />
+    </AccountProfileStack.Navigator>
+  );
+}
 
 // ─── Stack Navigators ───────────────────────────────────────────────────────
 
@@ -74,6 +92,7 @@ const ICON_SIZE = 22;
 
 export function OwnerTabNavigator() {
   return (
+    <View style={{flex: 1}}>
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
@@ -110,10 +129,12 @@ export function OwnerTabNavigator() {
       />
       <Tab.Screen
         name="Account"
-        component={AccountScreen}
+        component={AccountNavigator}
         options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text> }}
       />
     </Tab.Navigator>
+    <BiometricOnboardingModal />
+    </View>
   );
 }
 

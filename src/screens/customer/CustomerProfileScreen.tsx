@@ -17,6 +17,7 @@ import {
   HelpCircle,
   Mail,
   LogOut,
+  Shield,
 } from 'lucide-react-native';
 import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
 import {AppCard} from '../../components/common/AppCard';
@@ -26,8 +27,11 @@ import {ConfirmDialog} from '../../components/common/ConfirmDialog';
 import {PortalSwitcherSheet} from '../../components/common/PortalSwitcherSheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {navigationRef} from '../../navigation/RootNavigator';
-import {CommonActions} from '@react-navigation/native';
+import {CommonActions, useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
+import {ProfileStackParamList} from '../../navigation/types';
+import {biometricStorage} from '../../storage/biometric.storage';
 
 interface UserProfile {
   id: number;
@@ -47,6 +51,7 @@ const SETTINGS_ROWS = [
 ];
 
 export const CustomerProfileScreen: React.FC = () => {
+  const profileNav = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showPortalSheet, setShowPortalSheet] = useState(false);
@@ -102,7 +107,7 @@ export const CustomerProfileScreen: React.FC = () => {
   const handleLogout = useCallback(async () => {
     setShowLogoutConfirm(false);
     try {
-      await AsyncStorage.clear();
+      await biometricStorage.logoutClear();
       navigationRef.dispatch(
         CommonActions.reset({
           index: 0,
@@ -154,6 +159,16 @@ export const CustomerProfileScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </AppCard>
+
+        {/* Security */}
+        <TouchableOpacity
+          style={styles.securityRow}
+          onPress={() => profileNav.navigate('Security')}
+          activeOpacity={0.7}>
+          <Shield size={20} color="#64748b" />
+          <Text style={styles.settingLabel}>Security</Text>
+          <ChevronRight size={18} color="#334155" />
+        </TouchableOpacity>
 
         <View style={styles.settingsSection}>
           <Text style={styles.sectionTitle}>Settings</Text>
@@ -263,6 +278,16 @@ const styles = StyleSheet.create({
     gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(51,65,85,0.3)',
+  },
+  securityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(51,65,85,0.3)',
+    marginBottom: 16,
   },
   settingLabel: {
     flex: 1,

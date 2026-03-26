@@ -1,62 +1,80 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
-import { darkPalette, themes } from '../theme/colors';
-import type { CustomerTabParamList } from './types';
-import { ExploreScreen } from '../screens/customer/ExploreScreen';
-import { BookingsScreen } from '../screens/customer/BookingsScreen';
-import { CustomerOrdersScreen as OrdersScreen } from '../screens/customer/CustomerOrdersScreen';
-import { BillsScreen } from '../screens/customer/BillsScreen';
-import { CustomerProfileScreen as ProfileScreen } from '../screens/customer/CustomerProfileScreen';
+import {StyleSheet, View} from 'react-native';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {Text} from 'react-native';
+import {darkPalette, themes} from '../theme/colors';
+import type {CustomerTabParamList, ProfileStackParamList} from './types';
+import {ExploreScreen} from '../screens/customer/ExploreScreen';
+import {BookingsScreen} from '../screens/customer/BookingsScreen';
+import {CustomerOrdersScreen as OrdersScreen} from '../screens/customer/CustomerOrdersScreen';
+import {BillsScreen} from '../screens/customer/BillsScreen';
+import {CustomerProfileScreen} from '../screens/customer/CustomerProfileScreen';
+import {SecurityScreen} from '../screens/shared/SecurityScreen';
+import {AuthMethodsScreen} from '../screens/shared/AuthMethodsScreen';
+import {BiometricOnboardingModal} from '../components/common/BiometricOnboardingModal';
 
-// ─── Tab Navigator ──────────────────────────────────────────────────────────
+// ─── Profile Stack ───────────────────────────────────────────────────────────
 
-const Tab = createBottomTabNavigator<CustomerTabParamList>();
+const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
-const ICON_SIZE = 22;
-
-export function CustomerTabNavigator() {
+function ProfileNavigator() {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: themes.default.primary,
-        tabBarInactiveTintColor: darkPalette.muted,
-        tabBarLabelStyle: styles.tabLabel,
-      }}
-    >
-      <Tab.Screen
-        name="Explore"
-        component={ExploreScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🧭</Text> }}
-      />
-      <Tab.Screen
-        name="Bookings"
-        component={BookingsScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📅</Text> }}
-      />
-      <Tab.Screen
-        name="Orders"
-        component={OrdersScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🛍</Text> }}
-      />
-      <Tab.Screen
-        name="Bills"
-        component={BillsScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🧾</Text> }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text> }}
-      />
-    </Tab.Navigator>
+    <ProfileStack.Navigator screenOptions={{headerShown: false}}>
+      <ProfileStack.Screen name="ProfileMain" component={CustomerProfileScreen} />
+      <ProfileStack.Screen name="Security" component={SecurityScreen} />
+      <ProfileStack.Screen name="AuthMethods" component={AuthMethodsScreen} />
+    </ProfileStack.Navigator>
   );
 }
 
-// ─── Styles ─────────────────────────────────────────────────────────────────
+// ─── Tab Navigator ───────────────────────────────────────────────────────────
+
+const Tab = createBottomTabNavigator<CustomerTabParamList>();
+
+export function CustomerTabNavigator() {
+  return (
+    <View style={{flex: 1}}>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: styles.tabBar,
+          tabBarActiveTintColor: themes.default.primary,
+          tabBarInactiveTintColor: darkPalette.muted,
+          tabBarLabelStyle: styles.tabLabel,
+        }}>
+        <Tab.Screen
+          name="Explore"
+          component={ExploreScreen}
+          options={{tabBarIcon: ({color}) => <Text style={{color, fontSize: 20}}>🧭</Text>}}
+        />
+        <Tab.Screen
+          name="Bookings"
+          component={BookingsScreen}
+          options={{tabBarIcon: ({color}) => <Text style={{color, fontSize: 20}}>📅</Text>}}
+        />
+        <Tab.Screen
+          name="Orders"
+          component={OrdersScreen}
+          options={{tabBarIcon: ({color}) => <Text style={{color, fontSize: 20}}>🛍</Text>}}
+        />
+        <Tab.Screen
+          name="Bills"
+          component={BillsScreen}
+          options={{tabBarIcon: ({color}) => <Text style={{color, fontSize: 20}}>🧾</Text>}}
+        />
+        <Tab.Screen
+          name="Profile"
+          component={ProfileNavigator}
+          options={{tabBarIcon: ({color}) => <Text style={{color, fontSize: 20}}>👤</Text>}}
+        />
+      </Tab.Navigator>
+      <BiometricOnboardingModal />
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   tabBar: {

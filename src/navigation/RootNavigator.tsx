@@ -9,7 +9,9 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { darkPalette } from '../theme/colors';
 import { getAccessToken, getLoggedInUser } from '../storage/auth.storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PORTALS } from '../utils/portals';
+import { PORTALS, isBusinessUser } from '../utils/portals';
+import { biometricStorage } from '../storage/biometric.storage';
+import { promptBiometric } from '../hooks/useBiometric';
 import { AuthNavigator } from './AuthNavigator';
 import { OwnerTabNavigator } from './OwnerTabNavigator';
 import { CustomerTabNavigator } from './CustomerTabNavigator';
@@ -37,12 +39,6 @@ const DarkNavigationTheme = {
 
 // ─── Determine initial route based on role ──────────────────────────────────
 
-const OWNER_ROLES = ['ROLE_ADMIN', 'ROLE_OWNER', 'ROLE_EMPLOYEE'];
-
-function isOwner(roles: string[]): boolean {
-  return roles.some(role => OWNER_ROLES.includes(role));
-}
-
 // ─── Stack ──────────────────────────────────────────────────────────────────
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -67,6 +63,8 @@ export function RootNavigator() {
 
         const user = await getLoggedInUser();
         const roles = user?.roles ?? [];
+        const types = user?.types ?? [];
+        const isBusiness = isBusinessUser(roles, types);
 
         // Respect the user's last manually chosen portal, fall back to role-based default
         const savedPortal = await AsyncStorage.getItem('session:activeProfile');
@@ -74,10 +72,25 @@ export function RootNavigator() {
 
         if (savedPortal === PORTALS.customer.key) {
           route = PORTALS.customer.route;
-        } else if (savedPortal === PORTALS.business.key && isOwner(roles)) {
+        } else if (savedPortal === PORTALS.business.key && isBusiness) {
           route = PORTALS.business.route;
         } else {
-          route = isOwner(roles) ? PORTALS.business.route : PORTALS.customer.route;
+          // No saved preference — use role default and persist it for next reopen
+          route = isBusiness ? PORTALS.business.route : PORTALS.customer.route;
+          const defaultKey = isBusiness ? PORTALS.business.key : PORTALS.customer.key;
+          await AsyncStorage.setItem('session:activeProfile', defaultKey);
+        }
+
+        // Biometric gate — if enabled, require fingerprint before entering the app
+        if (route !== 'Auth') {
+          const biometricEnabled = await biometricStorage.isEnabled();
+          if (biometricEnabled) {
+            const passed = await promptBiometric('Verify your identity to continue');
+            if (!passed) {
+              await AsyncStorage.clear();
+              route = 'Auth';
+            }
+          }
         }
 
         if (mounted) setInitialRoute(route);

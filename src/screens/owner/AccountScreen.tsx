@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import {
   ChevronRight, ChevronDown, Palette, Bell, HelpCircle,
-  Shield, LogOut, Building2,
+  Shield, LogOut, Building2, Lock,
 } from 'lucide-react-native';
 import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
 import {AppCard} from '../../components/common/AppCard';
@@ -16,10 +16,13 @@ import {PortalSwitcherSheet} from '../../components/common/PortalSwitcherSheet';
 import {useAppContext} from '../../context/AppContext';
 import {useToast} from '../../hooks/useToast';
 import {navigationRef} from '../../navigation/RootNavigator';
-import {CommonActions} from '@react-navigation/native';
+import {CommonActions, useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {ProfileStackParamList} from '../../navigation/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {ThemeName, themes} from '../../theme/colors';
 import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
+import {biometricStorage} from '../../storage/biometric.storage';
 
 const SETTINGS_ROWS = [
   {key: 'businesses', label: 'My Businesses', icon: Building2},
@@ -38,6 +41,7 @@ const THEME_OPTIONS: {name: ThemeName; color: string; label: string}[] = [
 ];
 
 export const AccountScreen: React.FC = () => {
+  const profileNav = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const {theme, setTheme} = useAppContext();
   const {toasts, showToast} = useToast();
   const [user, setUser] = useState<any>(null);
@@ -78,7 +82,7 @@ export const AccountScreen: React.FC = () => {
 
   const handleLogout = useCallback(async () => {
     setShowLogout(false);
-    await AsyncStorage.clear();
+    await biometricStorage.logoutClear();
     navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: 'Auth'}]}));
   }, []);
 
@@ -122,6 +126,15 @@ export const AccountScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </AppCard>
+
+        <TouchableOpacity
+          style={styles.themeRow}
+          onPress={() => profileNav.navigate('Security')}
+          activeOpacity={0.7}>
+          <Lock size={20} color="#64748b" />
+          <Text style={styles.settingLabel}>Security</Text>
+          <ChevronRight size={18} color="#334155" />
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.themeRow} onPress={() => setShowThemePicker(true)} activeOpacity={0.7}>
           <Palette size={20} color="#64748b" />

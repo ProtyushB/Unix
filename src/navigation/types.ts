@@ -56,6 +56,13 @@ export type PeopleStackParamList = {
   PeopleMain: undefined;
 };
 
+// Shared stack for both Customer Profile tab and Business Account tab
+export type ProfileStackParamList = {
+  ProfileMain: undefined;
+  Security: undefined;
+  AuthMethods: undefined;
+};
+
 export type CustomerTabParamList = {
   Explore: undefined;
   Bookings: undefined;

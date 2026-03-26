@@ -15,6 +15,7 @@ export interface LoggedInUser {
   id: number;
   username: string;
   roles: string[];
+  types?: string[];
   email: string;
 }
 
