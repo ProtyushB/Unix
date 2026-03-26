@@ -16,6 +16,7 @@ pipeline {
 
         stage('Build Release APK') {
             steps {
+                sh 'cp /var/lib/jenkins/.android/unix-release-key.keystore android/app/unix-release-key.keystore'
                 dir('android') {
                     sh 'chmod +x gradlew'
                     sh './gradlew assembleRelease --no-daemon'
