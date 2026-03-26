@@ -9,6 +9,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { darkPalette } from '../theme/colors';
 import { getAccessToken, getLoggedInUser } from '../storage/auth.storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PORTALS } from '../utils/portals';
 import { AuthNavigator } from './AuthNavigator';
 import { OwnerTabNavigator } from './OwnerTabNavigator';
 import { CustomerTabNavigator } from './CustomerTabNavigator';
@@ -68,15 +69,15 @@ export function RootNavigator() {
         const roles = user?.roles ?? [];
 
         // Respect the user's last manually chosen portal, fall back to role-based default
-        const savedPortal = await AsyncStorage.getItem('session:activePortal');
+        const savedPortal = await AsyncStorage.getItem('session:activeProfile');
         let route: keyof RootStackParamList;
 
-        if (savedPortal === 'customer') {
-          route = 'CustomerTabs';
-        } else if (savedPortal === 'owner' && isOwner(roles)) {
-          route = 'OwnerTabs';
+        if (savedPortal === PORTALS.customer.key) {
+          route = PORTALS.customer.route;
+        } else if (savedPortal === PORTALS.business.key && isOwner(roles)) {
+          route = PORTALS.business.route;
         } else {
-          route = isOwner(roles) ? 'OwnerTabs' : 'CustomerTabs';
+          route = isOwner(roles) ? PORTALS.business.route : PORTALS.customer.route;
         }
 
         if (mounted) setInitialRoute(route);

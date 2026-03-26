@@ -1,10 +1,10 @@
 import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Animated,
+  View, Text, TouchableOpacity, StyleSheet, Animated,
 } from 'react-native';
 import {
   ChevronRight, ChevronDown, Palette, Bell, HelpCircle,
-  Shield, LogOut, Building2, User, Plus,
+  Shield, LogOut, Building2,
 } from 'lucide-react-native';
 import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
 import {AppCard} from '../../components/common/AppCard';
@@ -12,12 +12,14 @@ import {AvatarBadge} from '../../components/common/AvatarBadge';
 import {AppButton} from '../../components/common/AppButton';
 import {ConfirmDialog} from '../../components/common/ConfirmDialog';
 import {Toast} from '../../components/common/Toast';
+import {PortalSwitcherSheet} from '../../components/common/PortalSwitcherSheet';
 import {useAppContext} from '../../context/AppContext';
 import {useToast} from '../../hooks/useToast';
 import {navigationRef} from '../../navigation/RootNavigator';
 import {CommonActions} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {ThemeName, themes} from '../../theme/colors';
+import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
 
 const SETTINGS_ROWS = [
   {key: 'businesses', label: 'My Businesses', icon: Building2},
@@ -84,25 +86,26 @@ export const AccountScreen: React.FC = () => {
     if (key === 'theme') setShowThemePicker(true);
   };
 
-  const handleSwitchToCustomer = () => {
+  const handleSwitchPortal = useCallback((key: PortalKey) => {
     closePortalSheet(async () => {
       try {
-        await AsyncStorage.setItem('session:activeProfile', 'customer');
+        await AsyncStorage.setItem('session:activeProfile', PORTALS[key].key);
         if (navigationRef.isReady()) {
-          navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: 'CustomerTabs'}]}));
+          navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: PORTALS[key].route}]}));
         }
       } catch {
         // navigation dispatch failed silently
       }
     });
-  };
+  }, []);
 
+  const availablePortals = getAvailablePortals(user);
   const fullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'User';
 
   return (
     <ScreenWrapper>
       <View style={styles.container}>
-        <Text style={styles.title}>Account</Text>
+        <Text style={styles.title}>Profile</Text>
 
         <AppCard style={styles.profileCard}>
           <AvatarBadge name={fullName} size={72} />
@@ -183,29 +186,15 @@ export const AccountScreen: React.FC = () => {
           </View>
         )}
 
-        {showPortalSheet && (
-          <View style={styles.overlay}>
-            <Animated.View style={[styles.overlayBg, {opacity: overlayAnim}]}>
-              <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => closePortalSheet()} />
-            </Animated.View>
-            <Animated.View style={[styles.sheet, {transform: [{translateY: slideAnim}]}]}>
-              <Text style={styles.sheetTitle}>Switch Portal</Text>
-              <TouchableOpacity style={styles.portalOptionActive} activeOpacity={1}>
-                <View style={styles.portalIconWrap}>
-                  <Building2 size={20} color="#f97316" />
-                </View>
-                <Text style={styles.portalOptionActiveText}>Business</Text>
-                <View style={styles.portalActiveDot} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.portalOption} onPress={handleSwitchToCustomer} activeOpacity={0.7}>
-                <View style={styles.portalIconWrapMuted}>
-                  <User size={20} color="#64748b" />
-                </View>
-                <Text style={styles.portalOptionText}>Customer</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-        )}
+        <PortalSwitcherSheet
+          visible={showPortalSheet}
+          activeKey="business"
+          availableKeys={availablePortals}
+          slideAnim={slideAnim}
+          overlayAnim={overlayAnim}
+          onClose={() => closePortalSheet()}
+          onSwitch={handleSwitchPortal}
+        />
 
         <Toast toasts={toasts} />
       </View>
@@ -222,13 +211,6 @@ const styles = StyleSheet.create({
   profileEmail: {fontSize: 13, color: '#94a3b8', marginTop: 2},
   rolePill: {marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(249,115,22,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(249,115,22,0.25)'},
   rolePillText: {fontSize: 11, color: '#f97316', fontWeight: '700', letterSpacing: 0.5},
-  portalOptionActive: {flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(249,115,22,0.12)', borderWidth: 1, borderColor: 'rgba(249,115,22,0.3)', borderRadius: 14, padding: 14, marginBottom: 10},
-  portalOptionActiveText: {flex: 1, fontSize: 16, fontWeight: '600', color: '#f97316'},
-  portalActiveDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: '#f97316'},
-  portalOption: {flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(51,65,85,0.4)', borderWidth: 1, borderColor: 'rgba(51,65,85,0.6)', borderRadius: 14, padding: 14},
-  portalOptionText: {flex: 1, fontSize: 16, fontWeight: '600', color: '#94a3b8'},
-  portalIconWrap: {width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(249,115,22,0.15)', alignItems: 'center', justifyContent: 'center'},
-  portalIconWrapMuted: {width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(51,65,85,0.6)', alignItems: 'center', justifyContent: 'center'},
   themeRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(51,65,85,0.3)', marginBottom: 4},
   themePreview: {width: 20, height: 20, borderRadius: 10, marginLeft: 'auto', marginRight: 8},
   settingsSection: {marginBottom: 24},

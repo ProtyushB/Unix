@@ -111,7 +111,7 @@ export function OwnerTabNavigator() {
       <Tab.Screen
         name="Account"
         component={AccountScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text> }}
+        options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text> }}
       />
     </Tab.Navigator>
   );
