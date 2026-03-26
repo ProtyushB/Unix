@@ -7,9 +7,7 @@ import { PERSON_API_CONFIG } from '../config/api.config';
 import {
   PersonApiInterface,
   PersonDto,
-  BusinessDto,
   UpdatePersonFlags,
-  UpdateBusinessFlags,
 } from './person.api.interface';
 import { ApiResponse } from '../../auth/api/auth.api.interface';
 
@@ -60,40 +58,4 @@ export class PersonApiImpl extends PersonApiInterface {
     return response.data;
   }
 
-  // ===== Business APIs =====
-
-  async createBusiness(businessData: BusinessDto): Promise<ApiResponse<BusinessDto>> {
-    const response = await personApiClient.post(PERSON_API_CONFIG.ENDPOINTS.BUSINESS, businessData);
-    return response.data;
-  }
-
-  async updateBusiness(businessData: BusinessDto, flags: UpdateBusinessFlags = {}): Promise<ApiResponse<BusinessDto>> {
-    const params = new URLSearchParams();
-    if (flags.updatePhone) params.append('updatePhone', 'true');
-    if (flags.updateEmail) params.append('updateEmail', 'true');
-    if (flags.updateIsActive) params.append('updateIsActive', 'true');
-
-    const queryString = params.toString();
-    const url = queryString
-      ? `${PERSON_API_CONFIG.ENDPOINTS.BUSINESS}?${queryString}`
-      : PERSON_API_CONFIG.ENDPOINTS.BUSINESS;
-
-    const response = await personApiClient.put(url, businessData);
-    return response.data;
-  }
-
-  async getBusinessById(businessId: number): Promise<ApiResponse<BusinessDto>> {
-    const response = await personApiClient.get(PERSON_API_CONFIG.ENDPOINTS.BUSINESS_BY_ID(businessId));
-    return response.data;
-  }
-
-  async getAllBusinesses(): Promise<ApiResponse<BusinessDto[]>> {
-    const response = await personApiClient.get(PERSON_API_CONFIG.ENDPOINTS.BUSINESS_VIEW_ALL);
-    return response.data;
-  }
-
-  async deleteBusiness(businessId: number): Promise<ApiResponse<BusinessDto>> {
-    const response = await personApiClient.delete(PERSON_API_CONFIG.ENDPOINTS.BUSINESS_BY_ID(businessId));
-    return response.data;
-  }
 }

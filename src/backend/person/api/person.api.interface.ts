@@ -20,13 +20,19 @@ export interface PersonDto {
   [key: string]: unknown;
 }
 
+export interface BusinessRegistrationDto {
+  cin?: string | null;
+  gstin?: string | null;
+  pan?: string | null;
+}
+
 export interface BusinessDto {
   id?: number;
   businessName: string;
   businessType: string;
   businessPhone?: string;
   businessEmail?: string;
-  registrationNumber?: string | null;
+  registration?: BusinessRegistrationDto | null;
   businessRoles?: string[];
   isActive?: boolean;
   businessOwnerPersonId?: number;
@@ -57,10 +63,4 @@ export abstract class PersonApiInterface {
   abstract getAllPersons(): Promise<ApiResponse<PersonDto[]>>;
   abstract deletePerson(personId: number): Promise<ApiResponse<PersonDto>>;
 
-  // Business APIs
-  abstract createBusiness(businessData: BusinessDto): Promise<ApiResponse<BusinessDto>>;
-  abstract updateBusiness(businessData: BusinessDto, flags?: UpdateBusinessFlags): Promise<ApiResponse<BusinessDto>>;
-  abstract getBusinessById(businessId: number): Promise<ApiResponse<BusinessDto>>;
-  abstract getAllBusinesses(): Promise<ApiResponse<BusinessDto[]>>;
-  abstract deleteBusiness(businessId: number): Promise<ApiResponse<BusinessDto>>;
 }

@@ -7,7 +7,7 @@
 
 import { useState, useCallback } from 'react';
 import { PersonService } from '../service/person.service';
-import { PersonDto, BusinessDto, UpdatePersonFlags, UpdateBusinessFlags } from '../api/person.api.interface';
+import { PersonDto, BusinessDto, UpdatePersonFlags } from '../api/person.api.interface';
 
 let serviceInstance: PersonService | null = null;
 
@@ -144,103 +144,6 @@ export function usePerson() {
     [service],
   );
 
-  const createBusiness = useCallback(
-    async (businessData: BusinessDto & { personId?: number }) => {
-      setState({ loading: true, error: null });
-      try {
-        const result = await service.createBusiness(businessData);
-        if (!result.success) {
-          setState({ loading: false, error: result.error });
-        } else {
-          setState({ loading: false, error: null });
-        }
-        return result;
-      } catch (err) {
-        const errorMessage = (err as Error).message || 'Failed to create business';
-        setState({ loading: false, error: errorMessage });
-        return { success: false, data: null, error: errorMessage };
-      }
-    },
-    [service],
-  );
-
-  const updateBusiness = useCallback(
-    async (businessData: BusinessDto, flags?: UpdateBusinessFlags) => {
-      setState({ loading: true, error: null });
-      try {
-        const result = await service.updateBusiness(businessData, flags);
-        if (!result.success) {
-          setState({ loading: false, error: result.error });
-        } else {
-          setState({ loading: false, error: null });
-        }
-        return result;
-      } catch (err) {
-        const errorMessage = (err as Error).message || 'Failed to update business';
-        setState({ loading: false, error: errorMessage });
-        return { success: false, data: null, error: errorMessage };
-      }
-    },
-    [service],
-  );
-
-  const getBusinessById = useCallback(
-    async (businessId: number) => {
-      setState({ loading: true, error: null });
-      try {
-        const result = await service.getBusinessById(businessId);
-        if (!result.success) {
-          setState({ loading: false, error: result.error });
-        } else {
-          setState({ loading: false, error: null });
-        }
-        return result;
-      } catch (err) {
-        const errorMessage = (err as Error).message || 'Failed to get business';
-        setState({ loading: false, error: errorMessage });
-        return { success: false, data: null, error: errorMessage };
-      }
-    },
-    [service],
-  );
-
-  const getAllBusinesses = useCallback(async () => {
-    setState({ loading: true, error: null });
-    try {
-      const result = await service.getAllBusinesses();
-      if (!result.success) {
-        setState({ loading: false, error: result.error });
-      } else {
-        setState({ loading: false, error: null });
-      }
-      return result;
-    } catch (err) {
-      const errorMessage = (err as Error).message || 'Failed to get businesses';
-      setState({ loading: false, error: errorMessage });
-      return { success: false, data: null, error: errorMessage };
-    }
-  }, [service]);
-
-  const deleteBusiness = useCallback(
-    async (businessId: number) => {
-      setState({ loading: true, error: null });
-      try {
-        const result = await service.deleteBusiness(businessId);
-        if (!result.success) {
-          setState({ loading: false, error: result.error });
-        } else {
-          setState({ loading: false, error: null });
-        }
-        return result;
-      } catch (err) {
-        const errorMessage = (err as Error).message || 'Failed to delete business';
-        setState({ loading: false, error: errorMessage });
-        return { success: false, data: null, error: errorMessage };
-      }
-    },
-    [service],
-  );
-
   const clearError = useCallback(() => {
     setState((prev) => ({ ...prev, error: null }));
   }, []);
@@ -256,13 +159,6 @@ export function usePerson() {
     getPersonByUsername,
     getAllPersons,
     deletePerson,
-
-    // Business
-    createBusiness,
-    updateBusiness,
-    getBusinessById,
-    getAllBusinesses,
-    deleteBusiness,
 
     clearError,
   };

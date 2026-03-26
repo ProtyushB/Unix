@@ -9,7 +9,6 @@ import {
   PersonDto,
   BusinessDto,
   UpdatePersonFlags,
-  UpdateBusinessFlags,
 } from '../api/person.api.interface';
 import { AxiosError } from 'axios';
 
@@ -48,7 +47,11 @@ export class PersonService {
           businessType: biz.businessType,
           businessPhone: biz.businessPhone,
           businessEmail: biz.businessEmail,
-          registrationNumber: biz.registrationNumber || null,
+          registration: {
+            cin: biz.registration?.cin ?? null,
+            gstin: biz.registration?.gstin ?? null,
+            pan: biz.registration?.pan ?? null,
+          },
           isActive: true,
           folderId: biz.folderId ?? null,
         }));
@@ -146,100 +149,6 @@ export class PersonService {
         success: false,
         data: null,
         error: this.extractErrorMessage(error, 'Failed to delete person'),
-      };
-    }
-  }
-
-  // ===== Business Operations =====
-
-  async createBusiness(businessData: BusinessDto & { personId?: number }): Promise<ServiceResult<BusinessDto>> {
-    try {
-      const apiPayload: BusinessDto = {
-        businessName: businessData.businessName,
-        businessType: businessData.businessType,
-        businessPhone: businessData.businessPhone,
-        businessEmail: businessData.businessEmail,
-        registrationNumber: businessData.registrationNumber || null,
-        isActive: true,
-        businessOwnerPersonId: businessData.personId,
-        businessRoles: this._parseBusinessRoles(businessData.businessRoles || []),
-      };
-
-      const response = await this.api.createBusiness(apiPayload);
-
-      if (response.success) {
-        return { success: true, data: response.data, error: null };
-      }
-      return { success: false, data: null, error: response.error || response.message };
-    } catch (error) {
-      return {
-        success: false,
-        data: null,
-        error: this.extractErrorMessage(error, 'Failed to create business'),
-      };
-    }
-  }
-
-  async updateBusiness(businessData: BusinessDto, flags?: UpdateBusinessFlags): Promise<ServiceResult<BusinessDto>> {
-    try {
-      const response = await this.api.updateBusiness(businessData, flags);
-      if (response.success) {
-        return { success: true, data: response.data, error: null };
-      }
-      return { success: false, data: null, error: response.error || response.message };
-    } catch (error) {
-      return {
-        success: false,
-        data: null,
-        error: this.extractErrorMessage(error, 'Failed to update business'),
-      };
-    }
-  }
-
-  async getBusinessById(businessId: number): Promise<ServiceResult<BusinessDto>> {
-    try {
-      const response = await this.api.getBusinessById(businessId);
-      if (response.success) {
-        return { success: true, data: response.data, error: null };
-      }
-      return { success: false, data: null, error: response.error || response.message };
-    } catch (error) {
-      return {
-        success: false,
-        data: null,
-        error: this.extractErrorMessage(error, 'Failed to get business'),
-      };
-    }
-  }
-
-  async getAllBusinesses(): Promise<ServiceResult<BusinessDto[]>> {
-    try {
-      const response = await this.api.getAllBusinesses();
-      if (response.success) {
-        return { success: true, data: response.data, error: null };
-      }
-      return { success: false, data: null, error: response.error || response.message };
-    } catch (error) {
-      return {
-        success: false,
-        data: null,
-        error: this.extractErrorMessage(error, 'Failed to get businesses'),
-      };
-    }
-  }
-
-  async deleteBusiness(businessId: number): Promise<ServiceResult<BusinessDto>> {
-    try {
-      const response = await this.api.deleteBusiness(businessId);
-      if (response.success) {
-        return { success: true, data: response.data, error: null };
-      }
-      return { success: false, data: null, error: response.error || response.message };
-    } catch (error) {
-      return {
-        success: false,
-        data: null,
-        error: this.extractErrorMessage(error, 'Failed to delete business'),
       };
     }
   }
