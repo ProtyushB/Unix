@@ -8,6 +8,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { darkPalette } from '../theme/colors';
 import { getAccessToken, getLoggedInUser } from '../storage/auth.storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthNavigator } from './AuthNavigator';
 import { OwnerTabNavigator } from './OwnerTabNavigator';
 import { CustomerTabNavigator } from './CustomerTabNavigator';
@@ -59,32 +60,34 @@ export function RootNavigator() {
         const token = await getAccessToken();
 
         if (!token) {
-          if (mounted) {
-            setInitialRoute('Auth');
-          }
+          if (mounted) setInitialRoute('Auth');
           return;
         }
 
         const user = await getLoggedInUser();
         const roles = user?.roles ?? [];
 
-        if (mounted) {
-          setInitialRoute(isOwner(roles) ? 'OwnerTabs' : 'CustomerTabs');
+        // Respect the user's last manually chosen portal, fall back to role-based default
+        const savedPortal = await AsyncStorage.getItem('session:activePortal');
+        let route: keyof RootStackParamList;
+
+        if (savedPortal === 'customer') {
+          route = 'CustomerTabs';
+        } else if (savedPortal === 'owner' && isOwner(roles)) {
+          route = 'OwnerTabs';
+        } else {
+          route = isOwner(roles) ? 'OwnerTabs' : 'CustomerTabs';
         }
+
+        if (mounted) setInitialRoute(route);
       } catch {
-        if (mounted) {
-          setInitialRoute('Auth');
-        }
+        if (mounted) setInitialRoute('Auth');
       } finally {
-        if (mounted) {
-          setIsReady(true);
-        }
+        if (mounted) setIsReady(true);
       }
     })();
 
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   if (!isReady || !initialRoute) {

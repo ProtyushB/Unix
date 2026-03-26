@@ -85,9 +85,16 @@ export const AccountScreen: React.FC = () => {
   };
 
   const handleSwitchToCustomer = () => {
-    closePortalSheet(() =>
-      navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: 'CustomerTabs'}]}))
-    );
+    closePortalSheet(async () => {
+      try {
+        await AsyncStorage.setItem('session:activeProfile', 'customer');
+        if (navigationRef.isReady()) {
+          navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: 'CustomerTabs'}]}));
+        }
+      } catch {
+        // navigation dispatch failed silently
+      }
+    });
   };
 
   const fullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'User';
@@ -187,7 +194,7 @@ export const AccountScreen: React.FC = () => {
                 <View style={styles.portalIconWrap}>
                   <Building2 size={20} color="#f97316" />
                 </View>
-                <Text style={styles.portalOptionActiveText}>Business Owner</Text>
+                <Text style={styles.portalOptionActiveText}>Business</Text>
                 <View style={styles.portalActiveDot} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.portalOption} onPress={handleSwitchToCustomer} activeOpacity={0.7}>

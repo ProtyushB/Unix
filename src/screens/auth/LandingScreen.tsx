@@ -79,8 +79,8 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
         {/* Hero Section */}
         <View style={styles.heroSection}>
           <View style={styles.logoRow}>
-            <Text style={styles.logoText}>Module</Text>
-            <Text style={styles.logoAccent}>X</Text>
+            <Text style={styles.logoText}>Uni</Text>
+            <Text style={styles.logoAccent}>x</Text>
           </View>
           <Text style={styles.tagline}>
             All-in-one business management platform

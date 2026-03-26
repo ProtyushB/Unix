@@ -87,9 +87,16 @@ export const CustomerProfileScreen: React.FC = () => {
     user?.roles?.includes('BUSINESS_OWNER');
 
   const handleSwitchToOwner = useCallback(() => {
-    closePortalSheet(() =>
-      navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: 'OwnerTabs'}]}))
-    );
+    closePortalSheet(async () => {
+      try {
+        await AsyncStorage.setItem('session:activeProfile', 'business');
+        if (navigationRef.isReady()) {
+          navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: 'OwnerTabs'}]}));
+        }
+      } catch {
+        // navigation dispatch failed silently
+      }
+    });
   }, []);
 
   const handleLogout = useCallback(async () => {
