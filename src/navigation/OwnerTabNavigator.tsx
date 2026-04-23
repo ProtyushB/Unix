@@ -1,32 +1,45 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useTheme } from '../hooks/useTheme';
 import { useThemedStyles } from '../hooks/useThemedStyles';
 import type { AppTheme } from '../theme/theme.types';
-import type {
-  OwnerTabParamList,
+import type { OwnerTabParamList, ProfileStackParamList } from './types';
+
+// Re-exports kept so orphaned composite screens (OperationsScreen, CatalogScreen,
+// and the detail screens) still type-check even though they are no longer
+// mounted here. Remove once those files are removed or rewritten.
+export type {
   CatalogStackParamList,
   OperationsStackParamList,
   InventoryStackParamList,
   PeopleStackParamList,
-  ProfileStackParamList,
 } from './types';
 import DashboardScreen from '../screens/owner/DashboardScreen';
-import CatalogScreen from '../screens/owner/CatalogScreen';
-import ProductDetailScreen from '../screens/owner/ProductDetailScreen';
-import ServiceDetailScreen from '../screens/owner/ServiceDetailScreen';
-import OperationsScreen from '../screens/owner/OperationsScreen';
-import { OrderDetailScreen } from '../screens/owner/OrderDetailScreen';
-import { AppointmentDetailScreen } from '../screens/owner/AppointmentDetailScreen';
-import { BillingDetailScreen } from '../screens/owner/BillingDetailScreen';
 import { InventoryScreen } from '../screens/owner/InventoryScreen';
-import { PeopleScreen } from '../screens/owner/PeopleScreen';
 import { AccountScreen } from '../screens/owner/AccountScreen';
+import { OrdersScreen } from '../screens/owner/OrdersScreen';
+import { AppointmentsScreen } from '../screens/owner/AppointmentsScreen';
+import { BillingScreen } from '../screens/owner/BillingScreen';
+import { ProductsScreen } from '../screens/owner/ProductsScreen';
+import { ServicesScreen } from '../screens/owner/ServicesScreen';
+import { PackagesScreen } from '../screens/owner/PackagesScreen';
+import { SubscriptionsScreen } from '../screens/owner/SubscriptionsScreen';
+import { ServicePlansScreen } from '../screens/owner/ServicePlansScreen';
+import { ConsumptionsScreen } from '../screens/owner/ConsumptionsScreen';
+import { StockTransfersScreen } from '../screens/owner/StockTransfersScreen';
+import { WastageScreen } from '../screens/owner/WastageScreen';
+import { CustomersScreen } from '../screens/owner/CustomersScreen';
+import { EmployeesScreen } from '../screens/owner/EmployeesScreen';
+import { WarrantyClaimsScreen } from '../screens/owner/WarrantyClaimsScreen';
+import { LoyaltyScreen } from '../screens/owner/LoyaltyScreen';
+import { ReportsScreen } from '../screens/owner/ReportsScreen';
 import { SecurityScreen } from '../screens/shared/SecurityScreen';
 import { AuthMethodsScreen } from '../screens/shared/AuthMethodsScreen';
 import { BiometricOnboardingModal } from '../components/common/BiometricOnboardingModal';
+import { BottomGroupNav } from '../components/navigation/BottomGroupNav';
+import { GroupSheetOverlay } from '../components/navigation/GroupSheetOverlay';
+import { BusinessSheetOverlay } from '../components/navigation/BusinessSheetOverlay';
 
 // ─── Account/Profile Stack ───────────────────────────────────────────────────
 
@@ -42,110 +55,42 @@ function AccountNavigator() {
   );
 }
 
-// ─── Stack Navigators ───────────────────────────────────────────────────────
-
-const CatalogStack = createNativeStackNavigator<CatalogStackParamList>();
-const OperationsStack = createNativeStackNavigator<OperationsStackParamList>();
-const InventoryStack = createNativeStackNavigator<InventoryStackParamList>();
-const PeopleStack = createNativeStackNavigator<PeopleStackParamList>();
-
-function CatalogNavigator() {
-  return (
-    <CatalogStack.Navigator screenOptions={{ headerShown: false }}>
-      <CatalogStack.Screen name="CatalogMain" component={CatalogScreen} />
-      <CatalogStack.Screen name="ProductDetail" component={ProductDetailScreen} />
-      <CatalogStack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
-    </CatalogStack.Navigator>
-  );
-}
-
-function OperationsNavigator() {
-  return (
-    <OperationsStack.Navigator screenOptions={{ headerShown: false }}>
-      <OperationsStack.Screen name="OperationsMain" component={OperationsScreen} />
-      <OperationsStack.Screen name="OrderDetail" component={OrderDetailScreen} />
-      <OperationsStack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
-      <OperationsStack.Screen name="BillingDetail" component={BillingDetailScreen} />
-    </OperationsStack.Navigator>
-  );
-}
-
-function InventoryNavigator() {
-  return (
-    <InventoryStack.Navigator screenOptions={{ headerShown: false }}>
-      <InventoryStack.Screen name="InventoryMain" component={InventoryScreen} />
-    </InventoryStack.Navigator>
-  );
-}
-
-function PeopleNavigator() {
-  return (
-    <PeopleStack.Navigator screenOptions={{ headerShown: false }}>
-      <PeopleStack.Screen name="PeopleMain" component={PeopleScreen} />
-    </PeopleStack.Navigator>
-  );
-}
-
 // ─── Tab Navigator ──────────────────────────────────────────────────────────
+// Every navbar item maps to its own tab.
 
 const Tab = createBottomTabNavigator<OwnerTabParamList>();
 
-const ICON_SIZE = 22;
-
 export function OwnerTabNavigator() {
-  const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
     <View style={styles.flex}>
       <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: {
-            backgroundColor: palette.surface,
-            borderTopColor: palette.divider,
-            borderTopWidth: 1,
-            height: 64,
-            paddingBottom: 8,
-            paddingTop: 8,
-            elevation: 0,
-          },
-          tabBarActiveTintColor:   colors.primary,
-          tabBarInactiveTintColor: palette.muted,
-          tabBarLabelStyle: styles.tabLabel,
-        }}
+        screenOptions={{ headerShown: false }}
+        tabBar={(props) => <BottomGroupNav {...props} />}
       >
-        <Tab.Screen
-          name="Dashboard"
-          component={DashboardScreen}
-          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>⊞</Text> }}
-        />
-        <Tab.Screen
-          name="Catalog"
-          component={CatalogNavigator}
-          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>📦</Text> }}
-        />
-        <Tab.Screen
-          name="Operations"
-          component={OperationsNavigator}
-          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>📋</Text> }}
-        />
-        <Tab.Screen
-          name="Inventory"
-          component={InventoryNavigator}
-          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>🗄</Text> }}
-        />
-        <Tab.Screen
-          name="People"
-          component={PeopleNavigator}
-          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>👥</Text> }}
-        />
-        <Tab.Screen
-          name="Account"
-          component={AccountNavigator}
-          options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: ICON_SIZE }}>👤</Text> }}
-        />
+        <Tab.Screen name="Dashboard"      component={DashboardScreen} />
+        <Tab.Screen name="Orders"         component={OrdersScreen} />
+        <Tab.Screen name="Appointments"   component={AppointmentsScreen} />
+        <Tab.Screen name="Billing"        component={BillingScreen} />
+        <Tab.Screen name="Products"       component={ProductsScreen} />
+        <Tab.Screen name="Services"       component={ServicesScreen} />
+        <Tab.Screen name="Packages"       component={PackagesScreen} />
+        <Tab.Screen name="Subscriptions"  component={SubscriptionsScreen} />
+        <Tab.Screen name="ServicePlans"   component={ServicePlansScreen} />
+        <Tab.Screen name="Inventory"      component={InventoryScreen} />
+        <Tab.Screen name="Consumptions"   component={ConsumptionsScreen} />
+        <Tab.Screen name="StockTransfers" component={StockTransfersScreen} />
+        <Tab.Screen name="Wastage"        component={WastageScreen} />
+        <Tab.Screen name="Customers"      component={CustomersScreen} />
+        <Tab.Screen name="Employees"      component={EmployeesScreen} />
+        <Tab.Screen name="WarrantyClaims" component={WarrantyClaimsScreen} />
+        <Tab.Screen name="Loyalty"        component={LoyaltyScreen} />
+        <Tab.Screen name="Reports"        component={ReportsScreen} />
+        <Tab.Screen name="Account"        component={AccountNavigator} />
       </Tab.Navigator>
+      <GroupSheetOverlay />
+      <BusinessSheetOverlay />
       <BiometricOnboardingModal />
     </View>
   );
@@ -156,10 +101,5 @@ export function OwnerTabNavigator() {
 function createStyles(_theme: AppTheme) {
   return StyleSheet.create({
     flex: { flex: 1 },
-    tabLabel: {
-      fontSize: 11,
-      fontWeight: '600',
-      marginTop: 2,
-    },
   });
 }

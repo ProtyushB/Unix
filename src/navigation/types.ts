@@ -28,10 +28,23 @@ export type RootStackParamList = {
 
 export type OwnerTabParamList = {
   Dashboard: undefined;
-  Catalog: undefined;
-  Operations: undefined;
+  Orders: undefined;
+  Appointments: undefined;
+  Billing: undefined;
+  Products: undefined;
+  Services: undefined;
+  Packages: undefined;
+  Subscriptions: undefined;
+  ServicePlans: undefined;
   Inventory: undefined;
-  People: undefined;
+  Consumptions: undefined;
+  StockTransfers: undefined;
+  Wastage: undefined;
+  Customers: undefined;
+  Employees: undefined;
+  WarrantyClaims: undefined;
+  Loyalty: undefined;
+  Reports: undefined;
   Account: undefined;
 };
 

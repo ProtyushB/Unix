@@ -1,31 +1,26 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
-  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
   StatusBar,
-  Modal,
-  Pressable,
 } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { AppCard } from '../../components/common/AppCard';
-import { AppButton } from '../../components/common/AppButton';
 import { useParlour } from '../../backend/modules/parlour/hook/useParlour';
 import { usePharmacy } from '../../backend/modules/pharmacy/hook/usePharmacy';
 import { useRestaurant } from '../../backend/modules/restaurant/hook/useRestaurant';
 import { useAppContext } from '../../context/AppContext';
-import { getBusinessTypeMap, type BusinessTypeMap, type Business } from '../../storage/session.storage';
+import { getBusinessTypeMap, type Business } from '../../storage/session.storage';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { getStatusColor } from '../../utils/statusColors';
-import { getBusinessTypeLabel } from '../../utils/businessTypes';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
+import { openBusinessSheet } from '../../navigation/businessSheetState';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -39,7 +34,7 @@ interface StatItem {
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
-  const { selectedModule, selectedBusiness, setSelectedModule, setSelectedBusiness } = useAppContext();
+  const { selectedModule, selectedBusiness } = useAppContext();
 
   const parlour = useParlour();
   const pharmacy = usePharmacy();
@@ -52,8 +47,6 @@ export default function DashboardScreen() {
       : parlour;
 
   const [loading, setLoading] = useState(true);
-  const [sheetVisible, setSheetVisible] = useState(false);
-  const [businessTypeMap, setBusinessTypeMap] = useState<BusinessTypeMap | null>(null);
 
   // Resolve business ID from stable string
   const [selectedBusinessId, setSelectedBusinessId] = useState<number | null>(null);
@@ -64,7 +57,6 @@ export default function DashboardScreen() {
   useEffect(() => {
     (async () => {
       const map = await getBusinessTypeMap();
-      setBusinessTypeMap(map);
       if (map && selectedModule) {
         const businesses = map[selectedModule] || [];
         const biz = businesses.find((b: Business) => ((b as any).businessName || b.name) === selectedBusiness);
@@ -124,18 +116,6 @@ export default function DashboardScreen() {
         break;
     }
   }, [navigation]);
-
-  const openSheet = useCallback(async () => {
-    const map = await getBusinessTypeMap();
-    setBusinessTypeMap(map);
-    setSheetVisible(true);
-  }, []);
-
-  const selectBusiness = useCallback((biz: Business, type: string) => {
-    setSelectedModule(type);
-    setSelectedBusiness((biz as any).businessName || biz.name);
-    setSheetVisible(false);
-  }, [setSelectedModule, setSelectedBusiness]);
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -198,7 +178,7 @@ export default function DashboardScreen() {
           <Text style={styles.headerIcon}>⊞</Text>
           <Text style={styles.headerTitle}>Dashboard</Text>
         </View>
-        <TouchableOpacity style={styles.businessSelector} onPress={openSheet} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.businessSelector} onPress={openBusinessSheet} activeOpacity={0.7}>
           <Text style={styles.businessSelectorText} numberOfLines={1}>
             {selectedBusiness || 'Select Business'}
           </Text>
@@ -296,55 +276,6 @@ export default function DashboardScreen() {
           <View style={styles.bottomSpacer} />
         </ScrollView>
       )}
-
-      {/* Business Switcher Sheet */}
-      <Modal
-        visible={sheetVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSheetVisible(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setSheetVisible(false)}>
-          <Pressable style={styles.bottomSheet} onPress={() => {}}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Select Business</Text>
-              <TouchableOpacity onPress={() => setSheetVisible(false)}>
-                <Text style={styles.closeIcon}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.sheetBody} showsVerticalScrollIndicator={false}>
-              {businessTypeMap && Object.keys(businessTypeMap).map((type) => (
-                <View key={type} style={styles.sheetSection}>
-                  <Text style={styles.sheetSubtitle}>{getBusinessTypeLabel(type)}</Text>
-                  {(businessTypeMap[type] || []).map((biz: Business) => (
-                    <TouchableOpacity
-                      key={biz.id}
-                      style={[
-                        styles.sheetRow,
-                        selectedBusiness === ((biz as any).businessName || biz.name) && selectedModule === type && styles.sheetRowActive,
-                      ]}
-                      onPress={() => selectBusiness(biz, type)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[
-                        styles.sheetRowText,
-                        selectedBusiness === ((biz as any).businessName || biz.name) && selectedModule === type && styles.sheetRowTextActive,
-                      ]}>
-                        {(biz as any).businessName || biz.name}
-                      </Text>
-                      {selectedBusiness === ((biz as any).businessName || biz.name) && selectedModule === type && (
-                        <Text style={styles.activeCheckIcon}>✓</Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ))}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -534,95 +465,12 @@ function createStyles(theme: AppTheme) {
     bottomSpacer: {
       height: 32,
     },
-    // ─── Bottom Sheet ───────────────────────────────────
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: theme.palette.overlay,
-      justifyContent: 'flex-end',
-    },
-    bottomSheet: {
-      backgroundColor: theme.palette.surface,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      maxHeight: '70%',
-      paddingBottom: 32,
-    },
-    sheetHandle: {
-      width: 40,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: theme.palette.muted,
-      alignSelf: 'center',
-      marginTop: 12,
-      marginBottom: 8,
-    },
-    sheetHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.palette.divider,
-    },
-    sheetTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: theme.palette.onBackground,
-    },
-    sheetBody: {
-      paddingHorizontal: 20,
-      paddingTop: 16,
-    },
-    sheetSubtitle: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: theme.palette.muted,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      marginBottom: 12,
-    },
-    sheetRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 14,
-      paddingHorizontal: 12,
-      borderRadius: 10,
-      marginBottom: 4,
-    },
-    sheetRowActive: {
-      backgroundColor: theme.colors.softBg,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    sheetRowText: {
-      fontSize: 15,
-      fontWeight: '500',
-      color: theme.palette.onBackground,
-    },
-    sheetRowTextActive: {
-      color: theme.colors.primary,
-      fontWeight: '600',
-    },
-    sheetSection: {
-      marginBottom: 20,
-    },
-    activeCheckIcon: {
-      fontSize: 16,
-      color: theme.colors.primary,
-      fontWeight: '700',
-    },
     headerIcon: {
       fontSize: 22,
       color: theme.colors.primary,
     },
     chevronIcon: {
       fontSize: 18,
-      color: theme.palette.muted,
-    },
-    closeIcon: {
-      fontSize: 22,
       color: theme.palette.muted,
     },
     quickActionIconText: {
