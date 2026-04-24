@@ -8,6 +8,7 @@ import {
   Modal,
 } from 'react-native';
 import {User, Building2} from 'lucide-react-native';
+import {BlurView} from 'expo-blur';
 import {PORTALS, PORTAL_ORDER, PortalKey} from '../../utils/portals';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
@@ -37,9 +38,11 @@ export function PortalSwitcherSheet({
   onClose,
   onSwitch,
 }: Props) {
-  const { colors, palette } = useTheme();
+  const theme = useTheme();
+  const { colors, palette } = theme;
   const styles = useThemedStyles(createStyles);
   const portalsToShow = PORTAL_ORDER.filter(key => availableKeys.includes(key));
+  const isDark = theme.mode === 'dark';
 
   return (
     <Modal
@@ -52,7 +55,29 @@ export function PortalSwitcherSheet({
         <Animated.View style={[styles.overlayBg, {opacity: overlayAnim}]}>
           <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
-        <Animated.View style={[styles.sheet, {transform: [{translateY: slideAnim}]}]}>
+        <Animated.View style={[isDark ? styles.sheetGlass : styles.sheetFlat, {transform: [{translateY: slideAnim}]}]}>
+          {isDark && (
+            <>
+              {/* Modal renders in a separate window, so expo-blur's
+                  BlurTargetView ref cannot reach it from outside. Fall back
+                  to an unscoped BlurView here — it blurs whatever Android
+                  puts behind this Modal window (mostly dim scrim). */}
+              <BlurView
+                style={StyleSheet.absoluteFill}
+                blurMethod="dimezisBlurView"
+                intensity={50}
+                tint="dark"
+                pointerEvents="none"
+              />
+              <View
+                pointerEvents="none"
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: palette.surface + '40' },
+                ]}
+              />
+            </>
+          )}
           <Text style={styles.sheetTitle}>Switch Portal</Text>
           {portalsToShow.map((key, index) => {
             const portal = PORTALS[key];
@@ -88,11 +113,20 @@ function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     overlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end'},
     overlayBg: {...StyleSheet.absoluteFillObject, backgroundColor: theme.palette.overlay},
-    sheet: {
+    sheetFlat: {
       backgroundColor: theme.palette.surface,
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       padding: 24,
+    },
+    sheetGlass: {
+      backgroundColor: 'transparent',
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      padding: 24,
+      overflow: 'hidden',
+      borderTopWidth: 1,
+      borderColor: theme.palette.divider + '80',
     },
     sheetTitle: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground, marginBottom: 16},
     option: {flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 14, borderWidth: 1},

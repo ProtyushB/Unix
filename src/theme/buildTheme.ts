@@ -1,27 +1,9 @@
-import { themes, darkPalette } from './colors';
-import type { ThemeName } from './colors';
+import { getThemeDefinition, type ThemeId } from './colors';
 import { fontFamily, fontSize, lineHeight, textStyles } from './typography';
 import { spacing, borderRadius } from './spacing';
-import { DARK_STATUS, FALLBACK_STATUS, AVATAR_POOLS } from './tokens';
+import { DARK_STATUS, LIGHT_STATUS, FALLBACK_STATUS, AVATAR_POOLS } from './tokens';
 import { buildElevation } from './shapes';
-import type { AppTheme, ThemeMode } from './theme.types';
-
-// ─── Dark Base Palette ────────────────────────────────────────────────────────
-
-const DARK_PALETTE = {
-  background:      darkPalette.bg,
-  surface:         darkPalette.surface,
-  surfaceElevated: '#263348',
-  onBackground:    darkPalette.text,
-  onSurface:       '#e2e8f0',
-  muted:           darkPalette.muted,
-  divider:         darkPalette.border,
-  overlay:         'rgba(0,0,0,0.6)',
-  error:           '#ef4444',
-  warning:         '#f59e0b',
-  success:         '#10b981',
-  info:            '#3b82f6',
-} as const;
+import type { AppTheme } from './theme.types';
 
 // ─── Avatar Hash ─────────────────────────────────────────────────────────────
 // Matches the original AvatarBadge hash so existing name→colour assignments don't change.
@@ -36,14 +18,13 @@ function hashName(name: string): number {
 
 // ─── Composition ─────────────────────────────────────────────────────────────
 
-export function buildTheme(mode: ThemeMode, accentName: ThemeName): AppTheme {
-  const accent = themes[accentName] ?? themes.default;
-  // Light palette is architecture-ready; UI toggle ships in Phase 6.
-  const palette = DARK_PALETTE;
-  const statusMap = DARK_STATUS;
+export function buildTheme(themeId: ThemeId): AppTheme {
+  const def = getThemeDefinition(themeId);
+  const { palette, accent, mode } = def;
+  const statusMap = mode === 'dark' ? DARK_STATUS : LIGHT_STATUS;
 
   return {
-    name: accentName,
+    name: def.id,
     mode,
 
     colors: {
@@ -56,6 +37,7 @@ export function buildTheme(mode: ThemeMode, accentName: ThemeName): AppTheme {
       bgHover:      accent.bgHover,
       text:         accent.text,
       textHover:    accent.textHover,
+      onAccent:     accent.onAccent,
       border:       accent.border,
       softBg:       accent.softBg,
       shadow:       accent.shadow,
@@ -64,8 +46,6 @@ export function buildTheme(mode: ThemeMode, accentName: ThemeName): AppTheme {
 
     palette,
 
-    // Plain object with uppercase keys; consumers normalise before lookup.
-    // FALLBACK_STATUS is used by StatusPill for unknown keys.
     status: { ...statusMap, FALLBACK: FALLBACK_STATUS },
 
     avatar: {

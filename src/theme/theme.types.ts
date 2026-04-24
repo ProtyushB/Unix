@@ -1,12 +1,9 @@
 import type { ViewStyle } from 'react-native';
-import type { ThemeName } from './colors';
+import type { ThemeId, ThemeMode } from './colors';
 import { fontFamily, fontSize, lineHeight, textStyles } from './typography';
 import { spacing, borderRadius } from './spacing';
 
-// ─── Theme Axes ──────────────────────────────────────────────────────────────
-
-export type AccentName = ThemeName;
-export type ThemeMode = 'dark' | 'light';
+export type { ThemeId, ThemeMode } from './colors';
 
 // ─── Sub-type Shapes ─────────────────────────────────────────────────────────
 
@@ -30,22 +27,20 @@ export interface GradientConfig {
 // ─── Theme Actions (exposed by ThemeActionsContext) ───────────────────────────
 
 export interface ThemeActions {
-  setAccent: (name: AccentName) => void;
-  setMode: (mode: ThemeMode) => void;
-  toggleMode: () => void;
+  setTheme: (id: ThemeId) => void;
 }
 
 // ─── Full Theme Object (returned by useTheme) ─────────────────────────────────
 
 export interface AppTheme {
-  /** Current accent name ('default' | 'ocean' | …) */
-  name: AccentName;
-  /** Current color mode */
+  /** Current theme id (one of the 16 registry keys). */
+  name: ThemeId;
+  /** Current color mode — derived from the theme definition. */
   mode: ThemeMode;
 
   /**
-   * Accent-driven colors — change when the user picks a new theme accent.
-   * Use these for interactive elements: buttons, active indicators, links.
+   * Accent-driven colors — change with the theme. Use these for interactive
+   * elements: buttons, active indicators, links, progress bars.
    */
   colors: {
     primary: string;
@@ -57,6 +52,8 @@ export interface AppTheme {
     bgHover: string;
     text: string;
     textHover: string;
+    /** Text color placed on top of `bg` — defaults to white, dark on high-luminance accents. */
+    onAccent: string;
     border: string;
     softBg: string;
     shadow: string;
@@ -64,8 +61,8 @@ export interface AppTheme {
   };
 
   /**
-   * Mode-driven base palette — change when switching dark ↔ light mode.
-   * Use these for backgrounds, text, and structural elements.
+   * Base palette — surfaces, text, structural colors. Each theme defines its
+   * own palette, so two dark themes may have different backgrounds.
    */
   palette: {
     background: string;
@@ -80,6 +77,11 @@ export interface AppTheme {
     warning: string;
     success: string;
     info: string;
+    /** Accent-tinted sheen overlay — rendered over cards on dark themes, transparent on light themes. */
+    sheenStart: string;
+    sheenEnd: string;
+    /** Page gradient edge color (top/bottom). Gives BlurView something to blur against on dark themes. */
+    pageEdge: string;
   };
 
   /**

@@ -11,15 +11,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
 interface ScreenWrapperProps {
   children: React.ReactNode;
   scrollable?: boolean;
   style?: ViewStyle;
 }
 
-// ─── Component ──────────────────────────────────────────────────────────────
+// Transparent screen wrapper — the page gradient is rendered once at the
+// OwnerTabNavigator root so every tab screen shares it. ScreenWrapper stays
+// transparent so the gradient bleeds through the scroll area.
 
 export function ScreenWrapper({
   children,
@@ -52,13 +52,11 @@ export function ScreenWrapper({
   );
 }
 
-// ─── Styles ─────────────────────────────────────────────────────────────────
-
-function createStyles(theme: AppTheme) {
+function createStyles(_theme: AppTheme) {
   return StyleSheet.create({
     safe: {
       flex: 1,
-      backgroundColor: theme.palette.background,
+      backgroundColor: 'transparent',
     },
     flex: {
       flex: 1,

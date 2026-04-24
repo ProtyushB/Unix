@@ -1,31 +1,99 @@
 import React from 'react';
-import { View, StyleSheet, type ViewStyle } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  type ViewStyle,
+  type StyleProp,
+} from 'react-native';
+import { BlurView } from 'expo-blur';
+import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useBlurTargets } from './BlurTargetContext';
 import type { AppTheme } from '../../theme/theme.types';
-
-// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface AppCardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
+  /** Overrides padding/alignment on the inner content area. */
+  contentStyle?: StyleProp<ViewStyle>;
+  onPress?: () => void;
+  activeOpacity?: number;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
+// Dark themes: glass surface backed by expo-blur (Dimezis V3). The BlurView's
+// `blurTarget` is scoped to the gradient-only BlurTargetView in the root, so
+// card contents (text, emojis, stat values) are NOT captured into the blur
+// snapshot — no ghost-glow halos.
+// Light themes: flat solid card.
 
-export function AppCard({ children, style }: AppCardProps) {
+export function AppCard({
+  children,
+  style,
+  contentStyle,
+  onPress,
+  activeOpacity = 0.7,
+}: AppCardProps) {
+  const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  return <View style={[styles.card, style]}>{children}</View>;
-}
+  const { gradientTarget } = useBlurTargets();
+  const isDark = theme.mode === 'dark';
 
-// ─── Styles ─────────────────────────────────────────────────────────────────
+  const Container = onPress ? TouchableOpacity : View;
+  const containerProps = onPress ? { onPress, activeOpacity } : {};
+
+  if (!isDark) {
+    return (
+      <Container style={[styles.cardFlat, style]} {...containerProps}>
+        {children}
+      </Container>
+    );
+  }
+
+  return (
+    <Container style={[styles.cardGlassOuter, style]} {...containerProps}>
+      <BlurView
+        style={StyleSheet.absoluteFill}
+        blurTarget={gradientTarget ?? undefined}
+        blurMethod="dimezisBlurView"
+        intensity={50}
+        tint="dark"
+        pointerEvents="none"
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: theme.palette.surfaceElevated + '10' },
+        ]}
+      />
+      <View style={[styles.cardContent, contentStyle]}>{children}</View>
+    </Container>
+  );
+}
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    card: {
-      backgroundColor: theme.palette.surface + '99',
+    cardFlat: {
+      backgroundColor: theme.palette.surface,
       borderWidth: 1,
       borderColor: theme.palette.divider + '80',
       borderRadius: 16,
+      padding: 16,
+    },
+    cardGlassOuter: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: theme.palette.divider + '80',
+      borderRadius: 16,
+      overflow: 'hidden',
+    },
+    cardContent: {
+      zIndex: 1,
+      alignSelf: 'stretch',
+      alignItems: 'center',
+      justifyContent: 'center',
       padding: 16,
     },
   });

@@ -22,8 +22,8 @@ import {CommonActions, useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {ProfileStackParamList} from '../../navigation/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type {AccentName} from '../../theme/theme.types';
-import type {AppTheme} from '../../theme/theme.types';
+import type {AppTheme, ThemeId} from '../../theme/theme.types';
+import {THEMES, type ThemeDefinition} from '../../theme/colors';
 import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
 import {biometricStorage} from '../../storage/biometric.storage';
 
@@ -34,19 +34,49 @@ const SETTINGS_ROWS = [
   {key: 'privacy', label: 'Privacy Policy', icon: Shield},
 ];
 
-const THEME_OPTIONS: {name: AccentName; color: string; label: string}[] = [
-  {name: 'default', color: '#f97316', label: 'Orange'},
-  {name: 'ocean', color: '#0ea5e9', label: 'Ocean'},
-  {name: 'rose', color: '#e11d48', label: 'Rose'},
-  {name: 'emerald', color: '#10b981', label: 'Emerald'},
-  {name: 'violet', color: '#8b5cf6', label: 'Violet'},
-  {name: 'parlour', color: '#f59e0b', label: 'Gold'},
-];
+const ALL_THEMES = Object.values(THEMES);
+const DARK_THEMES = ALL_THEMES.filter(t => t.mode === 'dark');
+const LIGHT_THEMES = ALL_THEMES.filter(t => t.mode === 'light');
+
+// ─── Theme swatch — surface background + accent dot + label ────────────────
+// Mirrors the web Centrix ThemePreview tile. `styles` is passed in so we
+// can reuse the themed StyleSheet from the screen.
+
+const ThemeSwatch: React.FC<{
+  theme: ThemeDefinition;
+  active: boolean;
+  styles: ReturnType<typeof createStyles>;
+  onPick: (id: ThemeId, label: string) => void;
+}> = ({theme, active, styles, onPick}) => {
+  const [surface, accent] = theme.swatch;
+  return (
+    <TouchableOpacity
+      style={styles.themeItem}
+      activeOpacity={0.7}
+      onPress={() => onPick(theme.id, theme.name)}>
+      <View
+        style={[
+          styles.themeSwatch,
+          {backgroundColor: surface},
+          active && {borderColor: accent, borderWidth: 2},
+        ]}>
+        <View style={[styles.themeSwatchDot, {backgroundColor: accent}]} />
+      </View>
+      <Text
+        style={[
+          styles.themeLabel,
+          active && {color: accent, fontWeight: '700'},
+        ]}>
+        {theme.name}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
 export const AccountScreen: React.FC = () => {
   const profileNav = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
-  const { colors, palette, name: accentName } = useTheme();
-  const { setAccent } = useThemeActions();
+  const { colors, palette, name: currentThemeId } = useTheme();
+  const { setTheme } = useThemeActions();
   const styles = useThemedStyles(createStyles);
   const {toasts, showToast} = useToast();
   const [user, setUser] = useState<any>(null);
@@ -189,23 +219,38 @@ export const AccountScreen: React.FC = () => {
             <TouchableOpacity style={styles.overlayBg} onPress={() => setShowThemePicker(false)} />
             <View style={styles.sheet}>
               <Text style={styles.sheetTitle}>Choose Theme</Text>
+
+              <Text style={styles.sheetSection}>Dark</Text>
               <View style={styles.themeGrid}>
-                {THEME_OPTIONS.map(opt => (
-                  <TouchableOpacity
-                    key={opt.name}
-                    style={styles.themeItem}
-                    onPress={() => {
-                      setAccent(opt.name);
+                {DARK_THEMES.map(t => (
+                  <ThemeSwatch
+                    key={t.id}
+                    theme={t}
+                    active={currentThemeId === t.id}
+                    styles={styles}
+                    onPick={(id: ThemeId, label: string) => {
+                      setTheme(id);
                       setShowThemePicker(false);
-                      showToast(`Theme changed to ${opt.label}`, 'success');
-                    }}>
-                    <View style={[
-                      styles.themeCircle,
-                      {backgroundColor: opt.color},
-                      accentName === opt.name && styles.themeCircleActive,
-                    ]} />
-                    <Text style={styles.themeLabel}>{opt.label}</Text>
-                  </TouchableOpacity>
+                      showToast(`Theme changed to ${label}`, 'success');
+                    }}
+                  />
+                ))}
+              </View>
+
+              <Text style={[styles.sheetSection, {marginTop: 18}]}>Light</Text>
+              <View style={styles.themeGrid}>
+                {LIGHT_THEMES.map(t => (
+                  <ThemeSwatch
+                    key={t.id}
+                    theme={t}
+                    active={currentThemeId === t.id}
+                    styles={styles}
+                    onPick={(id: ThemeId, label: string) => {
+                      setTheme(id);
+                      setShowThemePicker(false);
+                      showToast(`Theme changed to ${label}`, 'success');
+                    }}
+                  />
                 ))}
               </View>
             </View>
@@ -275,12 +320,35 @@ function createStyles(theme: AppTheme) {
     logoutBtn: {marginBottom: 32},
     overlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end'},
     overlayBg: {...StyleSheet.absoluteFillObject, backgroundColor: theme.palette.overlay},
-    sheet: {backgroundColor: theme.palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24},
-    sheetTitle: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground, marginBottom: 20},
-    themeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 16},
-    themeItem: {alignItems: 'center', gap: 8, width: 72},
-    themeCircle: {width: 48, height: 48, borderRadius: 24},
-    themeCircleActive: {borderWidth: 3, borderColor: theme.palette.onBackground},
-    themeLabel: {fontSize: 12, color: theme.palette.muted},
+    sheet: {
+      backgroundColor: theme.palette.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      padding: 24,
+      maxHeight: '85%',
+    },
+    sheetTitle: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground, marginBottom: 16},
+    sheetSection: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.palette.muted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+      marginBottom: 10,
+    },
+    themeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 12},
+    themeItem: {alignItems: 'center', gap: 6, width: 70},
+    themeSwatch: {
+      width: 56,
+      height: 56,
+      borderRadius: 12,
+      justifyContent: 'flex-end',
+      alignItems: 'flex-end',
+      padding: 6,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    themeSwatchDot: {width: 14, height: 14, borderRadius: 7},
+    themeLabel: {fontSize: 11, color: theme.palette.muted, textAlign: 'center'},
   });
 }

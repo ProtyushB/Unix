@@ -215,17 +215,23 @@ export default function DashboardScreen() {
               { key: 'appointment', icon: '📅', label: 'Appointment' },
               { key: 'invoice', icon: '🧾', label: 'Invoice' },
             ].map((action) => (
-              <TouchableOpacity
+              <AppCard
                 key={action.key}
                 style={styles.quickActionBtn}
+                contentStyle={styles.quickActionContent}
                 onPress={() => handleQuickAction(action.key)}
-                activeOpacity={0.7}
               >
                 <View style={styles.quickActionIcon}>
                   <Text style={styles.quickActionIconText}>{action.icon}</Text>
                 </View>
-                <Text style={styles.quickActionLabel}>{action.label}</Text>
-              </TouchableOpacity>
+                <Text
+                  style={styles.quickActionLabel}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {action.label}
+                </Text>
+              </AppCard>
             ))}
           </View>
 
@@ -241,7 +247,7 @@ export default function DashboardScreen() {
               <Text style={styles.emptyText}>No recent orders</Text>
             </AppCard>
           ) : (
-            <AppCard style={styles.listCard}>
+            <AppCard style={styles.listCard} contentStyle={styles.listContent}>
               {orders.slice(0, 5).map((order: any, idx: number) => (
                 <React.Fragment key={order.id || idx}>
                   {renderOrderItem({ item: order })}
@@ -263,7 +269,7 @@ export default function DashboardScreen() {
               <Text style={styles.emptyText}>No upcoming appointments</Text>
             </AppCard>
           ) : (
-            <AppCard style={styles.listCard}>
+            <AppCard style={styles.listCard} contentStyle={styles.listContent}>
               {appointments.slice(0, 5).map((appt: any, idx: number) => (
                 <React.Fragment key={appt.id || idx}>
                   {renderAppointmentItem({ item: appt })}
@@ -286,7 +292,7 @@ function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: theme.palette.background,
+      backgroundColor: 'transparent',
     },
     header: {
       flexDirection: 'row',
@@ -385,13 +391,11 @@ function createStyles(theme: AppTheme) {
     },
     quickActionBtn: {
       flex: 1,
-      alignItems: 'center',
-      backgroundColor: theme.palette.surface,
-      borderWidth: 1,
-      borderColor: theme.palette.divider,
-      borderRadius: 14,
-      paddingVertical: 14,
       marginHorizontal: 4,
+    },
+    quickActionContent: {
+      paddingVertical: 14,
+      paddingHorizontal: 6,
     },
     quickActionIcon: {
       flexDirection: 'row',
@@ -407,6 +411,11 @@ function createStyles(theme: AppTheme) {
     listCard: {
       marginBottom: 16,
       padding: 0,
+    },
+    listContent: {
+      padding: 0,
+      alignItems: 'stretch',
+      justifyContent: 'flex-start',
     },
     listItem: {
       flexDirection: 'row',

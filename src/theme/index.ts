@@ -1,10 +1,15 @@
-// ─── Legacy token exports (kept for backward compatibility) ──────────────────
+// ─── Theme registry ───────────────────────────────────────────────────────────
 export {
-  darkPalette,
-  themes,
-  getTheme,
-  type ThemeName,
-  type AccentTheme,
+  THEMES,
+  THEME_IDS,
+  DEFAULT_THEME,
+  getThemeDefinition,
+  migrateLegacyTheme,
+  type ThemeId,
+  type ThemeMode,
+  type ThemeDefinition,
+  type ThemePalette,
+  type ThemeAccent,
 } from './colors';
 
 export {
@@ -19,7 +24,7 @@ export {
   borderRadius,
 } from './spacing';
 
-// ─── New theme system ─────────────────────────────────────────────────────────
+// ─── Theme system ─────────────────────────────────────────────────────────────
 export { buildTheme } from './buildTheme';
-export type { AppTheme, AccentName, ThemeMode, ThemeActions, StatusColorSet, AvatarColorPair, GradientConfig } from './theme.types';
-export { DARK_STATUS, FALLBACK_STATUS, AVATAR_POOLS } from './tokens';
+export type { AppTheme, ThemeActions, StatusColorSet, AvatarColorPair, GradientConfig } from './theme.types';
+export { DARK_STATUS, LIGHT_STATUS, FALLBACK_STATUS, AVATAR_POOLS } from './tokens';

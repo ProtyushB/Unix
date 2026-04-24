@@ -2,6 +2,7 @@ import type { StatusColorSet, AvatarColorPair } from './theme.types';
 
 // ─── Status Color Tokens ─────────────────────────────────────────────────────
 // Keyed by SCREAMING_SNAKE_CASE to match existing StatusPill normalisation.
+// Two palettes — one per mode; buildTheme picks based on theme.mode.
 
 export const DARK_STATUS: Record<string, StatusColorSet> = {
   ACTIVE:         { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
@@ -17,6 +18,22 @@ export const DARK_STATUS: Record<string, StatusColorSet> = {
   QUARANTINED:    { bg: '#64748b20', text: '#64748b', border: '#64748b40' },
   UNPAID:         { bg: '#f9731620', text: '#f97316', border: '#f9731640' },
   PARTIALLY_PAID: { bg: '#f9731620', text: '#f97316', border: '#f9731640' },
+};
+
+export const LIGHT_STATUS: Record<string, StatusColorSet> = {
+  ACTIVE:         { bg: '#10b98119', text: '#047857', border: '#10b98133' },
+  PAID:           { bg: '#10b98119', text: '#047857', border: '#10b98133' },
+  COMPLETED:      { bg: '#10b98119', text: '#047857', border: '#10b98133' },
+  PENDING:        { bg: '#f59e0b1a', text: '#b45309', border: '#f59e0b33' },
+  SCHEDULED:      { bg: '#f59e0b1a', text: '#b45309', border: '#f59e0b33' },
+  CONFIRMED:      { bg: '#f59e0b1a', text: '#b45309', border: '#f59e0b33' },
+  CANCELLED:      { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
+  EXPIRED:        { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
+  DEPLETED:       { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
+  ON_HOLD:        { bg: '#64748b14', text: '#334155', border: '#64748b33' },
+  QUARANTINED:    { bg: '#64748b14', text: '#334155', border: '#64748b33' },
+  UNPAID:         { bg: '#f9731614', text: '#c2410c', border: '#f9731633' },
+  PARTIALLY_PAID: { bg: '#f9731614', text: '#c2410c', border: '#f9731633' },
 };
 
 export const FALLBACK_STATUS: StatusColorSet = {

@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { BlurTargetView } from 'expo-blur';
+import { useTheme } from '../hooks/useTheme';
 import { useThemedStyles } from '../hooks/useThemedStyles';
+import { BlurTargetProvider } from '../components/common/BlurTargetContext';
 import type { AppTheme } from '../theme/theme.types';
 import type { OwnerTabParamList, ProfileStackParamList } from './types';
 
@@ -56,43 +60,82 @@ function AccountNavigator() {
 }
 
 // ─── Tab Navigator ──────────────────────────────────────────────────────────
-// Every navbar item maps to its own tab.
 
 const Tab = createBottomTabNavigator<OwnerTabParamList>();
 
 export function OwnerTabNavigator() {
+  const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const accentOpacity = theme.mode === 'dark' ? 0.12 : 0.05;
+
+  // Two blur scoping targets — see BlurTargetContext for rationale.
+  const gradientTarget = useRef<View>(null);
+  const contentTarget = useRef<View>(null);
 
   return (
-    <View style={styles.flex}>
-      <Tab.Navigator
-        screenOptions={{ headerShown: false }}
-        tabBar={(props) => <BottomGroupNav {...props} />}
-      >
-        <Tab.Screen name="Dashboard"      component={DashboardScreen} />
-        <Tab.Screen name="Orders"         component={OrdersScreen} />
-        <Tab.Screen name="Appointments"   component={AppointmentsScreen} />
-        <Tab.Screen name="Billing"        component={BillingScreen} />
-        <Tab.Screen name="Products"       component={ProductsScreen} />
-        <Tab.Screen name="Services"       component={ServicesScreen} />
-        <Tab.Screen name="Packages"       component={PackagesScreen} />
-        <Tab.Screen name="Subscriptions"  component={SubscriptionsScreen} />
-        <Tab.Screen name="ServicePlans"   component={ServicePlansScreen} />
-        <Tab.Screen name="Inventory"      component={InventoryScreen} />
-        <Tab.Screen name="Consumptions"   component={ConsumptionsScreen} />
-        <Tab.Screen name="StockTransfers" component={StockTransfersScreen} />
-        <Tab.Screen name="Wastage"        component={WastageScreen} />
-        <Tab.Screen name="Customers"      component={CustomersScreen} />
-        <Tab.Screen name="Employees"      component={EmployeesScreen} />
-        <Tab.Screen name="WarrantyClaims" component={WarrantyClaimsScreen} />
-        <Tab.Screen name="Loyalty"        component={LoyaltyScreen} />
-        <Tab.Screen name="Reports"        component={ReportsScreen} />
-        <Tab.Screen name="Account"        component={AccountNavigator} />
-      </Tab.Navigator>
-      <GroupSheetOverlay />
-      <BusinessSheetOverlay />
-      <BiometricOnboardingModal />
-    </View>
+    <BlurTargetProvider
+      gradientTarget={gradientTarget}
+      contentTarget={contentTarget}
+    >
+      <View style={styles.flex}>
+        {/* Gradient backdrop — scoped so card BlurViews capture ONLY this. */}
+        <BlurTargetView ref={gradientTarget} style={StyleSheet.absoluteFill}>
+          <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Defs>
+              <LinearGradient id="appPageVertical" x1="0%" y1="0%" x2="0%" y2="100%">
+                <Stop offset="0%"   stopColor={theme.palette.pageEdge}   stopOpacity={1} />
+                <Stop offset="50%"  stopColor={theme.palette.background} stopOpacity={1} />
+                <Stop offset="100%" stopColor={theme.palette.pageEdge}   stopOpacity={1} />
+              </LinearGradient>
+              <LinearGradient id="appPageAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+                <Stop offset="0%"   stopColor={theme.colors.primary}   stopOpacity={accentOpacity} />
+                <Stop offset="50%"  stopColor={theme.colors.primary}   stopOpacity={0} />
+                <Stop offset="100%" stopColor={theme.colors.secondary} stopOpacity={accentOpacity} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#appPageVertical)" />
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#appPageAccent)" />
+          </Svg>
+        </BlurTargetView>
+
+        {/* Tab navigator content — scoped so sheet BlurViews can blur the
+            dashboard when they open. Cards inside here reference
+            gradientTarget for their own blur so their siblings don't leak. */}
+        <BlurTargetView ref={contentTarget} style={styles.flex}>
+          <Tab.Navigator
+            screenOptions={{ headerShown: false }}
+            sceneContainerStyle={{ backgroundColor: 'transparent' }}
+            tabBar={(props) => <BottomGroupNav {...props} />}
+          >
+            <Tab.Screen name="Dashboard"      component={DashboardScreen} />
+            <Tab.Screen name="Orders"         component={OrdersScreen} />
+            <Tab.Screen name="Appointments"   component={AppointmentsScreen} />
+            <Tab.Screen name="Billing"        component={BillingScreen} />
+            <Tab.Screen name="Products"       component={ProductsScreen} />
+            <Tab.Screen name="Services"       component={ServicesScreen} />
+            <Tab.Screen name="Packages"       component={PackagesScreen} />
+            <Tab.Screen name="Subscriptions"  component={SubscriptionsScreen} />
+            <Tab.Screen name="ServicePlans"   component={ServicePlansScreen} />
+            <Tab.Screen name="Inventory"      component={InventoryScreen} />
+            <Tab.Screen name="Consumptions"   component={ConsumptionsScreen} />
+            <Tab.Screen name="StockTransfers" component={StockTransfersScreen} />
+            <Tab.Screen name="Wastage"        component={WastageScreen} />
+            <Tab.Screen name="Customers"      component={CustomersScreen} />
+            <Tab.Screen name="Employees"      component={EmployeesScreen} />
+            <Tab.Screen name="WarrantyClaims" component={WarrantyClaimsScreen} />
+            <Tab.Screen name="Loyalty"        component={LoyaltyScreen} />
+            <Tab.Screen name="Reports"        component={ReportsScreen} />
+            <Tab.Screen name="Account"        component={AccountNavigator} />
+          </Tab.Navigator>
+        </BlurTargetView>
+
+        {/* Overlays live outside BlurTargetView so their content isn't
+            captured by sheet BlurViews. */}
+        <GroupSheetOverlay />
+        <BusinessSheetOverlay />
+        <BiometricOnboardingModal />
+      </View>
+    </BlurTargetProvider>
   );
 }
 

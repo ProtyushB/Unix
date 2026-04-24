@@ -17,6 +17,8 @@
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
     "axios": "^1.7.9",
+    "expo": "~52.0.0",
+    "expo-blur": "^55.0.14",
     "jszip": "^3.10.1",
     "lucide-react-native": "^0.474.0",
     "react": "18.3.1",

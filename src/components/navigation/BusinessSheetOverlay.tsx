@@ -8,7 +8,9 @@ import {
   ScrollView,
   Easing,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBlurTargets } from '../common/BlurTargetContext';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
@@ -37,9 +39,12 @@ export function BusinessSheetOverlay() {
     setSelectedModule,
     setSelectedBusiness,
   } = useAppContext();
-  const { palette } = useTheme();
+  const theme = useTheme();
+  const { palette } = theme;
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
+  const { contentTarget } = useBlurTargets();
+  const isDark = theme.mode === 'dark';
 
   const slideAnim   = useRef(new Animated.Value(600)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
@@ -108,13 +113,32 @@ export function BusinessSheetOverlay() {
 
       <Animated.View
         style={[
-          styles.sheet,
+          isDark ? styles.sheetGlass : styles.sheetFlat,
           {
             paddingBottom: insets.bottom + 16,
             transform:     [{ translateY: slideAnim }],
           },
         ]}
       >
+        {isDark && (
+          <>
+            <BlurView
+              style={StyleSheet.absoluteFill}
+              blurTarget={contentTarget ?? undefined}
+              blurMethod="dimezisBlurView"
+              intensity={60}
+              tint="dark"
+              pointerEvents="none"
+            />
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: palette.surfaceElevated + '10' },
+              ]}
+            />
+          </>
+        )}
         <View style={styles.sheetHandle} />
         <View style={styles.sheetHeader}>
           <Text style={styles.sheetTitle}>Select Business</Text>
@@ -176,7 +200,7 @@ function createStyles(theme: AppTheme) {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: theme.palette.overlay,
     },
-    sheet: {
+    sheetFlat: {
       position:             'absolute',
       left:                 0,
       right:                0,
@@ -187,6 +211,20 @@ function createStyles(theme: AppTheme) {
       borderTopRightRadius: 20,
       paddingTop:           8,
       ...theme.elevation.high,
+    },
+    sheetGlass: {
+      position:             'absolute',
+      left:                 0,
+      right:                0,
+      bottom:               0,
+      maxHeight:            '75%',
+      backgroundColor:      'transparent',
+      borderTopLeftRadius:  20,
+      borderTopRightRadius: 20,
+      paddingTop:           8,
+      overflow:             'hidden',
+      borderTopWidth:       1,
+      borderColor:          theme.palette.divider + '80',
     },
     sheetHandle: {
       alignSelf:       'center',

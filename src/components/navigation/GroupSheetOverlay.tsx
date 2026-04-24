@@ -7,9 +7,11 @@ import {
   Pressable,
   Easing,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useBlurTargets } from '../common/BlurTargetContext';
 import type { AppTheme } from '../../theme/theme.types';
 import { NAV_GROUPS } from '../../navigation/navGroups';
 import {
@@ -22,18 +24,23 @@ import {
 // lives in the same native window as the rest of the UI. That avoids the
 // Modal-window attach delay on Android (50–150 ms where the first touch is
 // swallowed after the sheet appears).
+//
+// Dark themes: glass treatment — BlurView backdrop + surface tint + diagonal
+// accent sheen. Since the sheet overlays the dashboard (charts, cards), the
+// blur picks up rich content behind. Light themes: flat elevated surface.
 
 export function GroupSheetOverlay() {
   const { openGroupId, activeTabName, navigate } = useGroupSheetState();
-  const { colors, palette } = useTheme();
+  const theme = useTheme();
+  const { colors, palette } = theme;
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
+  const { contentTarget } = useBlurTargets();
+  const isDark = theme.mode === 'dark';
 
   const slideAnim   = useRef(new Animated.Value(400)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
-  // renderedGroupId lags openGroupId by one animation cycle so the sheet stays
-  // mounted while it slides out.
   const [renderedGroupId, setRenderedGroupId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,10 +48,6 @@ export function GroupSheetOverlay() {
       setRenderedGroupId(openGroupId);
       slideAnim.setValue(400);
       overlayAnim.setValue(0);
-      // Defer the slide-in by one frame so freshly-mounted sheet items are
-      // already wired into the native touch tree before the sheet appears.
-      // Without this, a very fast tap after opening can land during the
-      // item-mount cycle and be dropped.
       requestAnimationFrame(() => {
         Animated.parallel([
           Animated.timing(slideAnim, {
@@ -96,54 +99,76 @@ export function GroupSheetOverlay() {
 
       <Animated.View
         style={[
-          styles.sheet,
+          isDark ? styles.sheetGlass : styles.sheetFlat,
           {
             paddingBottom: insets.bottom + 12,
             transform:     [{ translateY: slideAnim }],
           },
         ]}
       >
-        <View style={styles.sheetHandle} />
-        <Text style={styles.sheetTitle}>{group.label.toUpperCase()}</Text>
-        <View style={styles.sheetDivider} />
-
-        {group.items.map(item => {
-          const ItemIcon     = item.icon;
-          const isActiveItem = item.route.tab === activeTabName;
-
-          return (
-            <Pressable
-              key={item.label}
-              onPress={() => handleItemPress(item.route.tab)}
-              android_ripple={{ color: palette.divider }}
-              style={({ pressed }) => [
-                styles.sheetItem,
-                isActiveItem && styles.sheetItemActive,
-                pressed && styles.sheetItemPressed,
+        {isDark && (
+          <>
+            <BlurView
+              style={StyleSheet.absoluteFill}
+              blurTarget={contentTarget ?? undefined}
+              blurMethod="dimezisBlurView"
+              intensity={60}
+              tint="dark"
+              pointerEvents="none"
+            />
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: palette.surfaceElevated + '10' },
               ]}
-            >
-              <View style={styles.sheetItemIcon}>
-                <ItemIcon
-                  size={18}
-                  color={isActiveItem ? colors.primary : palette.onSurface}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.sheetItemLabel,
-                  isActiveItem && { color: colors.primary },
+            />
+          </>
+        )}
+
+        <View style={styles.sheetContent}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>{group.label.toUpperCase()}</Text>
+          <View style={styles.sheetDivider} />
+
+          {group.items.map(item => {
+            const ItemIcon     = item.icon;
+            const isActiveItem = item.route.tab === activeTabName;
+
+            return (
+              <Pressable
+                key={item.label}
+                onPress={() => handleItemPress(item.route.tab)}
+                android_ripple={{ color: palette.divider }}
+                style={({ pressed }) => [
+                  styles.sheetItem,
+                  isActiveItem && styles.sheetItemActive,
+                  pressed && styles.sheetItemPressed,
                 ]}
               >
-                {item.label}
-              </Text>
-              {item.badge && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.badge}</Text>
+                <View style={styles.sheetItemIcon}>
+                  <ItemIcon
+                    size={18}
+                    color={isActiveItem ? colors.primary : palette.onSurface}
+                  />
                 </View>
-              )}
-            </Pressable>
-          );
-        })}
+                <Text
+                  style={[
+                    styles.sheetItemLabel,
+                    isActiveItem && { color: colors.primary },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+                {item.badge && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{item.badge}</Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
       </Animated.View>
     </View>
   );
@@ -152,22 +177,36 @@ export function GroupSheetOverlay() {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 function createStyles(theme: AppTheme) {
+  const sheetBase = {
+    position:              'absolute' as const,
+    left:                  0,
+    right:                 0,
+    bottom:                0,
+    borderTopLeftRadius:   20,
+    borderTopRightRadius:  20,
+    paddingTop:            8,
+    paddingHorizontal:     16,
+  };
+
   return StyleSheet.create({
     backdrop: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: theme.palette.overlay,
     },
-    sheet: {
-      position:              'absolute',
-      left:                  0,
-      right:                 0,
-      bottom:                0,
-      backgroundColor:       theme.palette.surfaceElevated,
-      borderTopLeftRadius:   20,
-      borderTopRightRadius:  20,
-      paddingTop:            8,
-      paddingHorizontal:     16,
+    sheetFlat: {
+      ...sheetBase,
+      backgroundColor: theme.palette.surfaceElevated,
       ...theme.elevation.high,
+    },
+    sheetGlass: {
+      ...sheetBase,
+      backgroundColor: 'transparent',
+      overflow:        'hidden',
+      borderTopWidth:  1,
+      borderColor:     theme.palette.divider + '80',
+    },
+    sheetContent: {
+      zIndex: 1,
     },
     sheetHandle: {
       alignSelf:       'center',

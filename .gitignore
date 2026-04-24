@@ -62,3 +62,6 @@ coverage/
 .vscode/
 *.swp
 *.swo
+
+# Build logs captured by CI/dev tooling
+build-output.log
