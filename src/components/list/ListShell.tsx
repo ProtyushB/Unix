@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Search, X, List, LayoutGrid } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { useTheme } from '../../hooks/useTheme';
@@ -77,7 +78,7 @@ export function ListShell({
   const styles = useThemedStyles(createStyles);
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       {/* Top bar: back + title + actions */}
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
@@ -190,7 +191,7 @@ export function ListShell({
 
       {/* FAB */}
       {onAdd && <FAB onPress={onAdd} icon={addIcon} />}
-    </View>
+    </SafeAreaView>
   );
 }
 

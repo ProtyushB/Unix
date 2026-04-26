@@ -103,8 +103,10 @@ export function OwnerTabNavigator() {
             gradientTarget for their own blur so their siblings don't leak. */}
         <BlurTargetView ref={contentTarget} style={styles.flex}>
           <Tab.Navigator
-            screenOptions={{ headerShown: false }}
-            sceneContainerStyle={{ backgroundColor: 'transparent' }}
+            screenOptions={{
+              headerShown: false,
+              sceneStyle: { backgroundColor: 'transparent' },
+            }}
             tabBar={(props) => <BottomGroupNav {...props} />}
           >
             <Tab.Screen name="Dashboard"      component={DashboardScreen} />

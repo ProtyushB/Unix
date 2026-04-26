@@ -8,6 +8,7 @@ import {
   StyleSheet,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AppCard } from '../../components/common/AppCard';
 import { useParlour } from '../../backend/modules/parlour/hook/useParlour';
@@ -169,7 +170,7 @@ export default function DashboardScreen() {
   ), [navigation]);
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
 
       {/* Header */}
@@ -197,14 +198,26 @@ export default function DashboardScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Stats Row */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsRow}>
+          <View style={styles.statsRow}>
             {stats.map((stat) => (
-              <AppCard key={stat.label} style={styles.statCard}>
-                <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
+              <AppCard
+                key={stat.label}
+                style={styles.statCard}
+                contentStyle={styles.statCardContent}
+              >
+                <Text
+                  style={[styles.statValue, { color: stat.color }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {stat.value}
+                </Text>
+                <Text style={styles.statLabel} numberOfLines={1}>
+                  {stat.label}
+                </Text>
               </AppCard>
             ))}
-          </ScrollView>
+          </View>
 
           {/* Quick Actions */}
           <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -282,7 +295,7 @@ export default function DashboardScreen() {
           <View style={styles.bottomSpacer} />
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -347,22 +360,24 @@ function createStyles(theme: AppTheme) {
     },
     statsRow: {
       flexDirection: 'row',
-      marginBottom: 20,
+      justifyContent: 'space-between',
+      marginBottom: 24,
     },
     statCard: {
-      minWidth: 120,
-      marginRight: 12,
-      alignItems: 'center',
-      paddingVertical: 16,
-      paddingHorizontal: 16,
+      flex: 1,
+      marginHorizontal: 4,
+    },
+    statCardContent: {
+      paddingVertical: 22,
+      paddingHorizontal: 2,
     },
     statValue: {
-      fontSize: 22,
+      fontSize: 20,
       fontWeight: '700',
-      marginBottom: 4,
+      marginBottom: 6,
     },
     statLabel: {
-      fontSize: 12,
+      fontSize: 10,
       fontWeight: '500',
       color: theme.palette.muted,
     },
