@@ -126,7 +126,7 @@ export function BusinessSheetOverlay() {
               style={StyleSheet.absoluteFill}
               blurTarget={contentTarget ?? undefined}
               blurMethod="dimezisBlurView"
-              intensity={60}
+              intensity={30}
               tint="dark"
               pointerEvents="none"
             />
@@ -134,7 +134,7 @@ export function BusinessSheetOverlay() {
               pointerEvents="none"
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: palette.surfaceElevated + '10' },
+                { backgroundColor: 'rgba(0, 0, 0, 0.20)' },
               ]}
             />
           </>

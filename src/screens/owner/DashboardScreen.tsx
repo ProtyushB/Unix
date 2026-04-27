@@ -305,7 +305,7 @@ function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: 'transparent',
+      backgroundColor: theme.palette.background,
     },
     header: {
       flexDirection: 'row',
