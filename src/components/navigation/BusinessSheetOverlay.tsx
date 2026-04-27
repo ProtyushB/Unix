@@ -104,20 +104,10 @@ export function BusinessSheetOverlay() {
       style={StyleSheet.absoluteFillObject}
       pointerEvents={visible ? 'box-none' : 'none'}
     >
-      <Animated.View style={[styles.backdrop, { opacity: overlayAnim }]}>
-        <Pressable
-          style={StyleSheet.absoluteFillObject}
-          onPress={() => closeBusinessSheet()}
-        />
-      </Animated.View>
-
       <Animated.View
         style={[
-          isDark ? styles.sheetGlass : styles.sheetFlat,
-          {
-            paddingBottom: insets.bottom + 16,
-            transform:     [{ translateY: slideAnim }],
-          },
+          isDark ? styles.backdropDark : styles.backdrop,
+          { opacity: overlayAnim },
         ]}
       >
         {isDark && (
@@ -138,6 +128,30 @@ export function BusinessSheetOverlay() {
               ]}
             />
           </>
+        )}
+        <Pressable
+          style={StyleSheet.absoluteFillObject}
+          onPress={() => closeBusinessSheet()}
+        />
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          isDark ? styles.sheetSolidDark : styles.sheetFlat,
+          {
+            paddingBottom: insets.bottom + 16,
+            transform:     [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        {isDark && (
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: palette.surfaceElevated + '80' },
+            ]}
+          />
         )}
         <View style={styles.sheetHandle} />
         <View style={styles.sheetHeader}>
@@ -200,6 +214,11 @@ function createStyles(theme: AppTheme) {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: theme.palette.overlay,
     },
+    backdropDark: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'transparent',
+      overflow:        'hidden',
+    },
     sheetFlat: {
       position:             'absolute',
       left:                 0,
@@ -210,6 +229,22 @@ function createStyles(theme: AppTheme) {
       borderTopLeftRadius:  20,
       borderTopRightRadius: 20,
       paddingTop:           8,
+      ...theme.elevation.high,
+    },
+    sheetSolidDark: {
+      position:             'absolute',
+      left:                 0,
+      right:                0,
+      bottom:               0,
+      maxHeight:            '75%',
+      // Theme-aware midpoint: palette.surface base + 50%-alpha
+      // palette.surfaceElevated overlay (rendered as a child). Same recipe
+      // as GroupSheetOverlay's sheetSolidDark.
+      backgroundColor:      theme.palette.surface,
+      borderTopLeftRadius:  20,
+      borderTopRightRadius: 20,
+      paddingTop:           8,
+      overflow:             'hidden',
       ...theme.elevation.high,
     },
     sheetGlass: {

@@ -25,9 +25,10 @@ import {
 // Modal-window attach delay on Android (50–150 ms where the first touch is
 // swallowed after the sheet appears).
 //
-// Dark themes: glass treatment — BlurView backdrop + surface tint + diagonal
-// accent sheen. Since the sheet overlays the dashboard (charts, cards), the
-// blur picks up rich content behind. Light themes: flat elevated surface.
+// Dark themes (experiment): backdrop blur — the entire screen behind the
+// sheet gets blurred, the sheet itself is a solid elevated panel sitting
+// on top. Inverts the previous pattern (sheet-as-glass).
+// Light themes: flat elevated surface, no blur.
 
 export function GroupSheetOverlay() {
   const { openGroupId, activeTabName, navigate } = useGroupSheetState();
@@ -90,20 +91,10 @@ export function GroupSheetOverlay() {
       style={StyleSheet.absoluteFillObject}
       pointerEvents={isActive ? 'box-none' : 'none'}
     >
-      <Animated.View style={[styles.backdrop, { opacity: overlayAnim }]}>
-        <Pressable
-          style={StyleSheet.absoluteFillObject}
-          onPress={() => closeGroupSheet()}
-        />
-      </Animated.View>
-
       <Animated.View
         style={[
-          isDark ? styles.sheetGlass : styles.sheetFlat,
-          {
-            paddingBottom: insets.bottom + 12,
-            transform:     [{ translateY: slideAnim }],
-          },
+          isDark ? styles.backdropDark : styles.backdrop,
+          { opacity: overlayAnim },
         ]}
       >
         {isDark && (
@@ -112,7 +103,7 @@ export function GroupSheetOverlay() {
               style={StyleSheet.absoluteFill}
               blurTarget={contentTarget ?? undefined}
               blurMethod="dimezisBlurView"
-              intensity={50}
+              intensity={30}
               tint="dark"
               pointerEvents="none"
             />
@@ -125,7 +116,30 @@ export function GroupSheetOverlay() {
             />
           </>
         )}
+        <Pressable
+          style={StyleSheet.absoluteFillObject}
+          onPress={() => closeGroupSheet()}
+        />
+      </Animated.View>
 
+      <Animated.View
+        style={[
+          isDark ? styles.sheetSolidDark : styles.sheetFlat,
+          {
+            paddingBottom: insets.bottom + 12,
+            transform:     [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        {isDark && (
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: palette.surfaceElevated + '80' },
+            ]}
+          />
+        )}
         <View style={styles.sheetContent}>
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>{group.label.toUpperCase()}</Text>
@@ -193,9 +207,25 @@ function createStyles(theme: AppTheme) {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: theme.palette.overlay,
     },
+    backdropDark: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'transparent',
+      overflow:        'hidden',
+    },
     sheetFlat: {
       ...sheetBase,
       backgroundColor: theme.palette.surfaceElevated,
+      ...theme.elevation.high,
+    },
+    sheetSolidDark: {
+      ...sheetBase,
+      // Theme-aware midpoint: palette.surface as the base, with a 50%-alpha
+      // palette.surfaceElevated overlay rendered as a child. The composite
+      // sits between the two — bright enough to pop off the blurred backdrop,
+      // dark enough not to feel jarring. overflow:hidden clips the overlay
+      // to the rounded top corners.
+      backgroundColor: theme.palette.surface,
+      overflow:        'hidden',
       ...theme.elevation.high,
     },
     sheetGlass: {
