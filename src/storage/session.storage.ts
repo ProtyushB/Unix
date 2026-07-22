@@ -26,7 +26,11 @@ export interface SignupData {
 export interface Business {
   id: number;
   name: string;
+  /** Backend field — the profile payload uses `businessName`, older code uses `name`. */
+  businessName?: string;
   businessType: string;
+  /** False until an admin confirms the manual payment; gates the owner portal. */
+  isPaymentVerified?: boolean;
   [key: string]: unknown;
 }
 
@@ -108,6 +112,22 @@ export async function getBusinessTypeMap(): Promise<BusinessTypeMap | null> {
 
 export async function setBusinessTypeMap(map: BusinessTypeMap): Promise<void> {
   await AsyncStorage.setItem(KEYS.BUSINESS_TYPE_MAP, JSON.stringify(map));
+}
+
+/**
+ * Resolve the cached business record for a (module, businessName) pair. The
+ * AppContext only holds the display name, so anything needing the business id
+ * or its `isPaymentVerified` flag has to come back through the type map.
+ */
+export async function findBusiness(
+  module: string | null,
+  businessName: string | null,
+): Promise<Business | null> {
+  if (!module || !businessName) return null;
+  const map = await getBusinessTypeMap();
+  if (!map) return null;
+  const businesses = map[module] || [];
+  return businesses.find(b => (b.businessName || b.name) === businessName) ?? null;
 }
 
 // ─── Selected Business Type ──────────────────────────────────────────────────

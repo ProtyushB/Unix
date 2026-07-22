@@ -1,34 +1,115 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
+  RefreshControl,
   StatusBar,
+  Linking,
+  StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { AppCard } from '../../components/common/AppCard';
+import {
+  PackagePlus,
+  ShoppingCart,
+  CalendarPlus,
+  ReceiptText,
+  CalendarX,
+  Plus,
+} from 'lucide-react-native';
+
+import {
+  DashboardHeader,
+  SectionHead,
+  StatCard,
+  QuickActionTile,
+  RecentOrderRow,
+  RecentAppointmentRow,
+  SectionEmptyCard,
+  DashboardErrorCard,
+  LiveDataBanner,
+  ActivationPendingPanel,
+  DashboardSkeleton,
+  type StatTrend,
+  type RecentOrder,
+  type RecentAppointment,
+} from '../../components/dashboard';
+
 import { useParlour } from '../../backend/modules/parlour/hook/useParlour';
 import { usePharmacy } from '../../backend/modules/pharmacy/hook/usePharmacy';
 import { useRestaurant } from '../../backend/modules/restaurant/hook/useRestaurant';
+import { useDashboard } from '../../backend/dashboard/hook/useDashboard';
+import type { DashboardMetric } from '../../backend/dashboard/api/dashboard.api.interface';
+
 import { useAppContext } from '../../context/AppContext';
-import { getBusinessTypeMap, type Business } from '../../storage/session.storage';
-import { formatCurrency, formatDate } from '../../utils/formatters';
-import { getStatusColor } from '../../utils/statusColors';
+import { refreshBusinessProfile } from '../../backend/person/service/profile.sync';
+import { findBusiness, type Business } from '../../storage/session.storage';
+import { formatCompactCurrency, formatSyncTime } from '../../utils/formatters';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
 import { openBusinessSheet } from '../../navigation/businessSheetState';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────────────────────
 
-interface StatItem {
-  label: string;
-  value: string;
-  color: string;
+const SUPPORT_EMAIL = 'support@eternitytechnologies.in';
+
+/** Rows shown per section on the dashboard, per the mockup. */
+const RECENT_LIMIT = 3;
+
+// ─── Row mapping ────────────────────────────────────────────────────────────
+// The list endpoints return the raw backend DTOs. Field names mirror the
+// Centrix owner portal's dashboard table (OwnerPortal.jsx:2236-2277) — note
+// `orderStatus` / `appointmentStatus`, NOT `status`.
+
+function customerNameOf(row: any): string {
+  if (row.customerFirstName && row.customerLastName) {
+    return `${row.customerFirstName} ${row.customerLastName}`;
+  }
+  return row.customerName || row.customer || 'Unknown Customer';
+}
+
+function toRecentOrder(row: any, index: number): RecentOrder {
+  return {
+    id: row.id ?? index,
+    customerName: customerNameOf(row),
+    orderNumber: row.orderNumber || `#${row.id ?? index}`,
+    amount: Number(row.totalAmount ?? 0),
+    status: row.orderStatus || 'PENDING',
+    when: row.orderDate || row.createdAt || null,
+  };
+}
+
+function serviceNameOf(row: any): string {
+  const items = row.appointedServiceItemsWithDetails || row.appointedServiceItems || [];
+  const first = items[0];
+  if (first?.serviceName) return first.serviceName;
+  const count = items.length;
+  return count ? `${count} service${count === 1 ? '' : 's'}` : 'Appointment';
+}
+
+function toRecentAppointment(row: any, index: number): RecentAppointment {
+  return {
+    id: row.id ?? index,
+    serviceName: serviceNameOf(row),
+    customerName: customerNameOf(row),
+    appointmentNumber: row.appointmentNumber || `#${row.id ?? index}`,
+    status: row.appointmentStatus || 'PENDING',
+    when: row.appointmentDateTime || row.appointmentDate || null,
+  };
+}
+
+// ─── Stat mapping ───────────────────────────────────────────────────────────
+
+function trendOf(metric: DashboardMetric | undefined, unavailable: boolean): StatTrend {
+  if (unavailable) return 'unavailable';
+  if (!metric || metric.changePct == null || metric.changePct === 0) return 'flat';
+  return metric.trendUp ? 'up' : 'down';
+}
+
+function deltaOf(metric: DashboardMetric | undefined): string {
+  if (!metric || metric.changePct == null) return '';
+  return `${Math.abs(metric.changePct)}%`;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -41,260 +122,313 @@ export default function DashboardScreen() {
   const pharmacy = usePharmacy();
   const restaurant = useRestaurant();
 
-  const activeModule = selectedModule?.includes('Restaurant')
-    ? restaurant
-    : selectedModule?.includes('Pharmacy')
-      ? pharmacy
-      : parlour;
+  // `selectedModule` holds the raw business-type key (PARLOUR / PHARMACY / …),
+  // written by AppContext. Compare case-insensitively — the previous
+  // implementation matched title-case ("Restaurant") and so always fell
+  // through to Parlour.
+  const moduleKey = (selectedModule || '').toUpperCase();
+  const activeModule =
+    moduleKey === 'RESTAURANT' ? restaurant
+      : moduleKey === 'PHARMACY' ? pharmacy
+        : parlour;
 
-  const [loading, setLoading] = useState(true);
+  const dashboard = useDashboard();
 
-  // Resolve business ID from stable string
-  const [selectedBusinessId, setSelectedBusinessId] = useState<number | null>(null);
-
-  const { colors, palette } = useTheme();
+  const { colors, palette, mode } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const statusBarStyle = mode === 'dark' ? 'light-content' : 'dark-content';
 
-  useEffect(() => {
-    (async () => {
-      const map = await getBusinessTypeMap();
-      if (map && selectedModule) {
-        const businesses = map[selectedModule] || [];
-        const biz = businesses.find((b: Business) => ((b as any).businessName || b.name) === selectedBusiness);
-        setSelectedBusinessId(biz?.id ?? null);
-      }
-    })();
-  }, [selectedBusiness, selectedModule]);
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [businessResolved, setBusinessResolved] = useState(false);
+  const [listsLoading, setListsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Load data on selectedBusinessId change — NOT activeModule
-  useEffect(() => {
-    if (!activeModule || !selectedBusinessId) {
-      setLoading(false);
+  // ─── Load ─────────────────────────────────────────────────────────────────
+  // `loadFor` takes the business explicitly rather than reading it off state:
+  // handleRefresh resolves a fresh record and must act on THAT, not on the
+  // value captured when the callback was created.
+
+  const loadFor = useCallback(async (biz: Business | null) => {
+    // A locked business gets no data calls — the backend would 403 them anyway.
+    if (!biz?.id || biz.isPaymentVerified === false) {
+      setListsLoading(false);
       return;
     }
-    setLoading(true);
-    Promise.all([
-      activeModule.loadOrders(1, 5),
-      activeModule.loadAppointments(1, 5),
-    ]).finally(() => setLoading(false));
-  }, [selectedBusinessId]);
+    setListsLoading(true);
+    await Promise.all([
+      dashboard.reload(biz.id),
+      activeModule.loadOrders(1, RECENT_LIMIT),
+      activeModule.loadAppointments(1, RECENT_LIMIT),
+    ]);
+    setListsLoading(false);
+    // `dashboard` and `activeModule` are rebuilt on every render by their hook
+    // factories, but the callbacks we use off them (`reload`, `loadOrders`,
+    // `loadAppointments`) are individually stable. Depending on the wrapper
+    // objects here would re-create loadFor every render and loop the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const orders = activeModule?.orders || [];
-  const appointments = activeModule?.appointments || [];
+  const resolveAndLoad = useCallback(async () => {
+    const biz = await findBusiness(selectedModule, selectedBusiness);
+    setBusiness(biz);
+    setBusinessResolved(true);
+    await loadFor(biz);
+    return biz;
+  }, [selectedModule, selectedBusiness, loadFor]);
 
-  const stats: StatItem[] = [
-    { label: 'Revenue', value: formatCurrency(orders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0)), color: '#10b981' },
-    { label: 'Orders', value: String(orders.length), color: '#f97316' },
-    { label: 'Appointments', value: String(appointments.length), color: '#8b5cf6' },
-    { label: 'Customers', value: String(new Set([...orders.map((o: any) => o.customerId), ...appointments.map((a: any) => a.customerId)]).size), color: '#0ea5e9' },
-  ];
+  useEffect(() => {
+    setBusinessResolved(false);
+    resolveAndLoad();
+  }, [resolveAndLoad]);
 
-  const handleQuickAction = useCallback((action: string) => {
-    switch (action) {
-      case 'product':
-        navigation.navigate('Catalog', {
-          screen: 'ProductDetailScreen',
-          params: { mode: 'add' },
-        });
-        break;
-      case 'order':
-        navigation.navigate('Operations', {
-          screen: 'OrderDetailScreen',
-          params: { orderId: -1 },
-        });
-        break;
-      case 'appointment':
-        navigation.navigate('Operations', {
-          screen: 'AppointmentDetailScreen',
-          params: { appointmentId: -1 },
-        });
-        break;
-      case 'invoice':
-        navigation.navigate('Operations', {
-          screen: 'BillingDetailScreen',
-          params: { billId: -1 },
-        });
-        break;
-    }
-  }, [navigation]);
+  const isLocked = business?.isPaymentVerified === false;
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    // Pull the profile again first. The business record — and with it
+    // `isPaymentVerified` — is cached at login, so without this the lock
+    // panel's "Refresh Status" could never clear.
+    await refreshBusinessProfile();
+    await resolveAndLoad();
+    setRefreshing(false);
+  }, [resolveAndLoad]);
 
-  const renderOrderItem = useCallback(({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.listItem}
-      activeOpacity={0.7}
-      onPress={() => navigation.navigate('Operations', {
-        screen: 'OrderDetailScreen',
-        params: { orderId: item.id },
-      })}
-    >
-      <View style={styles.listItemLeft}>
-        <Text style={styles.listItemTitle}>Order #{item.id}</Text>
-        <Text style={styles.listItemSub}>
-          {item.customerName || 'Customer'} {item.orderDate ? `- ${formatDate(item.orderDate)}` : ''}
-        </Text>
-      </View>
-      <View style={styles.listItemRight}>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status || 'PENDING') + '20' }]}>
-          <Text style={[styles.statusText, { color: getStatusColor(item.status || 'PENDING') }]}>
-            {item.status || 'PENDING'}
-          </Text>
-        </View>
-        <Text style={styles.listItemAmount}>{formatCurrency(item.totalAmount || 0)}</Text>
-      </View>
-    </TouchableOpacity>
-  ), [navigation]);
+  const handleContactSupport = useCallback(() => {
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {});
+  }, []);
 
-  const renderAppointmentItem = useCallback(({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.listItem}
-      activeOpacity={0.7}
-      onPress={() => navigation.navigate('Operations', {
-        screen: 'AppointmentDetailScreen',
-        params: { appointmentId: item.id },
-      })}
-    >
-      <View style={styles.listItemLeft}>
-        <Text style={styles.listItemTitle}>{item.customerName || 'Customer'}</Text>
-        <Text style={styles.listItemSub}>
-          {item.serviceName || 'Service'} {item.appointmentDateTime ? `- ${formatDate(item.appointmentDateTime)}` : ''}
-        </Text>
-      </View>
-      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status || 'SCHEDULED') + '20' }]}>
-        <Text style={[styles.statusText, { color: getStatusColor(item.status || 'SCHEDULED') }]}>
-          {item.status || 'SCHEDULED'}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  ), [navigation]);
+  // ─── Derived view state ───────────────────────────────────────────────────
+
+  const orders = useMemo(
+    () => (activeModule.orders || []).slice(0, RECENT_LIMIT).map(toRecentOrder),
+    [activeModule.orders],
+  );
+  const appointments = useMemo(
+    () => (activeModule.appointments || []).slice(0, RECENT_LIMIT).map(toRecentAppointment),
+    [activeModule.appointments],
+  );
+
+  const stats = dashboard.summary?.stats;
+  const hasError = !!dashboard.error;
+
+  // Four distinct hues, all theme tokens so they stay legible in light mode.
+  // The mockup's violet has no counterpart in the palette; amber stands in.
+  const statCards = useMemo(() => [
+    {
+      key: 'revenue',
+      label: 'Revenue',
+      color: palette.success,
+      metric: stats?.todaysRevenue,
+      format: (v: number) => formatCompactCurrency(v),
+      zero: '₹0',
+    },
+    {
+      key: 'orders',
+      label: 'Orders',
+      color: colors.primary,
+      metric: stats?.todaysOrders,
+      format: (v: number) => String(v),
+      zero: '0',
+    },
+    {
+      key: 'appointments',
+      label: 'Appointments',
+      color: palette.info,
+      metric: stats?.todaysAppointments,
+      format: (v: number) => String(v),
+      zero: '0',
+    },
+    {
+      key: 'customers',
+      label: 'Customers',
+      color: palette.warning,
+      metric: stats?.todaysActiveCustomers,
+      format: (v: number) => String(v),
+      zero: '0',
+    },
+  ], [stats, colors.primary, palette.success, palette.info, palette.warning]);
+
+  const quickActions = useMemo(() => [
+    { key: 'product', icon: PackagePlus, label: 'Product', color: colors.primary, tab: 'Products' },
+    { key: 'order', icon: ShoppingCart, label: 'Order', color: palette.info, tab: 'Orders' },
+    { key: 'booking', icon: CalendarPlus, label: 'Booking', color: palette.success, tab: 'Appointments' },
+    { key: 'invoice', icon: ReceiptText, label: 'Invoice', color: palette.warning, tab: 'Billing' },
+  ], [colors.primary, palette.info, palette.success, palette.warning]);
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+
+  const header = (
+    <DashboardHeader
+      businessName={selectedBusiness}
+      businessType={selectedModule}
+      onSwitchBusiness={openBusinessSheet}
+    />
+  );
+
+  // 1. Activation Pending — the business exists but payment is unverified.
+  if (isLocked) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle={statusBarStyle} backgroundColor={palette.background} />
+        <ActivationPendingPanel
+          businessName={selectedBusiness}
+          refreshing={refreshing}
+          onRefreshStatus={handleRefresh}
+          onContactSupport={handleContactSupport}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // 2. Loading — first paint, nothing cached to show yet.
+  const isFirstLoad = !businessResolved || (listsLoading && !stats && !hasError);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <StatusBar barStyle={statusBarStyle} backgroundColor={palette.background} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerIcon}>⊞</Text>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-        </View>
-        <TouchableOpacity style={styles.businessSelector} onPress={openBusinessSheet} activeOpacity={0.7}>
-          <Text style={styles.businessSelectorText} numberOfLines={1}>
-            {selectedBusiness || 'Select Business'}
-          </Text>
-          <Text style={styles.chevronIcon}>▾</Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        {header}
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Stats Row */}
-          <View style={styles.statsRow}>
-            {stats.map((stat) => (
-              <AppCard
-                key={stat.label}
-                style={styles.statCard}
-                contentStyle={styles.statCardContent}
-              >
-                <Text
-                  style={[styles.statValue, { color: stat.color }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {stat.value}
-                </Text>
-                <Text style={styles.statLabel} numberOfLines={1}>
-                  {stat.label}
-                </Text>
-              </AppCard>
-            ))}
-          </View>
+        {isFirstLoad ? (
+          <DashboardSkeleton />
+        ) : (
+          <>
+            {/* 3. Error — stale numbers stay on screen behind an explicit banner. */}
+            {hasError && <LiveDataBanner onRetry={handleRefresh} />}
 
-          {/* Quick Actions */}
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActions}>
-            {[
-              { key: 'product', icon: '📦', label: 'Product' },
-              { key: 'order', icon: '🛒', label: 'Order' },
-              { key: 'appointment', icon: '📅', label: 'Appointment' },
-              { key: 'invoice', icon: '🧾', label: 'Invoice' },
-            ].map((action) => (
-              <AppCard
-                key={action.key}
-                style={styles.quickActionBtn}
-                contentStyle={styles.quickActionContent}
-                onPress={() => handleQuickAction(action.key)}
-              >
-                <View style={styles.quickActionIcon}>
-                  <Text style={styles.quickActionIconText}>{action.icon}</Text>
+            <View style={styles.statsRow}>
+              {statCards.map(card => (
+                <StatCard
+                  key={card.key}
+                  label={card.label}
+                  valueColor={card.color}
+                  // Zeroes go grey rather than coloured — a green "₹0" reads
+                  // like a result, which is the mockup's empty-state point.
+                  dimmed={hasError || !card.metric || card.metric.value === 0}
+                  value={
+                    hasError ? '—'
+                      : card.metric ? card.format(card.metric.value)
+                        : card.zero
+                  }
+                  trend={trendOf(card.metric, hasError)}
+                  delta={deltaOf(card.metric)}
+                />
+              ))}
+            </View>
+
+            <View style={styles.section}>
+              <SectionHead title="Quick Actions" />
+              <View style={styles.actionsRow}>
+                {quickActions.map(action => (
+                  <QuickActionTile
+                    key={action.key}
+                    icon={action.icon}
+                    label={action.label}
+                    color={action.color}
+                    onPress={() => navigation.navigate(action.tab)}
+                  />
+                ))}
+              </View>
+            </View>
+
+            {hasError ? (
+              /* The two recent sections collapse into one while data is down. */
+              <View style={styles.section}>
+                <SectionHead
+                  title="Recent Activity"
+                  meta={
+                    dashboard.lastSyncedAt
+                      ? `Last synced ${formatSyncTime(dashboard.lastSyncedAt)}`
+                      : undefined
+                  }
+                />
+                <DashboardErrorCard
+                  code={dashboard.errorCode}
+                  onRetry={handleRefresh}
+                  onContactSupport={handleContactSupport}
+                />
+              </View>
+            ) : (
+              <>
+                <View style={styles.section}>
+                  <SectionHead
+                    title="Recent Orders"
+                    actionLabel="See all"
+                    muted={orders.length === 0}
+                    onAction={() => navigation.navigate('Orders')}
+                  />
+                  {orders.length === 0 ? (
+                    <SectionEmptyCard
+                      icon={ReceiptText}
+                      title="No data available"
+                      message="No orders have been placed today. New orders will show up here as they come in."
+                      actionIcon={Plus}
+                      actionLabel="Create Order"
+                      onAction={() => navigation.navigate('Orders')}
+                    />
+                  ) : (
+                    <View style={styles.listCard}>
+                      {orders.map((order, i) => (
+                        <RecentOrderRow
+                          key={order.id}
+                          order={order}
+                          divided={i < orders.length - 1}
+                          onPress={() => navigation.navigate('Orders')}
+                        />
+                      ))}
+                    </View>
+                  )}
                 </View>
-                <Text
-                  style={styles.quickActionLabel}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {action.label}
-                </Text>
-              </AppCard>
-            ))}
-          </View>
 
-          {/* Recent Orders */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Orders</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Operations')} activeOpacity={0.7}>
-              <Text style={styles.seeAll}>See all</Text>
-            </TouchableOpacity>
-          </View>
-          {orders.length === 0 ? (
-            <AppCard style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No recent orders</Text>
-            </AppCard>
-          ) : (
-            <AppCard style={styles.listCard} contentStyle={styles.listContent}>
-              {orders.slice(0, 5).map((order: any, idx: number) => (
-                <React.Fragment key={order.id || idx}>
-                  {renderOrderItem({ item: order })}
-                  {idx < Math.min(orders.length, 5) - 1 && <View style={styles.divider} />}
-                </React.Fragment>
-              ))}
-            </AppCard>
-          )}
+                <View style={styles.section}>
+                  <SectionHead
+                    title="Recent Appointments"
+                    actionLabel="See all"
+                    muted={appointments.length === 0}
+                    onAction={() => navigation.navigate('Appointments')}
+                  />
+                  {appointments.length === 0 ? (
+                    <SectionEmptyCard
+                      icon={CalendarX}
+                      title="No data available"
+                      message="Nothing on the books for today. Book an appointment to get started."
+                      actionIcon={CalendarPlus}
+                      actionLabel="New Booking"
+                      onAction={() => navigation.navigate('Appointments')}
+                    />
+                  ) : (
+                    <View style={styles.listCard}>
+                      {appointments.map((appt, i) => (
+                        <RecentAppointmentRow
+                          key={appt.id}
+                          appointment={appt}
+                          divided={i < appointments.length - 1}
+                          onPress={() => navigation.navigate('Appointments')}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </>
+            )}
+          </>
+        )}
 
-          {/* Upcoming Appointments */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Operations')} activeOpacity={0.7}>
-              <Text style={styles.seeAll}>See all</Text>
-            </TouchableOpacity>
-          </View>
-          {appointments.length === 0 ? (
-            <AppCard style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No upcoming appointments</Text>
-            </AppCard>
-          ) : (
-            <AppCard style={styles.listCard} contentStyle={styles.listContent}>
-              {appointments.slice(0, 5).map((appt: any, idx: number) => (
-                <React.Fragment key={appt.id || idx}>
-                  {renderAppointmentItem({ item: appt })}
-                  {idx < Math.min(appointments.length, 5) - 1 && <View style={styles.divider} />}
-                </React.Fragment>
-              ))}
-            </AppCard>
-          )}
-
-          <View style={styles.bottomSpacer} />
-        </ScrollView>
-      )}
+        {/* Clears the floating bottom group nav. */}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -305,201 +439,35 @@ function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: theme.palette.background,
+      backgroundColor: 'transparent',
     },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+    content: {
+      flexGrow: 1,
+      gap: 22,
+      paddingTop: 6,
       paddingHorizontal: 16,
-      paddingTop: 16,
-      paddingBottom: 12,
-      backgroundColor: theme.palette.background,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.palette.divider,
-    },
-    headerLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: theme.palette.onBackground,
-    },
-    businessSelector: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.palette.surface,
-      borderWidth: 1,
-      borderColor: theme.palette.divider,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      maxWidth: 200,
-      gap: 6,
-    },
-    businessSelectorText: {
-      fontSize: 13,
-      fontWeight: '500',
-      color: theme.palette.onBackground,
-      flexShrink: 1,
-    },
-    centered: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingHorizontal: 16,
-      paddingTop: 16,
+      paddingBottom: 20,
     },
     statsRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 24,
+      gap: 8,
     },
-    statCard: {
-      flex: 1,
-      marginHorizontal: 4,
+    section: {
+      gap: 12,
     },
-    statCardContent: {
-      paddingVertical: 22,
-      paddingHorizontal: 2,
-    },
-    statValue: {
-      fontSize: 20,
-      fontWeight: '700',
-      marginBottom: 6,
-    },
-    statLabel: {
-      fontSize: 10,
-      fontWeight: '500',
-      color: theme.palette.muted,
-    },
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.palette.onBackground,
-      marginBottom: 12,
-    },
-    sectionHeader: {
+    actionsRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 12,
-      marginTop: 8,
-    },
-    seeAll: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: theme.colors.primary,
-    },
-    quickActions: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 24,
-    },
-    quickActionBtn: {
-      flex: 1,
-      marginHorizontal: 4,
-    },
-    quickActionContent: {
-      paddingVertical: 14,
-      paddingHorizontal: 6,
-    },
-    quickActionIcon: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 2,
-      marginBottom: 6,
-    },
-    quickActionLabel: {
-      fontSize: 11,
-      fontWeight: '500',
-      color: theme.palette.muted,
+      gap: 10,
     },
     listCard: {
-      marginBottom: 16,
-      padding: 0,
-    },
-    listContent: {
-      padding: 0,
-      alignItems: 'stretch',
-      justifyContent: 'flex-start',
-    },
-    listItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-    },
-    listItemLeft: {
-      flex: 1,
-      marginRight: 12,
-    },
-    listItemRight: {
-      alignItems: 'flex-end',
-      gap: 4,
-    },
-    listItemTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.palette.onBackground,
-      marginBottom: 2,
-    },
-    listItemSub: {
-      fontSize: 12,
-      color: theme.palette.muted,
-    },
-    listItemAmount: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: theme.palette.onBackground,
-    },
-    statusBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 6,
-    },
-    statusText: {
-      fontSize: 10,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-    },
-    divider: {
-      height: 1,
-      backgroundColor: theme.palette.divider,
-      marginHorizontal: 16,
-    },
-    emptyCard: {
-      alignItems: 'center',
-      paddingVertical: 24,
-      marginBottom: 16,
-    },
-    emptyText: {
-      fontSize: 14,
-      color: theme.palette.muted,
+      borderRadius: 16,
+      overflow: 'hidden',
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
     },
     bottomSpacer: {
-      height: 32,
-    },
-    headerIcon: {
-      fontSize: 22,
-      color: theme.colors.primary,
-    },
-    chevronIcon: {
-      fontSize: 18,
-      color: theme.palette.muted,
-    },
-    quickActionIconText: {
-      fontSize: 22,
-      marginBottom: 2,
+      height: 90,
     },
   });
 }

@@ -11,6 +11,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getSelectedBusiness as loadSelectedBusiness,
   setSelectedBusiness as saveSelectedBusiness,
+  setSelectedBusinessType as saveSelectedBusinessType,
+  getBusinessTypeMap,
 } from '../storage/session.storage';
 
 // ─── Key ─────────────────────────────────────────────────────────────────────
@@ -46,8 +48,31 @@ export function AppProvider({ children }: AppProviderProps) {
           loadSelectedBusiness(),
           AsyncStorage.getItem(MODULE_KEY),
         ]);
-        if (storedBusiness) setSelectedBusinessState(storedBusiness);
-        if (storedModule) setSelectedModuleState(storedModule);
+
+        if (storedBusiness && storedModule) {
+          setSelectedBusinessState(storedBusiness);
+          setSelectedModuleState(storedModule);
+          // Keep the module hooks' key in sync on restore too — it lives under
+          // a separate storage key and would otherwise stay unset.
+          saveSelectedBusinessType(storedModule).catch(() => {});
+          return;
+        }
+
+        // Nothing chosen yet (first login): default to the first business so
+        // the portal has something to load instead of an empty shell.
+        const map = await getBusinessTypeMap();
+        const firstType = map ? Object.keys(map).find(t => (map[t] || []).length > 0) : undefined;
+        const firstBiz = firstType ? map![firstType][0] : undefined;
+        if (firstType && firstBiz) {
+          const name = firstBiz.businessName || firstBiz.name;
+          setSelectedModuleState(firstType);
+          setSelectedBusinessState(name);
+          await Promise.all([
+            AsyncStorage.setItem(MODULE_KEY, firstType),
+            saveSelectedBusiness(name),
+            saveSelectedBusinessType(firstType),
+          ]);
+        }
       } catch {
         // Silently fall back to defaults
       }
@@ -67,6 +92,9 @@ export function AppProvider({ children }: AppProviderProps) {
     setSelectedModuleState(next);
     if (next) {
       AsyncStorage.setItem(MODULE_KEY, next).catch(() => {});
+      // Mirror into `session:selectedBusinessType`, which is what
+      // useModuleService.getSelectedBusinessId reads to resolve the business id.
+      saveSelectedBusinessType(next).catch(() => {});
     } else {
       AsyncStorage.removeItem(MODULE_KEY).catch(() => {});
     }

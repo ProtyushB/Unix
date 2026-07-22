@@ -1,3 +1,8 @@
+import {
+  Scissors, Pill, UtensilsCrossed, Cpu, Dumbbell, Store, Shirt, Building2,
+} from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
+
 // ─── Business Type Constants ─────────────────────────────────────────────────
 
 export const PARLOUR = 'PARLOUR';
@@ -39,4 +44,23 @@ const TYPE_LABEL_MAP: Record<string, string> = Object.fromEntries(
 
 export function getBusinessTypeLabel(type: string): string {
   return TYPE_LABEL_MAP[type] ?? type;
+}
+
+// ─── Icon Map ────────────────────────────────────────────────────────────────
+// Drives the accent logo chip in the dashboard's business switcher.
+
+const TYPE_ICON_MAP: Record<string, LucideIcon> = {
+  [PARLOUR]: Scissors,
+  [PHARMACY]: Pill,
+  [RESTAURANT]: UtensilsCrossed,
+  [ELECTRONICS]: Cpu,
+  [GYM]: Dumbbell,
+  [RETAIL]: Store,
+  [FASHION]: Shirt,
+  [CUSTOM]: Building2,
+};
+
+export function getBusinessTypeIcon(type: string | null | undefined): LucideIcon {
+  if (!type) return Building2;
+  return TYPE_ICON_MAP[type.toUpperCase()] ?? Building2;
 }

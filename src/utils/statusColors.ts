@@ -5,14 +5,21 @@ const STATUS_COLORS: Record<string, string> = {
   ACTIVE: '#10b981',
   PAID: '#10b981',
   COMPLETED: '#10b981',
+  BILLED: '#10b981',
+
+  // Blue
+  CONFIRMED: '#3b82f6',
+  READY: '#3b82f6',
+  IN_PROGRESS: '#3b82f6',
 
   // Amber
   PENDING: '#f59e0b',
+  PREPARING: '#f59e0b',
   SCHEDULED: '#f59e0b',
-  CONFIRMED: '#f59e0b',
 
   // Red
   CANCELLED: '#ef4444',
+  REJECTED: '#ef4444',
   EXPIRED: '#ef4444',
   DEPLETED: '#ef4444',
 
