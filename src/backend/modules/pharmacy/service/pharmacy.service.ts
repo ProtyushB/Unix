@@ -1,4 +1,4 @@
-import {PharmacyApiInterface} from '../api/pharmacy.api.interface';
+import {PharmacyApiInterface, OrderListOptions} from '../api/pharmacy.api.interface';
 
 export class PharmacyService {
   constructor(private api: PharmacyApiInterface) {}
@@ -33,9 +33,13 @@ export class PharmacyService {
   }
   async deleteService(id: number) { return this.api.deleteService(id); }
 
-  async getAllOrders(businessId: number, page = 1, limit = 10) {
+  async getAllOrders(businessId: number, page = 1, limit = 10, options: OrderListOptions = {}) {
     if (!businessId) throw new Error('Business ID is required');
-    return this.api.getAllOrders(businessId, page, limit);
+    return this.api.getAllOrders(businessId, page, limit, options);
+  }
+  async getOrderSummary(businessId: number, options: {fromDate?: string; toDate?: string} = {}) {
+    if (!businessId) throw new Error('Business ID is required');
+    return this.api.getOrderSummary(businessId, options);
   }
   async getOrderById(id: number) { return this.api.getOrderById(id); }
   async createOrder(data: Record<string, unknown>) {

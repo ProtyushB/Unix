@@ -1,4 +1,4 @@
-import {PharmacyApiInterface, ApiResponse} from './pharmacy.api.interface';
+import {PharmacyApiInterface, ApiResponse, OrderListOptions, OrderSummary} from './pharmacy.api.interface';
 import pharmacyApiClient from '../config/axios.instance';
 import {PHARMACY_ROUTES} from '../config/api.config';
 
@@ -43,8 +43,12 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.SERVICES_DELETE}/${id}`);
     return res.data;
   }
-  async getAllOrders(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.ORDERS_VIEW_ALL, {params: {businessId, page, limit}});
+  async getAllOrders(businessId: number, page: number, limit: number, options: OrderListOptions = {}): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.ORDERS_VIEW_ALL, {params: {businessId, page, limit, ...options}});
+    return res.data;
+  }
+  async getOrderSummary(businessId: number, options: {fromDate?: string; toDate?: string} = {}): Promise<ApiResponse<OrderSummary>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.ORDERS_SUMMARY, {params: {businessId, ...options}});
     return res.data;
   }
   async getOrderById(id: number): Promise<ApiResponse<unknown>> {

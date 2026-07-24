@@ -6,6 +6,26 @@ export interface ApiResponse<T = unknown> {
   error: string | null;
 }
 
+/**
+ * Orders V2 list filters, layered on top of businessId/page/limit. `status` is a comma-separated
+ * OrderStatus list; `fromDate`/`toDate` are YYYY-MM-DD (IST, toDate inclusive). All optional — an
+ * empty object reproduces the plain paginated list.
+ */
+export interface OrderListOptions {
+  search?: string;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/** Orders V2 status-chip summary: total in scope + per-status counts (zero-count statuses omitted). */
+export interface OrderSummary {
+  total: number;
+  byStatus: Record<string, number>;
+}
+
 export abstract class PharmacyApiInterface {
   abstract getAllProducts(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>>;
   abstract getProductById(id: number): Promise<ApiResponse<unknown>>;
@@ -19,7 +39,8 @@ export abstract class PharmacyApiInterface {
   abstract updateService(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract deleteService(id: number): Promise<ApiResponse<unknown>>;
 
-  abstract getAllOrders(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>>;
+  abstract getAllOrders(businessId: number, page: number, limit: number, options?: OrderListOptions): Promise<ApiResponse<unknown[]>>;
+  abstract getOrderSummary(businessId: number, options?: {fromDate?: string; toDate?: string}): Promise<ApiResponse<OrderSummary>>;
   abstract getOrderById(id: number): Promise<ApiResponse<unknown>>;
   abstract createOrder(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateOrder(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;

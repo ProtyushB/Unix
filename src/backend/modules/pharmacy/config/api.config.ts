@@ -16,6 +16,7 @@ export const PHARMACY_ROUTES = {
   SERVICES_DELETE: '/pharmacyService/delete',
 
   ORDERS_VIEW_ALL: '/pharmacyOrder/viewAll',
+  ORDERS_SUMMARY: '/pharmacyOrder/summary',
   ORDERS_VIEW: '/pharmacyOrder/view',
   ORDERS_CREATE: '/pharmacyOrder/create',
   ORDERS_UPDATE: '/pharmacyOrder/update',

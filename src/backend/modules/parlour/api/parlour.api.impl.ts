@@ -1,4 +1,4 @@
-import {ParlourApiInterface, ApiResponse} from './parlour.api.interface';
+import {ParlourApiInterface, ApiResponse, OrderListOptions, OrderSummary} from './parlour.api.interface';
 import parlourApiClient from '../config/axios.instance';
 import {PARLOUR_ROUTES} from '../config/api.config';
 
@@ -48,8 +48,12 @@ export class ParlourApiImpl extends ParlourApiInterface {
   }
 
   // ── Orders ─────────────────────────────────────────────────────────────────
-  async getAllOrders(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>> {
-    const res = await parlourApiClient.get(PARLOUR_ROUTES.ORDERS_VIEW_ALL, {params: {businessId, page, limit}});
+  async getAllOrders(businessId: number, page: number, limit: number, options: OrderListOptions = {}): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.ORDERS_VIEW_ALL, {params: {businessId, page, limit, ...options}});
+    return res.data;
+  }
+  async getOrderSummary(businessId: number, options: {fromDate?: string; toDate?: string} = {}): Promise<ApiResponse<OrderSummary>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.ORDERS_SUMMARY, {params: {businessId, ...options}});
     return res.data;
   }
   async getOrderById(id: number): Promise<ApiResponse<unknown>> {

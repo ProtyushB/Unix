@@ -19,6 +19,7 @@ export const PARLOUR_ROUTES = {
 
   // Orders
   ORDERS_VIEW_ALL: '/parlourOrder/viewAll',
+  ORDERS_SUMMARY: '/parlourOrder/summary',
   ORDERS_VIEW: '/parlourOrder/view',
   ORDERS_CREATE: '/parlourOrder/create',
   ORDERS_UPDATE: '/parlourOrder/update',

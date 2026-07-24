@@ -24,6 +24,22 @@ interface ServiceResult<T = unknown> {
   totalPages?: number;
 }
 
+/** Orders V2 list filters (status = comma-separated OrderStatus; dates = YYYY-MM-DD, IST). */
+export interface OrderListOptions {
+  search?: string;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/** Orders V2 status-chip summary: total in scope + per-status counts (zero-count statuses omitted). */
+export interface OrderSummary {
+  total: number;
+  byStatus: Record<string, number>;
+}
+
 interface ModuleService {
   getAllProducts(businessId: number, page: number, limit: number): Promise<ServiceResult>;
   createProduct(data: Record<string, unknown>): Promise<ServiceResult>;
@@ -35,7 +51,10 @@ interface ModuleService {
   updateService(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteService(id: number): Promise<ServiceResult>;
 
-  getAllOrders(businessId: number, page: number, limit: number): Promise<ServiceResult>;
+  getAllOrders(businessId: number, page: number, limit: number, options?: OrderListOptions): Promise<ServiceResult>;
+  // Optional: only modules whose backend exposes /{module}Order/summary implement it (Parlour,
+  // Pharmacy). Restaurant omits it, so callers must guard with `service.getOrderSummary?.(...)`.
+  getOrderSummary?(businessId: number, options?: {fromDate?: string; toDate?: string}): Promise<ServiceResult<OrderSummary>>;
   createOrder(data: Record<string, unknown>): Promise<ServiceResult>;
   updateOrder(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteOrder(id: number): Promise<ServiceResult>;
@@ -96,6 +115,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     const [employees, setEmployees] = useState<unknown[]>([]);
     const [orders, setOrders] = useState<unknown[]>([]);
     const [ordersTotalPages, setOrdersTotalPages] = useState(1);
+    const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
     const [appointments, setAppointments] = useState<unknown[]>([]);
     const [bills, setBills] = useState<unknown[]>([]);
     const [inventory, setInventory] = useState<unknown[]>([]);
@@ -343,7 +363,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     // ═══════════════════════════════════════════════════════════════
 
     const loadOrders = useCallback(
-      async (page = 1, limit = 10) => {
+      async (page = 1, limit = 10, options: OrderListOptions = {}) => {
         setLoading(true);
         setError(null);
         try {
@@ -354,7 +374,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
             setLoading(false);
             return;
           }
-          const response = await service.getAllOrders(businessId, page, limit);
+          const response = await service.getAllOrders(businessId, page, limit, options);
           if (response.success) {
             const data = response.data;
             setOrders(Array.isArray(data) ? data : []);
@@ -369,6 +389,29 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           setOrders([]);
         } finally {
           setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Orders V2 status-chip counts, optionally scoped to the same date window as the list.
+     * Best-effort: it never toggles `loading` or sets `error` (the list is the primary content),
+     * and it no-ops to `null` for modules without a summary endpoint (e.g. Restaurant) or on any
+     * failure, so a missing/404 summary never blocks the screen.
+     */
+    const loadOrderSummary = useCallback(
+      async (options: {fromDate?: string; toDate?: string} = {}) => {
+        try {
+          const businessId = await getSelectedBusinessId();
+          if (!businessId || !service.getOrderSummary) {
+            setOrderSummary(null);
+            return;
+          }
+          const response = await service.getOrderSummary(businessId, options);
+          setOrderSummary(response.success && response.data ? response.data : null);
+        } catch {
+          setOrderSummary(null);
         }
       },
       [service],
@@ -804,6 +847,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       employees,
       orders,
       ordersTotalPages,
+      orderSummary,
       appointments,
       bills,
       inventory,
@@ -824,6 +868,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
 
       // Order CRUD
       loadOrders,
+      loadOrderSummary,
       loadOrdersByCustomer,
       createOrder,
       updateOrder,
