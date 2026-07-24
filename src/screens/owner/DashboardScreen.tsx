@@ -20,6 +20,7 @@ import {
 
 import {
   DashboardHeader,
+  BusinessSwitcherChip,
   SectionHead,
   StatCard,
   QuickActionTile,
@@ -56,6 +57,10 @@ const SUPPORT_EMAIL = 'support@eternitytechnologies.in';
 
 /** Rows shown per section on the dashboard, per the mockup. */
 const RECENT_LIMIT = 3;
+// Fetched upfront so "See all" can reveal the extra rows inline (the mockup's
+// "Lists Expanded" state) without a second round-trip. RECENT_LIMIT is the
+// collapsed preview count; the rest stay hidden until expanded.
+const EXPANDED_LIMIT = 10;
 
 // ─── Row mapping ────────────────────────────────────────────────────────────
 // The list endpoints return the raw backend DTOs. Field names mirror the
@@ -142,6 +147,8 @@ export default function DashboardScreen() {
   const [businessResolved, setBusinessResolved] = useState(false);
   const [listsLoading, setListsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [ordersExpanded, setOrdersExpanded] = useState(false);
+  const [apptsExpanded, setApptsExpanded] = useState(false);
 
   // ─── Load ─────────────────────────────────────────────────────────────────
   // `loadFor` takes the business explicitly rather than reading it off state:
@@ -157,8 +164,8 @@ export default function DashboardScreen() {
     setListsLoading(true);
     await Promise.all([
       dashboard.reload(biz.id),
-      activeModule.loadOrders(1, RECENT_LIMIT),
-      activeModule.loadAppointments(1, RECENT_LIMIT),
+      activeModule.loadOrders(1, EXPANDED_LIMIT),
+      activeModule.loadAppointments(1, EXPANDED_LIMIT),
     ]);
     setListsLoading(false);
     // `dashboard` and `activeModule` are rebuilt on every render by their hook
@@ -200,13 +207,20 @@ export default function DashboardScreen() {
   // ─── Derived view state ───────────────────────────────────────────────────
 
   const orders = useMemo(
-    () => (activeModule.orders || []).slice(0, RECENT_LIMIT).map(toRecentOrder),
+    () => (activeModule.orders || []).slice(0, EXPANDED_LIMIT).map(toRecentOrder),
     [activeModule.orders],
   );
   const appointments = useMemo(
-    () => (activeModule.appointments || []).slice(0, RECENT_LIMIT).map(toRecentAppointment),
+    () => (activeModule.appointments || []).slice(0, EXPANDED_LIMIT).map(toRecentAppointment),
     [activeModule.appointments],
   );
+
+  // Collapsed shows RECENT_LIMIT; "See all" reveals the rest inline. The toggle
+  // only appears when there are extra rows to reveal.
+  const visibleOrders   = ordersExpanded ? orders : orders.slice(0, RECENT_LIMIT);
+  const visibleAppts    = apptsExpanded  ? appointments : appointments.slice(0, RECENT_LIMIT);
+  const ordersCanExpand = orders.length > RECENT_LIMIT;
+  const apptsCanExpand  = appointments.length > RECENT_LIMIT;
 
   const stats = dashboard.summary?.stats;
   const hasError = !!dashboard.error;
@@ -270,6 +284,13 @@ export default function DashboardScreen() {
     return (
       <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
         <StatusBar barStyle={statusBarStyle} backgroundColor={palette.background} />
+        <View style={styles.lockedTopBar}>
+          <BusinessSwitcherChip
+            businessName={selectedBusiness}
+            businessType={selectedModule}
+            onSwitchBusiness={openBusinessSheet}
+          />
+        </View>
         <ActivationPendingPanel
           businessName={selectedBusiness}
           refreshing={refreshing}
@@ -365,9 +386,13 @@ export default function DashboardScreen() {
                 <View style={styles.section}>
                   <SectionHead
                     title="Recent Orders"
-                    actionLabel="See all"
-                    muted={orders.length === 0}
-                    onAction={() => navigation.navigate('Orders')}
+                    actionLabel={
+                      ordersCanExpand
+                        ? ordersExpanded ? 'Show less' : 'See all'
+                        : undefined
+                    }
+                    expanded={ordersExpanded}
+                    onAction={() => setOrdersExpanded(v => !v)}
                   />
                   {orders.length === 0 ? (
                     <SectionEmptyCard
@@ -380,11 +405,11 @@ export default function DashboardScreen() {
                     />
                   ) : (
                     <View style={styles.listCard}>
-                      {orders.map((order, i) => (
+                      {visibleOrders.map((order, i) => (
                         <RecentOrderRow
                           key={order.id}
                           order={order}
-                          divided={i < orders.length - 1}
+                          divided={i < visibleOrders.length - 1}
                           onPress={() => navigation.navigate('Orders')}
                         />
                       ))}
@@ -395,9 +420,13 @@ export default function DashboardScreen() {
                 <View style={styles.section}>
                   <SectionHead
                     title="Recent Appointments"
-                    actionLabel="See all"
-                    muted={appointments.length === 0}
-                    onAction={() => navigation.navigate('Appointments')}
+                    actionLabel={
+                      apptsCanExpand
+                        ? apptsExpanded ? 'Show less' : 'See all'
+                        : undefined
+                    }
+                    expanded={apptsExpanded}
+                    onAction={() => setApptsExpanded(v => !v)}
                   />
                   {appointments.length === 0 ? (
                     <SectionEmptyCard
@@ -410,11 +439,11 @@ export default function DashboardScreen() {
                     />
                   ) : (
                     <View style={styles.listCard}>
-                      {appointments.map((appt, i) => (
+                      {visibleAppts.map((appt, i) => (
                         <RecentAppointmentRow
                           key={appt.id}
                           appointment={appt}
-                          divided={i < appointments.length - 1}
+                          divided={i < visibleAppts.length - 1}
                           onPress={() => navigation.navigate('Appointments')}
                         />
                       ))}
@@ -440,6 +469,14 @@ function createStyles(theme: AppTheme) {
     screen: {
       flex: 1,
       backgroundColor: 'transparent',
+    },
+    lockedTopBar: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      paddingTop: 12,
+      paddingBottom: 6,
+      paddingHorizontal: 24,
     },
     content: {
       flexGrow: 1,

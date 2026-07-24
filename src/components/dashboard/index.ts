@@ -1,4 +1,5 @@
 export { DashboardHeader, SectionHead } from './DashboardHeader';
+export { BusinessSwitcherChip } from './BusinessSwitcherChip';
 export { StatCard } from './StatCard';
 export type { StatTrend } from './StatCard';
 export { QuickActionTile } from './QuickActionTile';

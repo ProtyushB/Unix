@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { ChevronDown, ChevronRight } from 'lucide-react-native';
+import { ChevronRight, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
-import { getBusinessTypeIcon } from '../../utils/businessTypes';
 import { formatLongDate } from '../../utils/formatters';
+import { BusinessSwitcherChip } from './BusinessSwitcherChip';
 import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -24,9 +24,7 @@ export function DashboardHeader({
   businessType,
   onSwitchBusiness,
 }: DashboardHeaderProps) {
-  const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const LogoIcon = getBusinessTypeIcon(businessType);
 
   return (
     <View style={styles.header}>
@@ -35,19 +33,11 @@ export function DashboardHeader({
         <Text style={styles.subtitle}>{formatLongDate()}</Text>
       </View>
 
-      <Pressable
-        onPress={onSwitchBusiness}
-        android_ripple={{ color: palette.divider }}
-        style={({ pressed }) => [styles.switcher, pressed && styles.switcherPressed]}
-      >
-        <View style={styles.logo}>
-          <LogoIcon size={13} color={colors.onAccent} />
-        </View>
-        <Text style={styles.switcherName} numberOfLines={1}>
-          {businessName || 'Select Business'}
-        </Text>
-        <ChevronDown size={16} color={palette.muted} />
-      </Pressable>
+      <BusinessSwitcherChip
+        businessName={businessName}
+        businessType={businessType}
+        onSwitchBusiness={onSwitchBusiness}
+      />
     </View>
   );
 }
@@ -63,6 +53,12 @@ interface SectionHeadProps {
   muted?: boolean;
   /** Right-aligned plain text instead of a link — used for "Last synced …". */
   meta?: string;
+  /**
+   * When set, the action is an expand/collapse toggle: the trailing icon
+   * becomes a chevron-up (expanded) / chevron-down (collapsed) instead of the
+   * navigation-style chevron-right.
+   */
+  expanded?: boolean;
 }
 
 export function SectionHead({
@@ -71,6 +67,7 @@ export function SectionHead({
   onAction,
   muted = false,
   meta,
+  expanded,
 }: SectionHeadProps) {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -90,7 +87,13 @@ export function SectionHead({
           style={styles.seeAll}
         >
           <Text style={[styles.seeAllText, { color: linkColor }]}>{actionLabel}</Text>
-          <ChevronRight size={15} color={linkColor} />
+          {expanded === undefined ? (
+            <ChevronRight size={15} color={linkColor} />
+          ) : expanded ? (
+            <ChevronUp size={15} color={linkColor} />
+          ) : (
+            <ChevronDown size={15} color={linkColor} />
+          )}
         </Pressable>
       ) : null}
     </View>
@@ -119,35 +122,6 @@ function createStyles(theme: AppTheme) {
     subtitle: {
       fontSize: 13,
       color: theme.palette.muted,
-    },
-    switcher: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      maxWidth: 180,
-      paddingVertical: 7,
-      paddingHorizontal: 10,
-      borderRadius: 12,
-      backgroundColor: theme.palette.surface,
-      borderWidth: 1,
-      borderColor: theme.palette.divider,
-    },
-    switcherPressed: {
-      opacity: 0.7,
-    },
-    logo: {
-      width: 24,
-      height: 24,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.primary,
-    },
-    switcherName: {
-      flexShrink: 1,
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.palette.onBackground,
     },
     sectionHead: {
       flexDirection: 'row',

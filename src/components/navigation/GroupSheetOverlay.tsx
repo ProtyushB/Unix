@@ -103,7 +103,7 @@ export function GroupSheetOverlay() {
               style={StyleSheet.absoluteFill}
               blurTarget={contentTarget ?? undefined}
               blurMethod="dimezisBlurView"
-              intensity={30}
+              intensity={40}
               tint="dark"
               pointerEvents="none"
             />
@@ -111,7 +111,7 @@ export function GroupSheetOverlay() {
               pointerEvents="none"
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: 'rgba(0, 0, 0, 0.20)' },
+                { backgroundColor: palette.background + 'A6' },
               ]}
             />
           </>
@@ -142,46 +142,54 @@ export function GroupSheetOverlay() {
         )}
         <View style={styles.sheetContent}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>{group.label.toUpperCase()}</Text>
-          <View style={styles.sheetDivider} />
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{group.label.toUpperCase()}</Text>
+          </View>
 
-          {group.items.map(item => {
-            const ItemIcon     = item.icon;
-            const isActiveItem = item.route.tab === activeTabName;
+          <View style={styles.sheetItems}>
+            {group.items.map(item => {
+              const ItemIcon     = item.icon;
+              const isActiveItem = item.route.tab === activeTabName;
 
-            return (
-              <Pressable
-                key={item.label}
-                onPress={() => handleItemPress(item.route.tab)}
-                android_ripple={{ color: palette.divider }}
-                style={({ pressed }) => [
-                  styles.sheetItem,
-                  isActiveItem && styles.sheetItemActive,
-                  pressed && styles.sheetItemPressed,
-                ]}
-              >
-                <View style={styles.sheetItemIcon}>
-                  <ItemIcon
-                    size={18}
-                    color={isActiveItem ? colors.primary : palette.onSurface}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.sheetItemLabel,
-                    isActiveItem && { color: colors.primary },
+              return (
+                <Pressable
+                  key={item.label}
+                  onPress={() => handleItemPress(item.route.tab)}
+                  android_ripple={{ color: palette.divider }}
+                  style={({ pressed }) => [
+                    styles.sheetItem,
+                    isActiveItem && styles.sheetItemActive,
+                    pressed && styles.sheetItemPressed,
                   ]}
                 >
-                  {item.label}
-                </Text>
-                {item.badge && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{item.badge}</Text>
+                  <View
+                    style={[
+                      styles.sheetItemIcon,
+                      isActiveItem && styles.sheetItemIconActive,
+                    ]}
+                  >
+                    <ItemIcon
+                      size={19}
+                      color={isActiveItem ? colors.primary : palette.muted}
+                    />
                   </View>
-                )}
-              </Pressable>
-            );
-          })}
+                  <Text
+                    style={[
+                      styles.sheetItemLabel,
+                      isActiveItem && { color: colors.primary, fontWeight: '600' },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  {item.badge && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{item.badge}</Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       </Animated.View>
     </View>
@@ -196,9 +204,9 @@ function createStyles(theme: AppTheme) {
     left:                  0,
     right:                 0,
     bottom:                0,
-    borderTopLeftRadius:   20,
-    borderTopRightRadius:  20,
-    paddingTop:            8,
+    borderTopLeftRadius:   22,
+    borderTopRightRadius:  22,
+    paddingTop:            10,
     paddingHorizontal:     16,
   };
 
@@ -241,30 +249,32 @@ function createStyles(theme: AppTheme) {
     sheetHandle: {
       alignSelf:       'center',
       width:           40,
-      height:          4,
-      borderRadius:    2,
-      backgroundColor: theme.palette.divider,
+      height:          5,
+      borderRadius:    999,
+      backgroundColor: theme.colors.primary,
       marginBottom:    12,
     },
-    sheetTitle: {
-      fontSize:          10,
-      fontWeight:        '700',
-      letterSpacing:     1.2,
-      color:             theme.palette.muted,
+    sheetHeader: {
       paddingHorizontal: 4,
-      paddingBottom:     8,
+      paddingBottom:     14,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.palette.divider,
     },
-    sheetDivider: {
-      height:          1,
-      backgroundColor: theme.palette.divider,
-      marginBottom:    8,
+    sheetTitle: {
+      fontSize:      12,
+      fontWeight:    '700',
+      letterSpacing: 1.5,
+      color:         theme.colors.primary,
+    },
+    sheetItems: {
+      paddingTop: 10,
     },
     sheetItem: {
       flexDirection:     'row',
       alignItems:        'center',
-      gap:               12,
+      gap:               14,
       paddingHorizontal: 12,
-      paddingVertical:   12,
+      paddingVertical:   11,
       borderRadius:      12,
       marginBottom:      2,
     },
@@ -277,28 +287,33 @@ function createStyles(theme: AppTheme) {
       opacity: 0.7,
     },
     sheetItemIcon: {
-      width:           32,
-      height:          32,
-      borderRadius:    10,
-      backgroundColor: theme.palette.surface,
+      width:           40,
+      height:          40,
+      borderRadius:    12,
+      backgroundColor: theme.palette.background,
       alignItems:      'center',
       justifyContent:  'center',
+    },
+    sheetItemIconActive: {
+      backgroundColor: theme.colors.softBg,
     },
     sheetItemLabel: {
       flex:       1,
       fontSize:   15,
-      fontWeight: '600',
-      color:      theme.palette.onSurface,
+      fontWeight: '500',
+      color:      theme.palette.onBackground,
     },
     badge: {
-      paddingHorizontal: 8,
+      paddingHorizontal: 10,
       paddingVertical:   3,
-      borderRadius:      8,
-      backgroundColor:   theme.palette.surface,
+      borderRadius:      999,
+      backgroundColor:   theme.palette.background,
+      borderWidth:       1,
+      borderColor:       theme.palette.divider,
     },
     badgeText: {
-      fontSize:   11,
-      fontWeight: '700',
+      fontSize:   12,
+      fontWeight: '600',
       color:      theme.palette.muted,
     },
   });

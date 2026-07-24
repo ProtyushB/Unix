@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { Lock, Headset, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
@@ -15,13 +15,17 @@ interface ActivationPendingPanelProps {
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
-// Mockup node `kPGBE`. Shown instead of the whole dashboard while the business
-// has `isPaymentVerified === false` — the same gate the Centrix owner portal
-// applies (OwnerPortal.jsx:1659).
+// Mockup node `z9uSIF` (Dashboard 2 — Activation Pending). Shown instead of the
+// whole dashboard while the business has `isPaymentVerified === false` — the
+// same gate the Centrix owner portal applies (OwnerPortal.jsx:1659).
 //
-// The mockup's Plan / Amount / Reference rows are deliberately absent: payment
-// is manual and out-of-band, so the client has no source for those values. Only
-// the Status row, which we can state truthfully, is kept.
+// NOTE: the Plan / Amount / Reference values below are HARDCODED placeholders
+// from the mockup. Payment is manual and out-of-band, so the client has no real
+// source for them — only the Status row is truthful. Wire these to a backend
+// field if/when one exists.
+const PLACEHOLDER_PLAN      = 'Growth · Monthly';
+const PLACEHOLDER_AMOUNT    = '₹2,499';
+const PLACEHOLDER_REFERENCE = 'PAY-8842193';
 
 export function ActivationPendingPanel({
   businessName,
@@ -42,15 +46,32 @@ export function ActivationPendingPanel({
         <View style={styles.headingBlock}>
           <Text style={styles.title}>Activation Pending</Text>
           <Text style={styles.body}>
-            {businessName ? `${businessName} is set up, but ` : ''}
-            we're still verifying your payment. Your dashboard unlocks
-            automatically once it clears.
+            {businessName ? `${businessName} is set up — ` : ''}
+            we're verifying your payment. Your dashboard unlocks automatically
+            once it clears, usually within a few minutes.
           </Text>
         </View>
 
         <View style={styles.card}>
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Status</Text>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Plan</Text>
+            <Text style={styles.rowValue}>{PLACEHOLDER_PLAN}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Amount</Text>
+            <Text style={[styles.rowValue, styles.mono]}>{PLACEHOLDER_AMOUNT}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Reference</Text>
+            <Text style={[styles.rowValueMuted, styles.mono]}>
+              {PLACEHOLDER_REFERENCE}
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Status</Text>
             <View style={styles.statusPill}>
               <View style={styles.dot} />
               <Text style={styles.statusText}>Pending verification</Text>
@@ -139,20 +160,43 @@ function createStyles(theme: AppTheme) {
     },
     card: {
       alignSelf: 'stretch',
+      gap: 13,
       padding: 16,
       borderRadius: 16,
       backgroundColor: theme.palette.surface,
       borderWidth: 1,
       borderColor: theme.palette.divider,
     },
-    statusRow: {
+    row: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      gap: 12,
     },
-    statusLabel: {
+    rowLabel: {
       fontSize: 12,
       color: theme.palette.muted,
+    },
+    rowValue: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.palette.onBackground,
+      flexShrink: 1,
+      textAlign: 'right',
+    },
+    rowValueMuted: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.palette.muted,
+      flexShrink: 1,
+      textAlign: 'right',
+    },
+    mono: {
+      fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.palette.divider,
     },
     statusPill: {
       flexDirection: 'row',
