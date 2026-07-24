@@ -16,6 +16,11 @@ pipeline {
 
         stage('Build Release APK') {
             steps {
+                // react-native-config bakes .env into the binary at build time; the
+                // workspace is wiped each run, so stage the production .env (kept as a
+                // secret on the box, same pattern as the keystore) into the repo root
+                // where dotenv.gradle reads it ($rootDir/../.env).
+                sh 'cp /var/lib/jenkins/.envs/unix.env .env'
                 sh 'cp /var/lib/jenkins/.android/unix-release-key.keystore android/app/unix-release-key.keystore'
                 dir('android') {
                     sh 'chmod +x gradlew'
