@@ -23,6 +23,19 @@ export interface SignupData {
   phone?: string;
   password: string;
   roles: string[];
+  /**
+   * Durable proof that the email was OTP-verified (minted by /auth/verify-otp,
+   * ~30 min lifetime). Sent so signup validates against the token rather than
+   * the 10-min Redis flag, which expires during a long profile/business/review
+   * flow. Optional — the backend still falls back to the flag when absent.
+   */
+  verificationToken?: string;
+}
+
+/** Shape returned by /auth/verify-otp. Older backends returned a bare boolean. */
+export interface OtpVerificationResult {
+  verified: boolean;
+  verificationToken: string | null;
 }
 
 export interface LoginResponse {
@@ -51,7 +64,7 @@ export abstract class AuthApiInterface {
   // OTP Management
   abstract requestOtp(channel: string, value: string): Promise<ApiResponse<unknown>>;
   abstract resendOtp(channel: string, value: string, isReset?: boolean): Promise<ApiResponse<unknown>>;
-  abstract verifyOtp(channel: string, value: string, otp: string): Promise<ApiResponse<boolean>>;
+  abstract verifyOtp(channel: string, value: string, otp: string): Promise<ApiResponse<OtpVerificationResult>>;
 
   // Reset Password OTP
   abstract requestResetPasswordOtp(channel: string, value: string): Promise<ApiResponse<unknown>>;
@@ -63,6 +76,8 @@ export abstract class AuthApiInterface {
   abstract login(username: string, password: string): Promise<ApiResponse<LoginResponse>>;
   abstract refresh(refreshToken: string): Promise<ApiResponse<TokenResponse>>;
   abstract resetPassword(email: string, newPassword: string): Promise<ApiResponse<unknown>>;
+  abstract forgotUsername(email: string): Promise<ApiResponse<unknown>>;
+  abstract checkEmailRegistered(email: string): Promise<ApiResponse<boolean>>;
 
   // User Management
   abstract getUserById(id: number): Promise<ApiResponse<AuthUser>>;

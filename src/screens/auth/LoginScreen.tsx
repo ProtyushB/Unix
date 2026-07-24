@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,63 +11,116 @@ import {
   InteractionManager,
   ActivityIndicator,
 } from 'react-native';
-import {Fingerprint} from 'lucide-react-native';
+import { Fingerprint, User, Check } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import {AppInput} from '../../components/common/AppInput';
+import { AppInput } from '../../components/common/AppInput';
 import PasswordInput from '../../components/forms/PasswordInput';
 import AppButton from '../../components/common/AppButton';
+import { Toast } from '../../components/common/Toast';
+import { useToast } from '../../hooks/useToast';
+import AuthBackground from '../../components/auth/AuthBackground';
+import AuthBarMask from '../../components/auth/AuthBarMask';
+import BrandMark from '../../components/auth/BrandMark';
+import AuthHeader from '../../components/auth/AuthHeader';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
 import { getPersonService } from '../../backend/person/provider/person.provider';
 import {
   setLoggedInUser,
   getLoggedInUser,
   getRefreshToken,
+  clearRefreshToken,
 } from '../../storage/auth.storage';
 import { setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
 import { setDmsFolderMap, DmsFolderMap } from '../../storage/dms.storage';
-import {biometricStorage} from '../../storage/biometric.storage';
-import {promptBiometric} from '../../hooks/useBiometric';
-import {PORTALS, isBusinessUser} from '../../utils/portals';
+import { biometricStorage } from '../../storage/biometric.storage';
+import { promptBiometric } from '../../hooks/useBiometric';
+import { PORTALS, isBusinessUser } from '../../utils/portals';
+import { CLAIM_ACCOUNT_ENABLED } from '../../config/features';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useAuthScrollInsets } from '../../hooks/useAuthScrollInsets';
 import type { AppTheme } from '../../theme/theme.types';
-
-// ─── Param List ──────────────────────────────────────────────────────────────
-
-type AuthStackParamList = {
-  Splash: undefined;
-  Landing: undefined;
-  Login: undefined;
-  SignupEmail: { prefillEmail?: string } | undefined;
-  OtpVerification: { email: string };
-  SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string; password: string };
-  ProfileBusiness: { email: string; username: string; password: string; firstName: string; lastName: string; phoneNumber: string };
-  Review: { personal: any; businesses: any[] };
-  PortalSelection: undefined;
-  ForgotPasswordEmail: undefined;
-  ForgotPasswordOtp: { email: string };
-  ForgotPasswordNew: { email: string };
-};
+import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
+
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [biometricReady, setBiometricReady] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
 
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const scrollInsets = useAuthScrollInsets();
+  const { toasts, showToast, dismissToast } = useToast();
 
   const authService = getAuthService();
   const personService = getPersonService();
+
+  const busy = loading || biometricLoading;
+
+  // Pulls the person profile and caches everything the portals need. Shared by
+  // the password and biometric paths so a biometric sign-in restores exactly
+  // the same session state as a typed one.
+  const cacheProfile = useCallback(
+    async (uname: string, fallbackTypes: string[] = []): Promise<string[]> => {
+      try {
+        const profileResult = await personService.getPersonByUsername(uname);
+        if (!profileResult.success || !profileResult.data) return fallbackTypes;
+
+        const userProfile = profileResult.data as any;
+        const personTypes: string[] = (userProfile.types as string[]) ?? fallbackTypes;
+
+        await setUserProfile(userProfile);
+
+        if (userProfile.business && (userProfile.business as any[]).length > 0) {
+          const typeMap: Record<string, any[]> = {};
+          (userProfile.business as any[]).forEach((biz: any) => {
+            const type = biz.businessType || 'CUSTOM';
+            if (!typeMap[type]) typeMap[type] = [];
+            typeMap[type].push(biz);
+          });
+          await setBusinessTypeMap(typeMap);
+        }
+
+        if (userProfile.personFolderId) {
+          const dmsFolderMap: DmsFolderMap = {
+            userRootFolderId: userProfile.personFolderId as number,
+            roleFolders: { Business: 0, Customer: 0, Employee: 0 },
+            businesses: {},
+          };
+          ((userProfile.business as any[]) || []).forEach((biz: any) => {
+            const bizId = biz.id || biz.businessId;
+            if (bizId) {
+              dmsFolderMap.businesses[bizId] = {
+                folderId: biz.folderId || 0,
+                productsFolderId: 0,
+                servicesFolderId: 0,
+                ordersFolderId: 0,
+                appointmentsFolderId: 0,
+                billsFolderId: 0,
+              };
+            }
+          });
+          await setDmsFolderMap(dmsFolderMap);
+        }
+
+        return personTypes;
+      } catch {
+        // Sign-in still succeeds if the profile fetch fails — the portals just
+        // start colder.
+        return fallbackTypes;
+      }
+    },
+    [personService],
+  );
 
   const navigateToPortal = useCallback(
     async (roles: string[], types: string[] = []) => {
@@ -82,12 +135,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         portalKey = isBusiness ? PORTALS.business.key : PORTALS.customer.key;
       }
       await AsyncStorage.setItem('session:activeProfile', portalKey);
-      const targetRoute = portalKey === PORTALS.business.key
-        ? PORTALS.business.route
-        : PORTALS.customer.route;
+      const targetRoute =
+        portalKey === PORTALS.business.key ? PORTALS.business.route : PORTALS.customer.route;
       InteractionManager.runAfterInteractions(() => {
         const parent = navigation.getParent();
-        (parent ?? navigation).reset({index: 0, routes: [{name: targetRoute as any}]});
+        (parent ?? navigation).reset({ index: 0, routes: [{ name: targetRoute as any }] });
       });
     },
     [navigation],
@@ -101,45 +153,25 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         setBiometricLoading(false);
         return;
       }
-      // Use the stored refresh token to silently get a new access token
       await authService.refreshToken();
       const storedUser = await getLoggedInUser();
 
-      // Restore session profile (cleared on logout) so portals and features work correctly
       let profileTypes: string[] = storedUser?.types ?? [];
       if (storedUser?.username) {
-        try {
-          const profileResult = await personService.getPersonByUsername(storedUser.username);
-          if (profileResult.success && profileResult.data) {
-            const userProfile = profileResult.data;
-            profileTypes = (userProfile.types as string[]) ?? profileTypes;
-            await setUserProfile(userProfile);
-            // Keep loggedInUser.types up to date
-            await setLoggedInUser({...storedUser, types: profileTypes});
-            if (userProfile.business && (userProfile.business as any[]).length > 0) {
-              const typeMap: Record<string, any[]> = {};
-              (userProfile.business as any[]).forEach((biz: any) => {
-                const type = biz.businessType || 'CUSTOM';
-                if (!typeMap[type]) typeMap[type] = [];
-                typeMap[type].push(biz);
-              });
-              await setBusinessTypeMap(typeMap);
-            }
-          }
-        } catch {
-          // Continue even if profile restore fails
-        }
+        profileTypes = await cacheProfile(storedUser.username, profileTypes);
+        await setLoggedInUser({ ...storedUser, types: profileTypes });
       }
 
       await navigateToPortal(storedUser?.roles ?? [], profileTypes);
     } catch {
-      // Refresh token expired — clear biometric session, fall back to password
+      // Refresh token expired — drop the biometric session and fall back to a
+      // typed password.
       await AsyncStorage.multiRemove(['refreshToken', 'loggedInUser']);
       setBiometricReady(false);
       setBiometricLoading(false);
-      setError('Your session expired. Please sign in with your password.');
+      showToast('Please sign in with your password.', 'warning', { title: 'Session expired' });
     }
-  }, [authService, personService, navigateToPortal]);
+  }, [authService, cacheProfile, navigateToPortal, showToast]);
 
   useEffect(() => {
     let mounted = true;
@@ -148,118 +180,47 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const token = await getRefreshToken();
       if (enabled && token) {
         if (mounted) setBiometricReady(true);
-        // Auto-prompt after the screen finishes animating in
         setTimeout(() => {
           if (mounted) handleBiometricLogin();
         }, 400);
       }
     })();
-    return () => {mounted = false;};
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleLogin = async () => {
-    setError('');
-
-    if (!username.trim()) {
-      setError('Username is required');
-      return;
-    }
-    if (!password) {
-      setError('Password is required');
+    if (!username.trim() || !password) {
+      showToast('Enter both your username and password.', 'error', { title: 'Missing details' });
       return;
     }
 
     setLoading(true);
     try {
-      // Step 1: Login and get auth tokens
       const response = await authService.login(username.trim(), password);
       const user = response.user as any;
+
+      const personTypes = await cacheProfile(username.trim());
 
       if (user) {
         await setLoggedInUser({
           id: user.id,
           username: user.username,
           roles: user.roles || [],
+          types: personTypes,
           email: user.email || '',
         });
       }
 
-      // Step 2: Fetch person profile by username
-      let personTypes: string[] = [];
-      try {
-        const profileResult = await personService.getPersonByUsername(username.trim());
-        if (profileResult.success && profileResult.data) {
-          const userProfile = profileResult.data;
-
-          // Capture person types (source of truth for portal access)
-          personTypes = (userProfile.types as string[]) || [];
-
-          // Update loggedInUser with types so RootNavigator can use them on next open
-          if (user) {
-            await setLoggedInUser({
-              id: user.id,
-              username: user.username,
-              roles: user.roles || [],
-              types: personTypes,
-              email: user.email || '',
-            });
-          }
-
-          // Store user profile
-          await setUserProfile(userProfile);
-
-          // Build and store businessTypeMap
-          if (userProfile.business && (userProfile.business as any[]).length > 0) {
-            const typeMap: Record<string, any[]> = {};
-            (userProfile.business as any[]).forEach((biz: any) => {
-              const type = biz.businessType || 'CUSTOM';
-              if (!typeMap[type]) typeMap[type] = [];
-              typeMap[type].push(biz);
-            });
-            await setBusinessTypeMap(typeMap);
-          }
-
-          // Build and store dmsFolderMap from person profile
-          if (userProfile.personFolderId) {
-            const dmsFolderMap: DmsFolderMap = {
-              userRootFolderId: userProfile.personFolderId as number,
-              roleFolders: { Business: 0, Customer: 0, Employee: 0 },
-              businesses: {},
-            };
-            ((userProfile.business as any[]) || []).forEach((biz: any) => {
-              const bizId = biz.id || biz.businessId;
-              if (bizId) {
-                dmsFolderMap.businesses[bizId] = {
-                  folderId: biz.folderId || 0,
-                  productsFolderId: 0,
-                  servicesFolderId: 0,
-                  ordersFolderId: 0,
-                  appointmentsFolderId: 0,
-                  billsFolderId: 0,
-                };
-              }
-            });
-            await setDmsFolderMap(dmsFolderMap);
-          }
-        }
-      } catch {
-        // Continue with navigation even if profile fetch fails
+      // "Remember me" governs whether the session survives a restart. Dropping
+      // the refresh token is what actually forces a fresh sign-in next launch —
+      // the access token expires on its own.
+      if (!rememberMe) {
+        await clearRefreshToken();
       }
 
-      // Step 3: Navigate directly to the right portal and persist the choice
-      const isBusiness = isBusinessUser(user?.roles || [], personTypes);
-      const portalKey = isBusiness ? PORTALS.business.key : PORTALS.customer.key;
-      const targetRoute = isBusiness ? PORTALS.business.route : PORTALS.customer.route;
-      await AsyncStorage.setItem('session:activeProfile', portalKey);
-      // navigateToPortal is also called here via direct reset — types already persisted above
-
-      InteractionManager.runAfterInteractions(() => {
-        const parent = navigation.getParent();
-        (parent ?? navigation).reset({
-          index: 0,
-          routes: [{ name: targetRoute as any }],
-        });
-      });
+      await navigateToPortal(user?.roles || [], personTypes);
     } catch (err: any) {
       const raw = (err?.message || '').toLowerCase();
       let message: string;
@@ -267,12 +228,17 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         message = 'Incorrect password. Please try again.';
       } else if (raw.includes('not found with username')) {
         message = 'No account found with that username.';
-      } else if (raw.includes('network') || raw.includes('econnrefused') || raw.includes('timeout') || raw.includes('enotfound')) {
+      } else if (
+        raw.includes('network') ||
+        raw.includes('econnrefused') ||
+        raw.includes('timeout') ||
+        raw.includes('enotfound')
+      ) {
         message = 'Unable to connect. Please check your internet connection.';
       } else {
         message = 'Login failed. Please try again.';
       }
-      setError(message);
+      showToast(message, 'error', { title: 'Sign in failed' });
     } finally {
       setLoading(false);
     }
@@ -281,37 +247,29 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <AuthBackground />
+      <AuthBarMask />
+      <Toast toasts={toasts} onDismiss={dismissToast} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView removeClippedSubviews={false}
+        <ScrollView
+          removeClippedSubviews={false}
           style={styles.flex}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, scrollInsets]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.logoRow}>
-              <Text style={styles.logoText}>Uni</Text>
-              <Text style={styles.logoAccent}>X</Text>
-            </View>
-          </View>
+          <BrandMark />
 
-          {/* Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Welcome Back</Text>
-            <Text style={styles.cardSubtitle}>Sign in to your account</Text>
+          <AuthHeader
+            title="Welcome back"
+            subtitle="Enter your credentials to access your dashboard"
+          />
 
-            {/* Error */}
-            {error ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
-
-            {/* Username */}
+          {/* Form — dimmed while a sign-in is in flight (state 01b) */}
+          <View style={[styles.form, busy && styles.dimmed]} pointerEvents={busy ? 'none' : 'auto'}>
             <AppInput
               label="Username"
               value={username}
@@ -319,65 +277,92 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               placeholder="Enter your username"
               autoCapitalize="none"
               autoCorrect={false}
+              leftIcon={<User size={18} color={palette.muted} />}
             />
-
-            {/* Password */}
             <PasswordInput
               label="Password"
               value={password}
               onChangeText={setPassword}
               placeholder="Enter your password"
             />
+          </View>
 
-            {/* Forgot Password */}
+          {/* Remember me · Forgot password */}
+          <View style={[styles.optionsRow, busy && styles.dimmed]}>
             <TouchableOpacity
-              style={styles.forgotLink}
-              onPress={() => navigation.navigate('ForgotPasswordEmail')}
+              style={styles.rememberRow}
+              onPress={() => setRememberMe(v => !v)}
+              disabled={busy}
+              activeOpacity={0.7}
             >
-              <Text style={styles.forgotText}>Forgot password?</Text>
+              <View style={[styles.checkbox, rememberMe && styles.checkboxOn]}>
+                {rememberMe && <Check size={13} color={colors.onAccent} />}
+              </View>
+              <Text style={styles.rememberLabel}>Remember me</Text>
             </TouchableOpacity>
 
-            {/* Login Button */}
-            <AppButton
-              title="Login"
-              onPress={handleLogin}
-              variant="primary"
-              loading={loading}
-              disabled={loading || biometricLoading}
-            />
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ForgotPasswordEmail')}
+              disabled={busy}
+            >
+              <Text style={styles.linkStrong}>Forgot password?</Text>
+            </TouchableOpacity>
+          </View>
 
-            {/* Biometric Quick-Login */}
-            {biometricReady && (
+          {/* Secondary recovery routes */}
+          <View style={styles.recoveryRow}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ForgotUsernameEmail')}
+              disabled={busy}
+            >
+              <Text style={styles.link}>Forgot username?</Text>
+            </TouchableOpacity>
+            {CLAIM_ACCOUNT_ENABLED && (
               <>
-                <View style={styles.dividerRow}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.dividerLine} />
-                </View>
+                <Text style={styles.dot}>·</Text>
                 <TouchableOpacity
-                  style={styles.biometricButton}
-                  onPress={handleBiometricLogin}
-                  disabled={biometricLoading || loading}
-                  activeOpacity={0.7}>
-                  {biometricLoading ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Fingerprint size={22} color={colors.primary} />
-                  )}
-                  <Text style={styles.biometricText}>
-                    {biometricLoading ? 'Verifying...' : 'Sign in with Fingerprint'}
-                  </Text>
+                  onPress={() => navigation.navigate('Signup', { claim: true })}
+                  disabled={busy}
+                >
+                  <Text style={styles.link}>Claim account</Text>
                 </TouchableOpacity>
               </>
             )}
+          </View>
 
-            {/* Sign Up Link */}
-            <View style={styles.signupRow}>
-              <Text style={styles.signupLabel}>Don't have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('SignupEmail')}>
-                <Text style={styles.signupLink}>Sign Up</Text>
-              </TouchableOpacity>
-            </View>
+          <AppButton
+            title={loading ? 'Signing In...' : 'Sign In'}
+            onPress={handleLogin}
+            variant="primary"
+            loading={loading}
+            disabled={busy}
+          />
+
+          {/* Biometric quick-login — no mockup equivalent; mobile-only affordance */}
+          {biometricReady && (
+            <TouchableOpacity
+              style={styles.biometricButton}
+              onPress={handleBiometricLogin}
+              disabled={busy}
+              activeOpacity={0.7}
+            >
+              {biometricLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Fingerprint size={22} color={colors.primary} />
+              )}
+              <Text style={styles.biometricText}>
+                {biometricLoading ? 'Verifying...' : 'Sign in with Fingerprint'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+
+          <View style={styles.footerRow}>
+            <Text style={styles.footerLabel}>Don't have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Signup')} disabled={busy}>
+              <Text style={styles.linkStrong}>Sign up free</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -399,130 +384,95 @@ function createStyles(theme: AppTheme) {
     scrollContent: {
       flexGrow: 1,
       justifyContent: 'center',
-      paddingHorizontal: 24,
-      paddingVertical: 40,
+      paddingHorizontal: 20,
+      paddingVertical: 34,
+      gap: 26,
     },
 
-    // Header
-    header: {
-      alignItems: 'center',
-      marginBottom: 32,
+    form: {
+      gap: 18,
     },
-    logoRow: {
+    dimmed: {
+      opacity: 0.5,
+    },
+
+    optionsRow: {
       flexDirection: 'row',
-      alignItems: 'baseline',
+      alignItems: 'center',
+      justifyContent: 'space-between',
     },
-    logoText: {
-      fontFamily: 'Inter-ExtraBold',
-      fontSize: 36,
-      color: theme.palette.onBackground,
-      letterSpacing: -1,
+    rememberRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 9,
     },
-    logoAccent: {
-      fontFamily: 'Inter-ExtraBold',
-      fontSize: 36,
-      color: theme.colors.primary,
-      letterSpacing: -1,
-    },
-
-    // Card
-    card: {
-      backgroundColor: theme.palette.surface,
-      borderRadius: 20,
-      padding: 24,
-      borderWidth: 1,
+    checkbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 6,
+      borderWidth: 2,
       borderColor: theme.palette.divider,
-    },
-    cardTitle: {
-      fontFamily: 'Inter-Bold',
-      fontSize: 24,
-      color: theme.palette.onBackground,
-      marginBottom: 4,
-    },
-    cardSubtitle: {
-      fontFamily: 'Inter-Regular',
-      fontSize: 14,
-      color: theme.palette.muted,
-      marginBottom: 24,
-    },
-
-    // Error
-    errorContainer: {
-      backgroundColor: theme.palette.error + '20',
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 16,
-      borderWidth: 1,
-      borderColor: theme.palette.error + '40',
-    },
-    errorText: {
-      fontFamily: 'Inter-Medium',
-      fontSize: 13,
-      color: theme.palette.error + 'CC',
-      textAlign: 'center',
-    },
-
-    // Forgot
-    forgotLink: {
-      alignSelf: 'flex-end',
-      marginBottom: 20,
-      marginTop: -4,
-    },
-    forgotText: {
-      fontFamily: 'Inter-Medium',
-      fontSize: 13,
-      color: theme.colors.primary,
-    },
-
-    // Signup
-    signupRow: {
-      flexDirection: 'row',
+      alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 20,
     },
-    signupLabel: {
+    checkboxOn: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+    rememberLabel: {
       fontFamily: 'Inter-Regular',
-      fontSize: 14,
-      color: theme.palette.muted,
-    },
-    signupLink: {
-      fontFamily: 'Inter-SemiBold',
-      fontSize: 14,
-      color: theme.colors.primary,
+      fontSize: 13.5,
+      color: theme.palette.onSurface,
     },
 
-    // Biometric
-    dividerRow: {
+    recoveryRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginVertical: 16,
-      gap: 8,
+      justifyContent: 'center',
+      gap: 10,
     },
-    dividerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: theme.palette.divider,
+    link: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 13,
+      color: theme.colors.secondary,
     },
-    dividerText: {
+    linkStrong: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 13.5,
+      color: theme.colors.secondary,
+    },
+    dot: {
       fontFamily: 'Inter-Regular',
       fontSize: 13,
       color: theme.palette.muted,
     },
+
     biometricButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 10,
       paddingVertical: 14,
-      borderRadius: 12,
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      backgroundColor: theme.colors.primary + '14',
+      backgroundColor: theme.colors.softBg,
     },
     biometricText: {
       fontFamily: 'Inter-SemiBold',
       fontSize: 15,
       color: theme.colors.primary,
+    },
+
+    footerRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    footerLabel: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: theme.palette.muted,
     },
   });
 }

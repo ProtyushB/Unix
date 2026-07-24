@@ -3,9 +3,10 @@ export { AuthNavigator } from './AuthNavigator';
 export { OwnerTabNavigator } from './OwnerTabNavigator';
 export { CustomerTabNavigator } from './CustomerTabNavigator';
 
+export type { AuthStackParamList } from './AuthNavigator';
+
 export type {
   RootStackParamList,
-  AuthStackParamList,
   OwnerTabParamList,
   CatalogStackParamList,
   OperationsStackParamList,

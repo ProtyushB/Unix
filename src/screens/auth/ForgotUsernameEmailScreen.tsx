@@ -24,42 +24,45 @@ import { useAuthScrollInsets } from '../../hooks/useAuthScrollInsets';
 import type { AppTheme } from '../../theme/theme.types';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPasswordEmail'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotUsernameEmail'>;
 
-// Mockup 05 — step one of three.
+// Mockup 08 — enter the address, we email the username back.
 
-const ForgotPasswordEmailScreen: React.FC<Props> = ({ navigation }) => {
+const ForgotUsernameEmailScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
   const authService = getAuthService();
 
-  const handleSendOtp = async () => {
+  const handleSend = async () => {
+    const trimmed = email.trim();
     setError('');
-    const trimmedEmail = email.trim().toLowerCase();
 
-    if (!trimmedEmail) {
+    if (!trimmed) {
       setError('Email is required');
       return;
     }
-    if (!validateEmail(trimmedEmail)) {
+    if (!validateEmail(trimmed)) {
       setError('Please enter a valid email');
       return;
     }
 
     setLoading(true);
     try {
-      await authService.requestResetPasswordOtp('email', trimmedEmail);
-      navigation.navigate('ForgotPasswordOtp', { email: trimmedEmail });
-    } catch (err: any) {
-      setError(err?.message || 'Failed to send OTP. Please try again.');
+      await authService.forgotUsername(trimmed);
+    } catch {
+      // Swallowed on purpose. A failure here would otherwise reveal whether the
+      // address is registered, which is exactly what screen 09's wording is
+      // designed to hide. Genuine outages surface on the next real request.
     } finally {
       setLoading(false);
     }
+
+    navigation.navigate('ForgotUsernameSent', { email: trimmed });
   };
 
   return (
@@ -81,8 +84,8 @@ const ForgotPasswordEmailScreen: React.FC<Props> = ({ navigation }) => {
           <AuthTopBack onPress={() => navigation.goBack()} disabled={loading} />
 
           <AuthHeader
-            title="Reset password"
-            subtitle="Enter your email to receive a reset code"
+            title="Recover username"
+            subtitle="Enter your email and we'll send your username"
           />
 
           <AppInput
@@ -101,8 +104,8 @@ const ForgotPasswordEmailScreen: React.FC<Props> = ({ navigation }) => {
           />
 
           <AppButton
-            title="Send Reset Code"
-            onPress={handleSendOtp}
+            title="Send My Username"
+            onPress={handleSend}
             variant="primary"
             loading={loading}
             disabled={loading}
@@ -138,4 +141,4 @@ function createStyles(theme: AppTheme) {
   });
 }
 
-export default ForgotPasswordEmailScreen;
+export default ForgotUsernameEmailScreen;

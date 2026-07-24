@@ -9,6 +9,7 @@ import {
   PersonDto,
   BusinessDto,
   UpdatePersonFlags,
+  ClaimCustomerPayload,
 } from '../api/person.api.interface';
 import { AxiosError } from 'axios';
 
@@ -117,6 +118,46 @@ export class PersonService {
         success: false,
         data: null,
         error: this.extractErrorMessage(error, 'Failed to get person by username'),
+      };
+    }
+  }
+
+  /**
+   * Finds the walk-in Person behind an email address, or null.
+   *
+   * Returns null on any failure rather than throwing: this runs during the
+   * post-OTP triage, and a lookup outage must degrade to "no profile found"
+   * (an ordinary signup) rather than blocking the user from registering.
+   */
+  async findPersonByEmail(email: string): Promise<PersonDto | null> {
+    try {
+      const response = await this.api.lookupCustomers({ email });
+      const candidates = response?.data || [];
+      const match = candidates.find(c => c.matchedByEmail) || candidates[0];
+      return match?.person || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Links an existing walk-in Person to the login just created, attaching any
+   * businesses atomically. Used instead of createPerson on the claim path — a
+   * walk-in already exists in ModuleX, so inserting again would 409 on the
+   * duplicate email/phone.
+   */
+  async claimCustomer(payload: ClaimCustomerPayload): Promise<ServiceResult<PersonDto>> {
+    try {
+      const response = await this.api.claimCustomer(payload);
+      if (response.success) {
+        return { success: true, data: response.data, error: null };
+      }
+      return { success: false, data: null, error: response.error || response.message };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: this.extractErrorMessage(error, 'Failed to claim your account'),
       };
     }
   }

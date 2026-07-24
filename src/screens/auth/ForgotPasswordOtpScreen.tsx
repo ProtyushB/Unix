@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,37 +9,28 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Mail } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import OtpInput from '../../components/forms/OtpInput';
+import { OtpInput } from '../../components/forms/OtpInput';
 import AppButton from '../../components/common/AppButton';
+import AuthBackground from '../../components/auth/AuthBackground';
+import AuthBarMask from '../../components/auth/AuthBarMask';
+import AuthHeader from '../../components/auth/AuthHeader';
+import AuthTopBack from '../../components/auth/AuthTopBack';
+import AuthBackLink from '../../components/auth/AuthBackLink';
+import AuthBadge from '../../components/auth/AuthBadge';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useAuthScrollInsets } from '../../hooks/useAuthScrollInsets';
 import type { AppTheme } from '../../theme/theme.types';
-
-// ─── Param List ──────────────────────────────────────────────────────────────
-
-type AuthStackParamList = {
-  Splash: undefined;
-  Landing: undefined;
-  Login: undefined;
-  SignupEmail: { prefillEmail?: string } | undefined;
-  OtpVerification: { email: string };
-  SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string; password: string };
-  ProfileBusiness: { email: string; username: string; password: string; firstName: string; lastName: string; phoneNumber: string };
-  Review: { personal: any; businesses: any[] };
-  PortalSelection: undefined;
-  ForgotPasswordEmail: undefined;
-  ForgotPasswordOtp: { email: string };
-  ForgotPasswordNew: { email: string };
-};
+import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPasswordOtp'>;
 
 const RESEND_COOLDOWN = 60;
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// Mockup 06 — step two of three.
 
 const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
   const { email } = route.params;
@@ -50,17 +41,14 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
   const [resending, setResending] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { colors, palette } = useTheme();
+  const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
-
+  const scrollInsets = useAuthScrollInsets();
   const authService = getAuthService();
 
-  // Start countdown timer
   const startCooldown = useCallback(() => {
     setResendCooldown(RESEND_COOLDOWN);
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
+    if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setResendCooldown(prev => {
         if (prev <= 1) {
@@ -78,15 +66,12 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
   useEffect(() => {
     startCooldown();
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [startCooldown]);
 
   const handleVerify = async () => {
     setError('');
-
     if (otp.length !== 6) {
       setError('Please enter the complete 6-digit OTP');
       return;
@@ -101,8 +86,7 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
         setError('Invalid OTP. Please try again.');
       }
     } catch (err: any) {
-      const message = err?.message || 'Verification failed. Please try again.';
-      setError(message);
+      setError(err?.message || 'Verification failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -110,102 +94,90 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleResend = async () => {
     if (resendCooldown > 0 || resending) return;
-
     setError('');
     setResending(true);
     try {
       await authService.resendResetOtp('email', email);
+      setOtp('');
       startCooldown();
     } catch (err: any) {
-      const message = err?.message || 'Failed to resend OTP.';
-      setError(message);
+      setError(err?.message || 'Failed to resend OTP.');
     } finally {
       setResending(false);
     }
   };
 
-  // Mask email: jo***@example.com
-  const maskedEmail = (() => {
-    const [local, domain] = email.split('@');
-    if (local.length <= 2) return email;
-    return `${local.slice(0, 2)}${'*'.repeat(Math.min(local.length - 2, 5))}@${domain}`;
-  })();
+  const mmss = `${Math.floor(resendCooldown / 60)}:${String(resendCooldown % 60).padStart(2, '0')}`;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <AuthBackground />
+      <AuthBarMask />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView removeClippedSubviews={false}
+        <ScrollView
+          removeClippedSubviews={false}
           style={styles.flex}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, scrollInsets]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Title */}
-          <Text style={styles.title}>Verify OTP</Text>
-          <Text style={styles.subtitle}>
-            Enter the 6-digit code sent to{' '}
-            <Text style={styles.emailHighlight}>{maskedEmail}</Text>
-          </Text>
+          <AuthTopBack onPress={() => navigation.goBack()} disabled={loading} />
 
-          {/* Error */}
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
+          <AuthHeader
+            title="Reset password"
+            subtitle="Enter the 6-digit code sent to your email"
+          />
 
-          {/* OTP Input */}
-          <View style={styles.otpContainer}>
-            <OtpInput
-              length={6}
-              value={otp}
-              onChangeOtp={setOtp}
-            />
+          <AuthBadge icon={Mail} />
+
+          {/* Address shown in full, not masked — the user just typed it on the
+              previous screen, so masking hides nothing and only makes a typo
+              harder to spot. */}
+          <View style={styles.sentTo}>
+            <Text style={styles.sentLabel}>We've sent a 6-digit code to</Text>
+            <Text style={styles.sentEmail}>{email}</Text>
           </View>
 
-          {/* Verify Button */}
-          <View style={styles.buttonContainer}>
-            <AppButton
-              title="Verify"
-              onPress={handleVerify}
-              variant="primary"
-              loading={loading}
-              disabled={loading || otp.length !== 6}
-            />
-          </View>
+          <OtpInput value={otp} onChangeOtp={setOtp} error={!!error} />
 
-          {/* Resend */}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          <AppButton
+            title="Verify Code"
+            onPress={handleVerify}
+            variant="primary"
+            loading={loading}
+            disabled={loading || otp.length !== 6}
+          />
+
           <View style={styles.resendRow}>
             <Text style={styles.resendLabel}>Didn't receive the code? </Text>
-            <TouchableOpacity
-              onPress={handleResend}
-              disabled={resendCooldown > 0 || resending}
-            >
+            <TouchableOpacity onPress={handleResend} disabled={resendCooldown > 0 || resending}>
               <Text
                 style={[
-                  styles.resendLink,
-                  (resendCooldown > 0 || resending) && styles.resendDisabled,
+                  styles.resendAction,
+                  (resendCooldown > 0 || resending) && { color: palette.muted },
                 ]}
               >
-                {resending
-                  ? 'Sending...'
-                  : resendCooldown > 0
-                    ? `Resend OTP (${resendCooldown}s)`
-                    : 'Resend OTP'}
+                {resending ? 'Sending...' : resendCooldown > 0 ? `Resend in ${mmss}` : 'Resend'}
               </Text>
             </TouchableOpacity>
           </View>
+
+          <AuthBackLink
+            label="Back to sign in"
+            onPress={() => navigation.navigate('Login')}
+            disabled={loading}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
 };
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
@@ -219,77 +191,44 @@ function createStyles(theme: AppTheme) {
     scrollContent: {
       flexGrow: 1,
       justifyContent: 'center',
-      paddingHorizontal: 24,
-      paddingVertical: 40,
+      paddingHorizontal: 20,
+      paddingVertical: 34,
+      gap: 26,
     },
-
-    // Title
-    title: {
-      fontFamily: 'Inter-Bold',
-      fontSize: 28,
-      color: theme.palette.onBackground,
-      textAlign: 'center',
-      marginBottom: 8,
+    sentTo: {
+      alignItems: 'center',
+      gap: 5,
     },
-    subtitle: {
+    sentLabel: {
       fontFamily: 'Inter-Regular',
-      fontSize: 15,
+      fontSize: 14,
       color: theme.palette.muted,
-      textAlign: 'center',
-      marginBottom: 32,
-      lineHeight: 22,
     },
-    emailHighlight: {
-      fontFamily: 'Inter-Medium',
-      color: theme.colors.primary,
+    sentEmail: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 14.5,
+      color: theme.palette.onBackground,
     },
-
-    // Error
-    errorContainer: {
-      backgroundColor: theme.palette.error + '20',
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 16,
-      borderWidth: 1,
-      borderColor: theme.palette.error + '40',
-    },
-    errorText: {
+    error: {
       fontFamily: 'Inter-Medium',
       fontSize: 13,
-      color: theme.palette.error + 'CC',
+      color: theme.palette.error,
       textAlign: 'center',
     },
-
-    // OTP
-    otpContainer: {
-      alignItems: 'center',
-      marginBottom: 24,
-    },
-
-    // Button
-    buttonContainer: {
-      marginTop: 8,
-    },
-
-    // Resend
     resendRow: {
       flexDirection: 'row',
       justifyContent: 'center',
-      marginTop: 24,
-      flexWrap: 'wrap',
+      alignItems: 'center',
     },
     resendLabel: {
       fontFamily: 'Inter-Regular',
-      fontSize: 14,
+      fontSize: 13.5,
       color: theme.palette.muted,
     },
-    resendLink: {
-      fontFamily: 'Inter-SemiBold',
-      fontSize: 14,
-      color: theme.colors.primary,
-    },
-    resendDisabled: {
-      color: theme.palette.muted,
+    resendAction: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 13.5,
+      color: theme.colors.secondary,
     },
   });
 }

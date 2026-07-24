@@ -13,25 +13,13 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppButton from '../../components/common/AppButton';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import AuthBarMask from '../../components/auth/AuthBarMask';
+import { useAuthScrollInsets } from '../../hooks/useAuthScrollInsets';
 import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
-type AuthStackParamList = {
-  Splash: undefined;
-  Landing: undefined;
-  Login: undefined;
-  SignupEmail: { prefillEmail?: string } | undefined;
-  OtpVerification: { email: string };
-  SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string; password: string };
-  ProfileBusiness: { email: string; username: string; password: string; firstName: string; lastName: string; phoneNumber: string };
-  Review: { personal: any; businesses: any[] };
-  PortalSelection: undefined;
-  ForgotPasswordEmail: undefined;
-  ForgotPasswordOtp: { email: string };
-  ForgotPasswordNew: { email: string };
-};
+import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Landing'>;
 
@@ -60,6 +48,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LandingScreen: React.FC<Props> = ({ navigation }) => {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const scrollInsets = useAuthScrollInsets();
 
   const renderModuleCard = ({ item }: { item: typeof MODULES[number] }) => {
     return (
@@ -77,9 +66,10 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <AuthBarMask />
       <ScrollView removeClippedSubviews={false}
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, scrollInsets]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Section */}
@@ -97,7 +87,7 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.ctaSection}>
           <AppButton
             title="Get Started"
-            onPress={() => navigation.navigate('SignupEmail')}
+            onPress={() => navigation.navigate('Signup')}
             variant="primary"
           />
           <View style={styles.ctaSpacer} />

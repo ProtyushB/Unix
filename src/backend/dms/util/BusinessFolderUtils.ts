@@ -50,7 +50,10 @@ export async function createRoleFolders(
  * Creates a branch folder + 5 category subfolders under the Business role folder.
  */
 export async function createBusinessDmsFolders(
-  bizId: string | number,
+  // Null during signup: the folders are created before the business exists, so
+  // there is no id yet and the branch name carries the folder name. The body
+  // already handled this — only the type disagreed.
+  bizId: string | number | null,
   branchName: string | undefined,
   businessRoleFolderId: number,
 ): Promise<BusinessFolderResult> {

@@ -7,8 +7,24 @@ export function validateEmail(email: string): boolean {
 
 // ─── Phone (10-digit Indian mobile) ─────────────────────────────────────────
 
+/**
+ * Reduces a typed phone number to the bare 10 digits the rest of the system
+ * stores, or null when it isn't one.
+ *
+ * Drops every non-digit, then an optional 91 country code, so "+91 98200
+ * 41122", "(98200) 41122" and "98200-41122" all collapse to the same value.
+ * That matters beyond convenience: the person service matches walk-ins on
+ * phoneNumber, so one number reaching it in two spellings would become two
+ * different people and strand a claim.
+ */
+export function normalizePhone(raw: string | null | undefined): string | null {
+  const digits = (raw || '').replace(/\D/g, '');
+  const local = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
+  return /^\d{10}$/.test(local) ? local : null;
+}
+
 export function validatePhone(phone: string): boolean {
-  return /^\d{10}$/.test(phone);
+  return normalizePhone(phone) !== null;
 }
 
 // ─── Username ────────────────────────────────────────────────────────────────

@@ -1,24 +1,7 @@
-export type AuthStackParamList = {
-  Splash: undefined;
-  Landing: undefined;
-  Login: undefined;
-  SignupEmail: undefined;
-  OtpVerification: {email: string};
-  SignupCredentials: {email: string};
-  ProfilePersonal: {email: string; username: string};
-  ProfileBusiness: {
-    email: string;
-    username: string;
-    firstName: string;
-    lastName: string;
-    phoneNumber: string;
-  };
-  Review: {personal: PersonalData; businesses: BusinessData[]};
-  PortalSelection: undefined;
-  ForgotPasswordEmail: undefined;
-  ForgotPasswordOtp: {email: string};
-  ForgotPasswordNew: {email: string};
-};
+// AuthStackParamList intentionally lives in AuthNavigator.tsx, next to the
+// routes it describes. A second copy here drifted the moment the signup screens
+// were merged — it still listed OtpVerification and SignupCredentials long after
+// they were deleted, and the barrel was re-exporting that stale copy.
 
 export type RootStackParamList = {
   Auth: undefined;

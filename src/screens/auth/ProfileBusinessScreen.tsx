@@ -13,30 +13,22 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {AppInput} from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import SelectField from '../../components/forms/SelectField';
-import StepProgress from '../../components/common/StepProgress';
-import { validatePhone, validateEmail } from '../../utils/validators';
+import AuthBackground from '../../components/auth/AuthBackground';
+import AuthBarMask from '../../components/auth/AuthBarMask';
+import AuthHeader from '../../components/auth/AuthHeader';
+import AuthSection from '../../components/auth/AuthSection';
+import SignupStepper from '../../components/auth/SignupStepper';
+import { Building2 } from 'lucide-react-native';
+import { validatePhone, validateEmail, normalizePhone } from '../../utils/validators';
 import { BUSINESS_TYPES } from '../../utils/businessTypes';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useAuthScrollInsets } from '../../hooks/useAuthScrollInsets';
 import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
-type AuthStackParamList = {
-  Splash: undefined;
-  Landing: undefined;
-  Login: undefined;
-  SignupEmail: { prefillEmail?: string } | undefined;
-  OtpVerification: { email: string };
-  SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string };
-  ProfileBusiness: { email: string; username: string; firstName: string; lastName: string; phoneNumber: string };
-  Review: { personal: any; businesses: any[] };
-  PortalSelection: undefined;
-  ForgotPasswordEmail: undefined;
-  ForgotPasswordOtp: { email: string };
-  ForgotPasswordNew: { email: string };
-};
+import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ProfileBusiness'>;
 
@@ -75,6 +67,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const scrollInsets = useAuthScrollInsets();
 
   const scrollViewRef = useRef<ScrollView>(null);
   const innerViewY = useRef(0);
@@ -189,7 +182,9 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
       ? businesses.map(biz => ({
           businessName: biz.businessName.trim(),
           businessType: biz.businessType,
-          businessPhone: biz.businessPhone.trim() || undefined,
+          // Same rule as the personal phone: store bare digits, not what was
+          // typed, so one number never reaches the backend in two spellings.
+          businessPhone: normalizePhone(biz.businessPhone) || biz.businessPhone.trim() || undefined,
           businessEmail: biz.businessEmail.trim() || undefined,
           gstin: biz.gstin.trim() || undefined,
           cin: biz.cin.trim() || undefined,
@@ -208,6 +203,8 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <AuthBackground />
+      <AuthBarMask />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -216,27 +213,17 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
           ref={scrollViewRef}
           removeClippedSubviews={false}
           style={styles.flex}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, scrollInsets]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <StepProgress
-            currentStep={5}
-            totalSteps={5}
-            onStepPress={(step) => {
-              const { email: e, username: u } = route.params;
-              if (step === 1) navigation.navigate('SignupEmail');
-              else if (step === 2) navigation.navigate('OtpVerification', { email: e });
-              else if (step === 3) navigation.navigate('SignupCredentials', { email: e });
-              else if (step === 4) navigation.navigate('ProfilePersonal', { email: e, username: u });
-            }}
-          />
+          <AuthHeader title="Complete your profile" subtitle="Tell us more about yourself" />
+          <SignupStepper active={1} />
 
           <View onLayout={(e) => { innerViewY.current = e.nativeEvent.layout.y; }}>
-            {/* Title */}
-            <Text style={styles.title}>Business Information</Text>
+            <AuthSection icon={Building2} title="Business Information" />
             <Text style={styles.subtitle}>
-              Do you have a business to register?
+              Do you have businesses?
             </Text>
 
             {/* Toggle */}

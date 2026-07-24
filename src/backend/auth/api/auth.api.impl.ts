@@ -12,6 +12,7 @@ import {
   LoginResponse,
   TokenResponse,
   AuthUser,
+  OtpVerificationResult,
 } from './auth.api.interface';
 import authApiClient from '../config/axios.instance';
 
@@ -31,7 +32,11 @@ export class AuthApiImpl extends AuthApiInterface {
     return response.data;
   }
 
-  async verifyOtp(channel: string, value: string, otp: string): Promise<ApiResponse<boolean>> {
+  async verifyOtp(
+    channel: string,
+    value: string,
+    otp: string,
+  ): Promise<ApiResponse<OtpVerificationResult>> {
     const response = await authApiClient.post('/auth/verify-otp', { channel, value, otp });
     return response.data;
   }
@@ -83,6 +88,17 @@ export class AuthApiImpl extends AuthApiInterface {
 
   async resetPassword(email: string, newPassword: string): Promise<ApiResponse<unknown>> {
     const response = await authApiClient.post('/auth/reset-password', { email, newPassword });
+    return response.data;
+  }
+
+  async forgotUsername(email: string): Promise<ApiResponse<unknown>> {
+    const response = await authApiClient.post('/auth/forgot-username', { email });
+    return response.data;
+  }
+
+  async checkEmailRegistered(email: string): Promise<ApiResponse<boolean>> {
+    // Public endpoint, mirrors check-username — callable before the user has a token.
+    const response = await authApiClient.get(`/auth-user/check-email/${email}`);
     return response.data;
   }
 

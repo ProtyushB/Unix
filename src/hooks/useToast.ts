@@ -3,13 +3,28 @@ import { v4 as uuidv4 } from 'uuid';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type ToastType = 'success' | 'error' | 'info';
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
+
+export interface ToastAction {
+  label: string;
+  onPress: () => void;
+}
 
 export interface Toast {
   id: string;
   message: string;
+  /** Bold line shown above the message. Optional — omit for a single-line toast. */
+  title?: string;
   type: ToastType;
   duration: number;
+  /** Optional trailing action button. */
+  action?: ToastAction;
+}
+
+export interface ToastOptions {
+  title?: string;
+  duration?: number;
+  action?: ToastAction;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -29,9 +44,17 @@ export function useToast() {
   }, []);
 
   const showToast = useCallback(
-    (message: string, type: ToastType = 'info', duration: number = 3000) => {
+    (message: string, type: ToastType = 'info', options: ToastOptions = {}) => {
       const id = uuidv4();
-      const toast: Toast = { id, message, type, duration };
+      const duration = options.duration ?? 3500;
+      const toast: Toast = {
+        id,
+        message,
+        title: options.title,
+        type,
+        duration,
+        action: options.action,
+      };
 
       setToasts(prev => [...prev, toast]);
 

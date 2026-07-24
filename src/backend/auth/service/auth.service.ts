@@ -15,6 +15,7 @@ import {
   SignupData,
   LoginResponse,
   AuthUser,
+  OtpVerificationResult,
 } from '../api/auth.api.interface';
 import {
   getAccessToken,
@@ -140,13 +141,22 @@ export class AuthService {
     }
   }
 
-  async verifyOtp(channel: string, value: string, otp: string): Promise<boolean> {
+  async verifyOtp(
+    channel: string,
+    value: string,
+    otp: string,
+  ): Promise<OtpVerificationResult> {
     if (!otp || otp.length !== 6) {
       throw new Error('OTP must be 6 digits');
     }
     try {
       const response = await this.api.verifyOtp(channel, value, otp);
-      return response.data;
+      const data = response.data as OtpVerificationResult | boolean;
+      // Tolerate the legacy bare-boolean backend: wrap it with a null token.
+      if (typeof data === 'boolean') {
+        return { verified: data, verificationToken: null };
+      }
+      return data;
     } catch (error) {
       throw this.handleApiError(error);
     }
@@ -256,6 +266,41 @@ export class AuthService {
       return await this.api.resetPassword(email, newPassword);
     } catch (error) {
       throw this.handleApiError(error);
+    }
+  }
+
+  /**
+   * Emails the account's username to the address given.
+   *
+   * Deliberately reveals nothing: the caller shows the same confirmation
+   * whether or not an account exists for this address, so the screen can't be
+   * used to enumerate registered emails. Only a malformed address throws.
+   */
+  async forgotUsername(email: string): Promise<ApiResponse<unknown>> {
+    if (!this.isValidEmail(email)) {
+      throw new Error('Invalid email address');
+    }
+    try {
+      return await this.api.forgotUsername(email);
+    } catch (error) {
+      throw this.handleApiError(error);
+    }
+  }
+
+  /**
+   * True when a login already exists for this email.
+   *
+   * Fails OPEN — an unreachable check returns false and lets signup proceed,
+   * because /auth/signup rejects a genuine duplicate anyway. Failing closed
+   * would block every registration the moment this endpoint wobbled.
+   */
+  async emailHasAccount(email: string): Promise<boolean> {
+    if (!this.isValidEmail(email)) return false;
+    try {
+      const response = await this.api.checkEmailRegistered(email);
+      return response?.data === true;
+    } catch {
+      return false;
     }
   }
 

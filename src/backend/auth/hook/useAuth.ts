@@ -76,9 +76,11 @@ export function useAuth() {
     async (channel: string, value: string, otp: string): Promise<boolean> => {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       try {
-        const isValid = await service.verifyOtp(channel, value, otp);
+        // verifyOtp now returns { verified, verificationToken }; this hook only
+        // reports success. Screens that need the token call the service directly.
+        const { verified } = await service.verifyOtp(channel, value, otp);
         setState((prev) => ({ ...prev, loading: false }));
-        return isValid;
+        return verified;
       } catch (error) {
         const message = (error as Error).message;
         setState((prev) => ({ ...prev, error: message, loading: false }));

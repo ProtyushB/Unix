@@ -52,6 +52,22 @@ export interface UpdateBusinessFlags {
   updateIsActive?: boolean;
 }
 
+/** One candidate returned by /persons/lookup. */
+export interface CustomerLookupMatch {
+  person: PersonDto;
+  matchedByEmail?: boolean;
+  matchedByPhone?: boolean;
+}
+
+/** Body for /customers/claim — links an existing walk-in to a new login. */
+export interface ClaimCustomerPayload {
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  businesses?: unknown[];
+}
+
 // ─── Interface ────────────────────────────────────────────────────────────────
 
 export abstract class PersonApiInterface {
@@ -62,5 +78,11 @@ export abstract class PersonApiInterface {
   abstract getPersonByUsername(username: string): Promise<ApiResponse<PersonDto>>;
   abstract getAllPersons(): Promise<ApiResponse<PersonDto[]>>;
   abstract deletePerson(personId: number): Promise<ApiResponse<PersonDto>>;
+  abstract lookupCustomers(params: {
+    email?: string;
+    phone?: string;
+    businessId?: number;
+  }): Promise<ApiResponse<CustomerLookupMatch[]>>;
+  abstract claimCustomer(payload: ClaimCustomerPayload): Promise<ApiResponse<PersonDto>>;
 
 }

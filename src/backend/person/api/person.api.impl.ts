@@ -8,6 +8,8 @@ import {
   PersonApiInterface,
   PersonDto,
   UpdatePersonFlags,
+  CustomerLookupMatch,
+  ClaimCustomerPayload,
 } from './person.api.interface';
 import { ApiResponse } from '../../auth/api/auth.api.interface';
 
@@ -20,6 +22,53 @@ export class PersonApiImpl extends PersonApiInterface {
       : PERSON_API_CONFIG.ENDPOINTS.PERSONS;
 
     const response = await personApiClient.post(url, personData);
+    return response.data;
+  }
+
+  /**
+   * Looks up walk-in customers by email and/or phone. Used pre-auth during
+   * signup to decide whether an in-store profile already exists for this
+   * person.
+   */
+  async lookupCustomers(params: { email?: string; phone?: string; businessId?: number }): Promise<
+    ApiResponse<CustomerLookupMatch[]>
+  > {
+    const query = new URLSearchParams();
+    if (params.email?.trim()) query.append('email', params.email.trim());
+    if (params.phone?.trim()) query.append('phone', params.phone.trim());
+    if (params.businessId != null) query.append('businessId', String(params.businessId));
+
+    const response = await personApiClient.get(
+      `${PERSON_API_CONFIG.ENDPOINTS.PERSONS_LOOKUP}?${query.toString()}`,
+    );
+    return response.data;
+  }
+
+  /**
+   * Links an existing walk-in Person to the freshly created login, attaching
+   * any businesses in the same call.
+   *
+   * The backend does the link, the username swap, the business attach and the
+   * BUSINESS_OWNER grant in ONE transaction — all-or-nothing. Do not split this
+   * into claim-then-attach; a failure between the two used to strand a
+   * claimed-but-businessless owner.
+   */
+  async claimCustomer(payload: ClaimCustomerPayload): Promise<ApiResponse<PersonDto>> {
+    // The backend's ClaimCustomerDto spells it `userName` (mirrors the Java field).
+    const body: Record<string, unknown> = {
+      userName: payload.username,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      phoneNumber: payload.phoneNumber,
+    };
+    if (payload.businesses && payload.businesses.length > 0) {
+      body.business = payload.businesses;
+    }
+
+    const response = await personApiClient.post(
+      PERSON_API_CONFIG.ENDPOINTS.CUSTOMERS_CLAIM,
+      body,
+    );
     return response.data;
   }
 

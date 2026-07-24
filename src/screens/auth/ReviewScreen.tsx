@@ -5,386 +5,205 @@ import {
   StyleSheet,
   ScrollView,
   StatusBar,
-  ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
+import { User, Building2, Pencil, CircleCheck, X } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppButton from '../../components/common/AppButton';
-import AppCard from '../../components/common/AppCard';
-import { FolderService } from '../../backend/dms/service/folder.service';
-import { createRoleFolders, createBusinessDmsFolders, BusinessFolderResult } from '../../backend/dms/util/BusinessFolderUtils';
-import { getPersonService } from '../../backend/person/provider/person.provider';
-import { getAuthService } from '../../backend/auth/provider/auth.provider';
-import { setDmsFolderMap, DmsFolderMap } from '../../storage/dms.storage';
-import { setCompleteProfileData, setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
-import { setLoggedInUser } from '../../storage/auth.storage';
+import { Toast } from '../../components/common/Toast';
+import { useToast } from '../../hooks/useToast';
+import AuthBackground from '../../components/auth/AuthBackground';
+import AuthBarMask from '../../components/auth/AuthBarMask';
+import AuthHeader from '../../components/auth/AuthHeader';
+import SignupStepper from '../../components/auth/SignupStepper';
 import { getBusinessTypeLabel } from '../../utils/businessTypes';
 import { useSignupDraft } from '../../context/SignupDraftContext';
-import { v4 as uuidv4 } from 'uuid';
+import { completeSignup } from '../../services/completeSignup';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useAuthScrollInsets } from '../../hooks/useAuthScrollInsets';
 import type { AppTheme } from '../../theme/theme.types';
-
-// ─── Param List ──────────────────────────────────────────────────────────────
-
-type AuthStackParamList = {
-  Splash: undefined;
-  Landing: undefined;
-  Login: undefined;
-  SignupEmail: { prefillEmail?: string } | undefined;
-  OtpVerification: { email: string };
-  SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string };
-  ProfileBusiness: { email: string; username: string; firstName: string; lastName: string; phoneNumber: string };
-  Review: { personal: any; businesses: any[] };
-  PortalSelection: undefined;
-  ForgotPasswordEmail: undefined;
-  ForgotPasswordOtp: { email: string };
-  ForgotPasswordNew: { email: string };
-};
+import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Review'>;
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// Mockups 13 / 13c / 13d.
+//
+// This is where the two paths diverge, and the difference is easy to miss:
+//   · customer-only — "Save & Continue" creates the account right here
+//   · with a business — "Continue to Payment" only NAVIGATES; the payment step
+//     does the creating, because the employee/coupon codes have to be stamped
+//     onto every business at insert time.
+// So the spinner and the error banner on this screen are reachable on the
+// customer path only. On the business path the button cannot fail.
 
 const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
   const { personal, businesses } = route.params;
-  const { getDraft, clearDraft } = useSignupDraft();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { getDraft, getClaim, clearDraft, clearClaim } = useSignupDraft();
+  const [saving, setSaving] = useState(false);
 
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const scrollInsets = useAuthScrollInsets();
+  const { toasts, showToast, dismissToast } = useToast();
 
   const hasBusiness = businesses && businesses.length > 0;
 
-  const handleSubmit = async () => {
-    setError('');
-    setLoading(true);
-
+  const handleSave = async () => {
     const draft = getDraft();
     if (!draft) {
-      setError('Session expired. Please go back and re-enter your credentials.');
-      setLoading(false);
+      showToast('Please go back and re-enter your credentials.', 'error', {
+        title: 'Session expired',
+      });
       return;
     }
 
-    const authService = getAuthService();
-    const folderService = new FolderService();
-    const personService = getPersonService();
+    setSaving(true);
+    const result = await completeSignup({
+      personal,
+      businesses,
+      password: draft.password,
+      claim: getClaim(),
+      verificationToken: draft.verificationToken,
+    });
+    setSaving(false);
 
-    let signupCompleted = false;
-    let authUserId: number | null = null;
-    let userRootFolderId: number | null = null;
-    let personCreated = false;
-
-    const rollback = async () => {
-      console.log('[ReviewScreen] ROLLBACK — signupCompleted:', signupCompleted, '| authUserId:', authUserId, '| userRootFolderId:', userRootFolderId);
-      if (userRootFolderId) {
-        console.log('[ReviewScreen] ROLLBACK DELETE /folder/', userRootFolderId);
-        await folderService.deleteFolder(userRootFolderId).catch((e) => console.warn('[ReviewScreen] ROLLBACK folder delete failed:', e?.message));
-      }
-      if (signupCompleted) {
-        if (authUserId !== null) {
-          console.log('[ReviewScreen] ROLLBACK DELETE /auth-user/', authUserId);
-          await authService.deleteUser(authUserId).catch((e) => console.warn('[ReviewScreen] ROLLBACK auth delete failed:', e?.message));
-        }
-        await authService.logout();
-        console.log('[ReviewScreen] ROLLBACK logout done');
-      }
-    };
-
-    try {
-      // ─── Step A: Create auth user ─────────────────────────────────
-      const signupPayload = { username: personal.username, email: personal.email, password: '***', roles: ['CUSTOMER'] };
-      console.log('[ReviewScreen] A1 POST /auth/signup → payload:', JSON.stringify(signupPayload));
-      await authService.signup({
-        username: personal.username,
-        email: personal.email,
-        password: draft.password,
-        roles: ['CUSTOMER'],
-      });
-      signupCompleted = true;
-      console.log('[ReviewScreen] A1 POST /auth/signup ✓ (tokens stored)');
-
-      console.log(`[ReviewScreen] A2 GET /auth-user/username/${personal.username}`);
-      const authUser = await authService.getUserByUsername(personal.username);
-      authUserId = authUser.id;
-      console.log('[ReviewScreen] A2 GET /auth-user/username → response:', JSON.stringify(authUser));
-
-      // ─── Step B: Create DMS folders ───────────────────────────────
-      const rootFolderName = `${personal.username}_${uuidv4()}`;
-      const rootFolderPayload = { folderName: rootFolderName };
-      console.log('[ReviewScreen] B1 POST /folder/create → payload:', JSON.stringify(rootFolderPayload));
-      const userFolder = await folderService.createFolder(rootFolderPayload);
-      userRootFolderId = userFolder.folderId!;
-      console.log('[ReviewScreen] B1 POST /folder/create ✓ → response:', JSON.stringify(userFolder));
-
-      console.log('[ReviewScreen] B2 createRoleFolders → parentFolderId:', userRootFolderId);
-      const roleFolders = await createRoleFolders(userRootFolderId);
-      console.log('[ReviewScreen] B2 createRoleFolders ✓ → response:', JSON.stringify(roleFolders));
-
-      const businessFolderResults: BusinessFolderResult[] = [];
-      if (hasBusiness) {
-        for (const biz of businesses) {
-          console.log(`[ReviewScreen] B3 createBusinessDmsFolders → bizName: ${biz.businessName}, parentFolderId:`, roleFolders.Business);
-          const result = await createBusinessDmsFolders(null, biz.businessName, roleFolders.Business);
-          businessFolderResults.push(result);
-          console.log(`[ReviewScreen] B3 createBusinessDmsFolders ✓ → response:`, JSON.stringify(result));
-        }
-      }
-
-      // ─── Step C: Create person ────────────────────────────────────
-      const personPayload = {
-        firstName: personal.firstName,
-        lastName: personal.lastName,
-        userName: personal.username,
-        email: personal.email,
-        phoneNumber: personal.phoneNumber,
-        personFolderId: userRootFolderId,
-        businesses: hasBusiness
-          ? businesses.map((biz: any, idx: number) => ({
-              businessName: biz.businessName,
-              businessType: biz.businessType,
-              businessPhone: biz.businessPhone || null,
-              businessEmail: biz.businessEmail || null,
-              registration: { cin: biz.cin || null, gstin: biz.gstin || null, pan: biz.pan || null },
-              folderId: businessFolderResults[idx]?.folderId ?? null,
-              businessRoles: [],
-              isActive: true,
-            }))
-          : [],
-      };
-      console.log('[ReviewScreen] C1 POST /persons → payload:', JSON.stringify(personPayload));
-      const result = await personService.createPerson({
-        ...personPayload,
-        businesses: hasBusiness
-          ? businesses.map((biz: any, idx: number) => ({
-              businessName: biz.businessName,
-              businessType: biz.businessType,
-              businessPhone: biz.businessPhone || null,
-              businessEmail: biz.businessEmail || null,
-              registration: {
-                cin: biz.cin || null,
-                gstin: biz.gstin || null,
-                pan: biz.pan || null,
-              },
-              folderId: businessFolderResults[idx]?.folderId ?? null,
-              businessRoles: [],
-              isActive: true,
-            }))
-          : [],
-      });
-      console.log('[ReviewScreen] C1 POST /persons → response:', JSON.stringify(result));
-
-      if (!result.success || !result.data) {
-        console.log('[ReviewScreen] C1 POST /persons FAILED — rolling back');
-        await rollback();
-        setError(result.error || 'Something went wrong. Please try again.');
-        return;
-      }
-      personCreated = true;
-      console.log('[ReviewScreen] C1 POST /persons ✓');
-
-      // ─── Step D: Store everything ─────────────────────────────────
-      const registeredUser = result.data;
-
-      await setLoggedInUser({
-        id: registeredUser.id || 0,
-        username: personal.username,
-        roles: registeredUser.types || [],
-        email: personal.email,
-      });
-
-      await setUserProfile(registeredUser);
-
-      await setCompleteProfileData({
-        person: registeredUser,
-        businesses: registeredUser.business || businesses,
-      });
-
-      if (hasBusiness && registeredUser.business && registeredUser.business.length > 0) {
-        const typeMap: Record<string, any[]> = {};
-        (registeredUser.business as any[]).forEach((biz: any) => {
-          const type = biz.businessType || 'CUSTOM';
-          if (!typeMap[type]) typeMap[type] = [];
-          typeMap[type].push(biz);
-        });
-        await setBusinessTypeMap(typeMap);
-      }
-
-      const dmsFolderMapData: DmsFolderMap = {
-        userRootFolderId,
-        roleFolders: {
-          Business: roleFolders.Business,
-          Customer: roleFolders.Customer,
-          Employee: roleFolders.Employee,
-        },
-        businesses: {},
-      };
-      if (hasBusiness && registeredUser.business) {
-        (registeredUser.business as any[]).forEach((biz: any, idx: number) => {
-          const bizId = biz.id || idx;
-          if (businessFolderResults[idx]) {
-            dmsFolderMapData.businesses[bizId] = businessFolderResults[idx];
-          }
-        });
-      }
-      await setDmsFolderMap(dmsFolderMapData);
-
-      clearDraft();
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'PortalSelection' }],
-      });
-    } catch (err: any) {
-      console.log('[ReviewScreen] CATCH error:', err?.message, '| personCreated:', personCreated);
-      if (!personCreated) {
-        await rollback();
-      }
-      const message = err?.response?.data?.error
-        || err?.response?.data?.message
-        || err?.message
-        || 'Something went wrong. Please try again.';
-      setError(message);
-    } finally {
-      setLoading(false);
+    if (!result.ok) {
+      // Rollback has already run, so the form is intact — the user can retry.
+      showToast(result.error, 'error', { title: "Couldn't create profile" });
+      return;
     }
+
+    clearDraft();
+    clearClaim();
+    navigation.reset({ index: 0, routes: [{ name: 'PortalSelection' }] });
   };
+
+  const handlePrimary = () => {
+    if (hasBusiness) {
+      navigation.navigate('Payment', { personal, businesses });
+      return;
+    }
+    handleSave();
+  };
+
+  const kv = (label: string, value: string, verified = false) => (
+    <View style={styles.kv} key={label}>
+      <Text style={styles.kvLabel}>{label}</Text>
+      <View style={styles.kvValueRow}>
+        <Text style={styles.kvValue}>{value}</Text>
+        {verified && <CircleCheck size={15} color={palette.success} />}
+      </View>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <AuthBackground />
+      <AuthBarMask />
+      <Toast toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Loading Overlay */}
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Creating your account...</Text>
-            <Text style={styles.loadingSubtext}>
-              Registering credentials, setting up folders, and saving your profile
-            </Text>
-          </View>
-        </View>
-      )}
-
-      <ScrollView removeClippedSubviews={false}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+      <ScrollView
+        removeClippedSubviews={false}
+        style={styles.flex}
+        contentContainerStyle={[styles.scrollContent, scrollInsets]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title */}
-        <Text style={styles.title}>Review Your Information</Text>
-        <Text style={styles.subtitle}>
-          Make sure everything looks correct before submitting
-        </Text>
+        <AuthHeader
+          title="Review your information"
+          subtitle="Please verify all details before submitting"
+        />
+        <SignupStepper active={2} />
 
-        {/* Error Banner */}
-        {error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
-        {/* Personal Info Card */}
-        <AppCard style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={{ fontSize: 18 }}>👤</Text>
-            <Text style={styles.cardTitle}>Personal Information</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>First Name</Text>
-            <Text style={styles.infoValue}>{personal.firstName}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Last Name</Text>
-            <Text style={styles.infoValue}>{personal.lastName}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Username</Text>
-            <Text style={styles.infoValue}>{personal.username}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{personal.email}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Phone</Text>
-            <Text style={styles.infoValue}>{personal.phoneNumber}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Password</Text>
-            <Text style={styles.infoValue}>{'*'.repeat(8)}</Text>
-          </View>
-        </AppCard>
-
-        {/* Business Info Card(s) */}
-        {hasBusiness && businesses.map((biz: any, index: number) => (
-          <AppCard key={index} style={styles.card}>
+        <View style={[styles.body, saving && styles.dimmed]} pointerEvents={saving ? 'none' : 'auto'}>
+          {/* Personal */}
+          <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={{ fontSize: 18 }}>💼</Text>
-              <Text style={styles.cardTitle}>
-                Business {businesses.length > 1 ? `#${index + 1}` : 'Information'}
-              </Text>
+              <View style={styles.cardTitleRow}>
+                <User size={20} color={colors.primary} />
+                <Text style={styles.cardTitle}>Personal Information</Text>
+              </View>
+              <TouchableOpacity style={styles.editRow} onPress={() => navigation.goBack()}>
+                <Pencil size={14} color={colors.secondary} />
+                <Text style={styles.editLabel}>Edit</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Name</Text>
-              <Text style={styles.infoValue}>{biz.businessName}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Type</Text>
-              <Text style={styles.infoValue}>
-                {getBusinessTypeLabel(biz.businessType)}
-              </Text>
-            </View>
-            {biz.businessPhone ? (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Phone</Text>
-                <Text style={styles.infoValue}>{biz.businessPhone}</Text>
-              </View>
-            ) : null}
-            {biz.businessEmail ? (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>{biz.businessEmail}</Text>
-              </View>
-            ) : null}
-            {biz.cin ? (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>CIN</Text>
-                <Text style={styles.infoValue}>{biz.cin}</Text>
-              </View>
-            ) : null}
-            {biz.gstin ? (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>GSTIN</Text>
-                <Text style={styles.infoValue}>{biz.gstin}</Text>
-              </View>
-            ) : null}
-            {biz.pan ? (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>PAN</Text>
-                <Text style={styles.infoValue}>{biz.pan}</Text>
-              </View>
-            ) : null}
-          </AppCard>
-        ))}
 
-        {/* Buttons */}
-        <View style={styles.buttonContainer}>
+            <View style={styles.kvRow}>
+              {kv('First Name', personal.firstName)}
+              {kv('Last Name', personal.lastName)}
+            </View>
+            <View style={styles.kvRow}>
+              {kv('Username', personal.username, true)}
+              {kv('Email', personal.email, true)}
+            </View>
+            <View style={styles.kvRow}>
+              {kv('Phone Number', personal.phoneNumber)}
+              {kv('Password', '••••••••')}
+            </View>
+          </View>
+
+          {/* Business */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardTitleRow}>
+                <Building2 size={20} color={colors.primary} />
+                <Text style={styles.cardTitle}>Business Information</Text>
+              </View>
+              {hasBusiness && (
+                <TouchableOpacity style={styles.editRow} onPress={() => navigation.goBack()}>
+                  <Pencil size={14} color={colors.secondary} />
+                  <Text style={styles.editLabel}>Edit</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {hasBusiness ? (
+              businesses.map((biz: any, index: number) => (
+                <View key={index} style={styles.bizCard}>
+                  <View style={styles.cardTitleRow}>
+                    <Building2 size={17} color={colors.primary} />
+                    <Text style={styles.bizTitle}>Business {index + 1}</Text>
+                  </View>
+                  <View style={styles.kvRow}>
+                    {kv('Business Name', biz.businessName)}
+                    {kv('Business Type', getBusinessTypeLabel(biz.businessType))}
+                  </View>
+                  <View style={styles.kvRow}>
+                    {kv('Phone', biz.businessPhone || '—')}
+                    {kv('Email', biz.businessEmail || '—')}
+                  </View>
+                  {(biz.gstin || biz.pan) && (
+                    <View style={styles.kvRow}>
+                      {kv('GSTIN', biz.gstin || '—')}
+                      {kv('PAN', biz.pan || '—')}
+                    </View>
+                  )}
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyBusiness}>No business information provided</Text>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.actions}>
           <AppButton
-            title="Save & Continue"
-            onPress={handleSubmit}
-            variant="primary"
-            loading={loading}
-            disabled={loading}
-          />
-          <View style={styles.buttonSpacer} />
-          <AppButton
-            title="Go Back"
+            title="Cancel"
             onPress={() => navigation.goBack()}
-            variant="ghost"
-            disabled={loading}
+            variant="secondary"
+            disabled={saving}
+            style={styles.cancelButton}
+            leftIcon={<X size={18} color={palette.onSurface} />}
+          />
+          <AppButton
+            title={saving ? 'Saving...' : hasBusiness ? 'Continue to Payment' : 'Save & Continue'}
+            onPress={handlePrimary}
+            variant="primary"
+            loading={saving}
+            disabled={saving}
+            style={styles.primaryButton}
           />
         </View>
       </ScrollView>
@@ -392,134 +211,116 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 };
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.palette.background,
     },
-    scrollView: {
+    flex: {
       flex: 1,
     },
     scrollContent: {
-      paddingHorizontal: 24,
-      paddingTop: 60,
-      paddingBottom: 40,
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 34,
+      gap: 26,
+    },
+    body: {
+      gap: 26,
+    },
+    dimmed: {
+      opacity: 0.5,
     },
 
-    // Title
-    title: {
-      fontFamily: 'Inter-Bold',
-      fontSize: 28,
-      color: theme.palette.onBackground,
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontFamily: 'Inter-Regular',
-      fontSize: 15,
-      color: theme.palette.muted,
-      marginBottom: 28,
-      lineHeight: 22,
-    },
-
-    // Error
-    errorContainer: {
-      backgroundColor: theme.palette.error + '20',
-      borderRadius: 12,
-      padding: 14,
-      marginBottom: 20,
-      borderWidth: 1,
-      borderColor: theme.palette.error + '40',
-    },
-    errorText: {
-      fontFamily: 'Inter-Medium',
-      fontSize: 13,
-      color: theme.palette.error + 'CC',
-      textAlign: 'center',
-      lineHeight: 20,
-    },
-
-    // Card
     card: {
-      marginBottom: 16,
+      gap: 16,
+      padding: 18,
+      borderRadius: 18,
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
     },
     cardHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 16,
-      paddingBottom: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.palette.divider,
+      justifyContent: 'space-between',
+    },
+    cardTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 9,
     },
     cardTitle: {
-      fontFamily: 'Inter-SemiBold',
-      fontSize: 16,
+      fontFamily: 'Inter-Bold',
+      fontSize: 17,
       color: theme.palette.onBackground,
-      marginLeft: 10,
     },
-
-    // Info rows
-    infoRow: {
+    editRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 8,
+      gap: 5,
     },
-    infoLabel: {
-      fontFamily: 'Inter-Regular',
-      fontSize: 14,
-      color: theme.palette.muted,
-      flex: 1,
-    },
-    infoValue: {
-      fontFamily: 'Inter-Medium',
-      fontSize: 14,
-      color: theme.palette.onBackground,
-      flex: 2,
-      textAlign: 'right',
-    },
-
-    // Buttons
-    buttonContainer: {
-      marginTop: 24,
-    },
-    buttonSpacer: {
-      height: 12,
-    },
-
-    // Loading overlay
-    loadingOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: theme.palette.background + 'EB',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 100,
-    },
-    loadingCard: {
-      backgroundColor: theme.palette.surface,
-      borderRadius: 20,
-      padding: 32,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: theme.palette.divider,
-      marginHorizontal: 32,
-    },
-    loadingText: {
+    editLabel: {
       fontFamily: 'Inter-SemiBold',
-      fontSize: 16,
-      color: theme.palette.onBackground,
-      marginTop: 20,
-      textAlign: 'center',
-    },
-    loadingSubtext: {
-      fontFamily: 'Inter-Regular',
       fontSize: 13,
+      color: theme.colors.secondary,
+    },
+
+    kvRow: {
+      flexDirection: 'row',
+      gap: 14,
+    },
+    kv: {
+      flex: 1,
+      gap: 3,
+    },
+    kvLabel: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 11.5,
       color: theme.palette.muted,
-      marginTop: 8,
-      textAlign: 'center',
-      lineHeight: 20,
+    },
+    kvValueRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    kvValue: {
+      flexShrink: 1,
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 14.5,
+      color: theme.palette.onBackground,
+    },
+
+    bizCard: {
+      gap: 14,
+      padding: 15,
+      borderRadius: 14,
+      backgroundColor: theme.palette.background + '59',
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+    },
+    bizTitle: {
+      fontFamily: 'Inter-Bold',
+      fontSize: 15,
+      color: theme.palette.onBackground,
+    },
+    emptyBusiness: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: theme.palette.muted,
+    },
+
+    actions: {
+      flexDirection: 'row',
+      gap: 13,
+    },
+    cancelButton: {
+      width: 118,
+    },
+    primaryButton: {
+      flex: 1,
     },
   });
 }

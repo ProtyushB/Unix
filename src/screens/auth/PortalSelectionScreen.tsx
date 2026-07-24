@@ -14,25 +14,13 @@ import { getLoggedInUser, LoggedInUser } from '../../storage/auth.storage';
 import { getUserProfile, setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import AuthBarMask from '../../components/auth/AuthBarMask';
+import { useAuthScrollInsets } from '../../hooks/useAuthScrollInsets';
 import type { AppTheme } from '../../theme/theme.types';
 
 // ─── Param List ──────────────────────────────────────────────────────────────
 
-type AuthStackParamList = {
-  Splash: undefined;
-  Landing: undefined;
-  Login: undefined;
-  SignupEmail: { prefillEmail?: string } | undefined;
-  OtpVerification: { email: string };
-  SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string; password: string };
-  ProfileBusiness: { email: string; username: string; password: string; firstName: string; lastName: string; phoneNumber: string };
-  Review: { personal: any; businesses: any[] };
-  PortalSelection: undefined;
-  ForgotPasswordEmail: undefined;
-  ForgotPasswordOtp: { email: string };
-  ForgotPasswordNew: { email: string };
-};
+import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'PortalSelection'>;
 
@@ -48,6 +36,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
 
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const scrollInsets = useAuthScrollInsets();
 
   const isBusinessOwner = user?.roles?.includes('BUSINESS_OWNER') ?? false;
   const isCustomer = user?.roles?.includes('CUSTOMER') ?? true;
@@ -135,6 +124,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <AuthBarMask />
         <View style={styles.centered}>
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
@@ -145,9 +135,10 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <AuthBarMask />
       <ScrollView removeClippedSubviews={false}
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, scrollInsets]}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View

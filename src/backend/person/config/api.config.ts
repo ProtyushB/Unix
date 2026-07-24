@@ -13,6 +13,8 @@ export const PERSON_API_CONFIG = {
     PERSONS_VIEW_ALL: '/persons/viewAll',
     PERSONS_BY_ID: (id: number) => `/persons/${id}`,
     PERSONS_BY_USERNAME: (username: string) => `/persons/username/${username}`,
+    PERSONS_LOOKUP: '/persons/lookup',
+    CUSTOMERS_CLAIM: '/customers/claim',
   },
   TIMEOUT: 30000,
 };

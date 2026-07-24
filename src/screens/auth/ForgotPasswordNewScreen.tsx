@@ -8,39 +8,29 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { CircleCheck } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import PasswordInput from '../../components/forms/PasswordInput';
-import PasswordChecklist from '../../components/forms/PasswordChecklist';
-import PasswordMatch from '../../components/forms/PasswordMatch';
 import AppButton from '../../components/common/AppButton';
-import { getAuthService } from '../../backend/auth/provider/auth.provider';
+import { Toast } from '../../components/common/Toast';
 import { useToast } from '../../hooks/useToast';
+import AuthBackground from '../../components/auth/AuthBackground';
+import AuthBarMask from '../../components/auth/AuthBarMask';
+import AuthHeader from '../../components/auth/AuthHeader';
+import AuthTopBack from '../../components/auth/AuthTopBack';
+import AuthBackLink from '../../components/auth/AuthBackLink';
+import PasswordRuleDots from '../../components/auth/PasswordRuleDots';
+import { getAuthService } from '../../backend/auth/provider/auth.provider';
 import { PASSWORD_RULES } from '../../utils/validators';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useAuthScrollInsets } from '../../hooks/useAuthScrollInsets';
 import type { AppTheme } from '../../theme/theme.types';
-
-// ─── Param List ──────────────────────────────────────────────────────────────
-
-type AuthStackParamList = {
-  Splash: undefined;
-  Landing: undefined;
-  Login: undefined;
-  SignupEmail: { prefillEmail?: string } | undefined;
-  OtpVerification: { email: string };
-  SignupCredentials: { email: string };
-  ProfilePersonal: { email: string; username: string; password: string };
-  ProfileBusiness: { email: string; username: string; password: string; firstName: string; lastName: string; phoneNumber: string };
-  Review: { personal: any; businesses: any[] };
-  PortalSelection: undefined;
-  ForgotPasswordEmail: undefined;
-  ForgotPasswordOtp: { email: string };
-  ForgotPasswordNew: { email: string };
-};
+import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPasswordNew'>;
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// Mockup 07 — step three of three, including the mismatch error state.
 
 const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
   const { email } = route.params;
@@ -48,40 +38,44 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { showToast } = useToast();
+  const [touchedConfirm, setTouchedConfirm] = useState(false);
 
-  const { colors, palette } = useTheme();
+  const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
-
+  const scrollInsets = useAuthScrollInsets();
+  const { toasts, showToast, dismissToast } = useToast();
   const authService = getAuthService();
 
   const allPasswordRulesPass = PASSWORD_RULES.every(rule => rule.test(newPassword));
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
   const isFormValid = allPasswordRulesPass && passwordsMatch;
 
+  // Only complain about a mismatch once there is something to compare against —
+  // flagging it on the first keystroke of the confirm field is just noise.
+  const mismatchError =
+    touchedConfirm && confirmPassword.length > 0 && !passwordsMatch
+      ? 'Passwords do not match'
+      : undefined;
+
   const handleReset = async () => {
     setError('');
-
-    if (!isFormValid) return;
+    if (!isFormValid) {
+      setTouchedConfirm(true);
+      return;
+    }
 
     setLoading(true);
     try {
       await authService.resetPassword(email, newPassword);
-
-      showToast('Password reset successful! Please log in with your new password.', 'success');
-
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
+      showToast('Password reset successful! Please sign in with your new password.', 'success');
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     } catch (err: any) {
       const message = err?.message || 'Failed to reset password.';
-
-      // Check for "same password" error
+      const lower = message.toLowerCase();
       if (
-        message.toLowerCase().includes('same password') ||
-        message.toLowerCase().includes('previously used') ||
-        message.toLowerCase().includes('must be different')
+        lower.includes('same password') ||
+        lower.includes('previously used') ||
+        lower.includes('must be different')
       ) {
         setError('New password must be different from your current password.');
       } else {
@@ -95,80 +89,80 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <AuthBackground />
+      <AuthBarMask />
+      <Toast toasts={toasts} onDismiss={dismissToast} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView removeClippedSubviews={false}
+        <ScrollView
+          removeClippedSubviews={false}
           style={styles.flex}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, scrollInsets]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Icon */}
-          <View style={styles.iconContainer}>
-            <View style={styles.iconCircle}>
-              <Text style={{ fontSize: 32 }}>🛡️</Text>
+          <AuthTopBack onPress={() => navigation.goBack()} disabled={loading} />
+
+          <AuthHeader
+            title="Reset password"
+            subtitle="Choose a new password for your account"
+          />
+
+          <View style={styles.verifiedNote}>
+            <CircleCheck size={17} color={palette.success} />
+            <Text style={styles.verifiedText}>
+              Email verified. Set your new password below.
+            </Text>
+          </View>
+
+          <View style={styles.form}>
+            <View style={styles.passwordGroup}>
+              <PasswordInput
+                label="New Password"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="Enter a new password"
+              />
+              <PasswordRuleDots password={newPassword} />
+            </View>
+
+            <View style={styles.passwordGroup}>
+              <PasswordInput
+                label="Confirm New Password"
+                value={confirmPassword}
+                onChangeText={v => {
+                  setConfirmPassword(v);
+                  setTouchedConfirm(true);
+                }}
+                placeholder="Re-enter the new password"
+                error={mismatchError}
+              />
+              {passwordsMatch ? <Text style={styles.matchText}>Passwords match</Text> : null}
             </View>
           </View>
 
-          {/* Title */}
-          <Text style={styles.title}>New Password</Text>
-          <Text style={styles.subtitle}>
-            Create a strong new password for your account
-          </Text>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          {/* Error */}
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
-
-          {/* New Password */}
-          <PasswordInput
-            label="New Password"
-            value={newPassword}
-            onChangeText={(val) => {
-              setNewPassword(val);
-              if (error) setError('');
-            }}
-            placeholder="Enter new password"
+          <AppButton
+            title="Reset Password"
+            onPress={handleReset}
+            variant="primary"
+            loading={loading}
+            disabled={loading || !isFormValid}
           />
-          <PasswordChecklist password={newPassword} />
 
-          {/* Confirm Password */}
-          <View style={styles.fieldSpacer} />
-          <PasswordInput
-            label="Confirm Password"
-            value={confirmPassword}
-            onChangeText={(val) => {
-              setConfirmPassword(val);
-              if (error) setError('');
-            }}
-            placeholder="Re-enter new password"
+          <AuthBackLink
+            label="Back"
+            onPress={() => navigation.goBack()}
+            disabled={loading}
           />
-          {confirmPassword.length > 0 && (
-            <PasswordMatch match={passwordsMatch} />
-          )}
-
-          {/* Reset Button */}
-          <View style={styles.buttonContainer}>
-            <AppButton
-              title="Reset Password"
-              onPress={handleReset}
-              variant="primary"
-              loading={loading}
-              disabled={!isFormValid || loading}
-            />
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
 };
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
@@ -182,67 +176,43 @@ function createStyles(theme: AppTheme) {
     scrollContent: {
       flexGrow: 1,
       justifyContent: 'center',
-      paddingHorizontal: 24,
-      paddingVertical: 40,
+      paddingHorizontal: 20,
+      paddingVertical: 34,
+      gap: 26,
     },
-
-    // Icon
-    iconContainer: {
+    verifiedNote: {
+      flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 28,
-    },
-    iconCircle: {
-      width: 72,
-      height: 72,
-      borderRadius: 20,
-      backgroundColor: theme.colors.primary + '14',
-      justifyContent: 'center',
-      alignItems: 'center',
+      gap: 10,
+      padding: 14,
+      borderRadius: 13,
+      backgroundColor: theme.palette.success + '2e',
       borderWidth: 1,
-      borderColor: theme.colors.primary + '33',
+      borderColor: theme.palette.success + '40',
     },
-
-    // Title
-    title: {
-      fontFamily: 'Inter-Bold',
-      fontSize: 28,
-      color: theme.palette.onBackground,
-      textAlign: 'center',
-      marginBottom: 8,
-    },
-    subtitle: {
+    verifiedText: {
+      flex: 1,
       fontFamily: 'Inter-Regular',
-      fontSize: 15,
-      color: theme.palette.muted,
-      textAlign: 'center',
-      marginBottom: 32,
-      lineHeight: 22,
+      fontSize: 12.5,
+      lineHeight: 18,
+      color: theme.palette.success,
     },
-
-    // Error
-    errorContainer: {
-      backgroundColor: theme.palette.error + '20',
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 16,
-      borderWidth: 1,
-      borderColor: theme.palette.error + '40',
+    form: {
+      gap: 18,
     },
-    errorText: {
+    passwordGroup: {
+      gap: 11,
+    },
+    matchText: {
+      fontFamily: 'Inter-Medium',
+      fontSize: 12,
+      color: theme.palette.success,
+    },
+    error: {
       fontFamily: 'Inter-Medium',
       fontSize: 13,
-      color: theme.palette.error + 'CC',
+      color: theme.palette.error,
       textAlign: 'center',
-    },
-
-    // Spacing
-    fieldSpacer: {
-      height: 8,
-    },
-
-    // Button
-    buttonContainer: {
-      marginTop: 24,
     },
   });
 }

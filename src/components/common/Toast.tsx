@@ -1,95 +1,204 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
-import { X } from 'lucide-react-native';
+import Animated, {
+  SlideInUp,
+  SlideOutUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  CircleCheck,
+  CircleAlert,
+  TriangleAlert,
+  Info,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { useTheme } from '../../hooks/useTheme';
-import { useThemedStyles } from '../../hooks/useThemedStyles';
-import type { AppTheme } from '../../theme/theme.types';
-import type { Toast as ToastItem } from '../../hooks/useToast';
+import type { Toast as ToastItem, ToastType } from '../../hooks/useToast';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface ToastProps {
   toasts: ToastItem[];
-  onDismiss: (id: string) => void;
+  /** Optional — toasts auto-dismiss; tap-to-dismiss is a no-op when omitted. */
+  onDismiss?: (id: string) => void;
+}
+
+interface Variant {
+  icon: LucideIcon;
+  color: string;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
+// Mobile-native toast: solid opaque card (never shows the screen through it),
+// rounded icon badge, bold title over the message, optional trailing action,
+// and a thin progress bar that drains over the auto-dismiss duration. A top
+// overlay so it reads as a system notification, not page content. No tiny ×
+// (that target was sub-44px) — the whole card is tappable to dismiss.
+
+const SOLID_BG = '#111e35';
+
 export function Toast({ toasts, onDismiss }: ToastProps) {
-  const { palette } = useTheme();
-  const styles = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
 
   if (toasts.length === 0) return null;
 
-  const typeColors: Record<ToastItem['type'], { bg: string; text: string }> = {
-    success: { bg: palette.success + 'E6', text: '#ffffff' },
-    error:   { bg: palette.error   + 'E6', text: '#ffffff' },
-    info:    { bg: palette.info    + 'E6', text: '#ffffff' },
+  return (
+    <View style={[styles.container, { top: insets.top + 10 }]} pointerEvents="box-none">
+      {toasts.map(toast => (
+        <ToastRow key={toast.id} toast={toast} onDismiss={onDismiss} />
+      ))}
+    </View>
+  );
+}
+
+function ToastRow({
+  toast,
+  onDismiss,
+}: {
+  toast: ToastItem;
+  onDismiss?: (id: string) => void;
+}) {
+  const { palette } = useTheme();
+  const progress = useSharedValue(1);
+
+  const variants: Record<ToastType, Variant> = {
+    success: { icon: CircleCheck, color: palette.success },
+    info: { icon: Info, color: '#60a5fa' },
+    warning: { icon: TriangleAlert, color: palette.warning },
+    error: { icon: CircleAlert, color: palette.error },
   };
+  const { icon: Icon, color } = variants[toast.type];
+
+  useEffect(() => {
+    progress.value = withTiming(0, { duration: toast.duration, easing: Easing.linear });
+  }, [toast.duration, progress]);
+
+  const barStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
   return (
-    <View style={styles.container} pointerEvents="box-none">
-      {toasts.map(toast => {
-        const colors = typeColors[toast.type];
+    <Animated.View
+      entering={SlideInUp.springify().damping(18)}
+      exiting={SlideOutUp.duration(200)}
+      style={[styles.toast, { borderColor: color + '55' }]}
+    >
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => onDismiss?.(toast.id)}
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss notification"
+        style={styles.row}
+      >
+        <View style={[styles.badge, { backgroundColor: color + '26' }]}>
+          <Icon size={20} color={color} />
+        </View>
 
-        return (
-          <Animated.View
-            key={toast.id}
-            entering={SlideInDown.springify().damping(18)}
-            exiting={SlideOutDown.springify().damping(18)}
-            style={[styles.toast, { backgroundColor: colors.bg }]}
+        <View style={styles.textCol}>
+          {toast.title ? <Text style={styles.title}>{toast.title}</Text> : null}
+          <Text style={toast.title ? styles.message : styles.messageOnly} numberOfLines={3}>
+            {toast.message}
+          </Text>
+        </View>
+
+        {toast.action ? (
+          <TouchableOpacity
+            onPress={() => {
+              toast.action?.onPress();
+              onDismiss?.(toast.id);
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={[styles.actionBtn, { borderColor: color + '55' }]}
           >
-            <Text style={[styles.message, { color: colors.text }]} numberOfLines={2}>
-              {toast.message}
-            </Text>
-            <TouchableOpacity
-              onPress={() => onDismiss(toast.id)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.dismiss}
-            >
-              <X size={16} color={colors.text} />
-            </TouchableOpacity>
-          </Animated.View>
-        );
-      })}
-    </View>
+            <Text style={[styles.actionLabel, { color }]}>{toast.action.label}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </TouchableOpacity>
+
+      <View style={styles.progressTrack}>
+        <Animated.View style={[styles.progressBar, { backgroundColor: color }, barStyle]} />
+      </View>
+    </Animated.View>
   );
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-function createStyles(_theme: AppTheme) {
-  return StyleSheet.create({
-    container: {
-      position: 'absolute',
-      bottom: 80,
-      left: 16,
-      right: 16,
-      zIndex: 9999,
-      gap: 8,
-    },
-    toast: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      borderRadius: 12,
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 6,
-    },
-    message: {
-      flex: 1,
-      fontSize: 14,
-      fontWeight: '500',
-      lineHeight: 20,
-    },
-    dismiss: {
-      marginLeft: 12,
-      padding: 2,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    zIndex: 9999,
+    gap: 10,
+  },
+  toast: {
+    backgroundColor: SOLID_BG,
+    borderRadius: 22,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 15,
+    gap: 12,
+  },
+  badge: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textCol: {
+    flex: 1,
+    gap: 2,
+  },
+  title: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    color: '#f1f5f9',
+  },
+  message: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: '#cbd5e1',
+  },
+  messageOnly: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: '#f1f5f9',
+  },
+  actionBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 11,
+    borderWidth: 1,
+  },
+  actionLabel: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 12.5,
+  },
+  progressTrack: {
+    height: 3,
+    width: '100%',
+    backgroundColor: '#ffffff10',
+  },
+  progressBar: {
+    height: 3,
+  },
+});
+
+export default Toast;
