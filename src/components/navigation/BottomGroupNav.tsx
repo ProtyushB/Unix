@@ -123,9 +123,8 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
           const isSingle   = group.items.length === 1;
           const isAccount  = group.id === 'account';
 
-          return (
+          const tab = (
             <TouchableOpacity
-              key={group.id}
               onPress={() =>
                 isSingle
                   ? navigation.navigate(group.items[0].route.tab as never)
@@ -137,18 +136,24 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
               accessibilityRole="tab"
             >
               {isAccount ? (
-                <View
-                  style={[
-                    styles.avatar,
-                    {
-                      backgroundColor: accountColor + '26',
-                      borderColor:     accountColor + '40',
-                    },
-                  ]}
-                >
-                  <Text style={[styles.avatarInitials, { color: accountColor }]}>
-                    {initialsOf(accountName)}
-                  </Text>
+                // Avatar sits inside a wrapper matching the iconWrap footprint
+                // (44×40) so its shorter height doesn't misalign the label. Uses
+                // its own style — not iconWrap — to avoid iconWrap's overflow
+                // clip swallowing the avatar.
+                <View style={styles.avatarWrap}>
+                  <View
+                    style={[
+                      styles.avatar,
+                      {
+                        backgroundColor: accountColor + '26',
+                        borderColor:     accountColor + '40',
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.avatarInitials, { color: accountColor }]}>
+                      {initialsOf(accountName)}
+                    </Text>
+                  </View>
                 </View>
               ) : (
                 <View style={[styles.iconWrap, tintActive && styles.iconWrapActive]}>
@@ -171,6 +176,17 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
                 {group.label}
               </Text>
             </TouchableOpacity>
+          );
+
+          // The Account (profile) tab is set off from the functional groups by
+          // a short vertical divider, per mockup `xmOUX`.
+          return isAccount ? (
+            <React.Fragment key={group.id}>
+              <View style={styles.navDivider} />
+              {tab}
+            </React.Fragment>
+          ) : (
+            <React.Fragment key={group.id}>{tab}</React.Fragment>
           );
         })}
       </ScrollView>
@@ -209,6 +225,13 @@ function createStyles(theme: AppTheme) {
       alignItems:      'center',
       gap:             5,
     },
+    navDivider: {
+      width:            1,
+      height:           32,
+      alignSelf:        'center',
+      marginHorizontal: 7,
+      backgroundColor:  theme.palette.divider,
+    },
     iconWrap: {
       width:          44,
       height:         40,
@@ -222,6 +245,12 @@ function createStyles(theme: AppTheme) {
     },
     iconWrapActive: {
       backgroundColor: theme.colors.softBg,
+    },
+    avatarWrap: {
+      width:          44,
+      height:         40,
+      alignItems:     'center',
+      justifyContent: 'center',
     },
     avatar: {
       width:          30,
