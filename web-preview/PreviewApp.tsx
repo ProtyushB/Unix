@@ -3,14 +3,14 @@ import React, { Suspense, useLayoutEffect, useMemo, useRef, useState, type React
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, type Metrics } from 'react-native-safe-area-context';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useTheme } from '../src/hooks/useTheme';
 import { ThemeProvider } from '../src/context/ThemeContext';
 import { AppProvider } from '../src/context/AppContext';
 import { SignupDraftProvider } from '../src/context/SignupDraftContext';
-import { RootNavigator } from '../src/navigation/RootNavigator';
+import { RootNavigator, navigationRef } from '../src/navigation/RootNavigator';
 import { REGISTRY, lazyScreen, type ScreenEntry } from './registry';
 
 // Sentinel id for the "run the whole app" mode (real RootNavigator + live nav).
@@ -46,6 +46,10 @@ const THEMES: { id: string; label: string }[] = [
 
 const Stack = createNativeStackNavigator();
 
+// Ref to the gallery's own NavigationContainer (Live App mode uses the app's
+// own `navigationRef`), so the harness Back button can drive goBack() in both.
+const galleryNavRef = createNavigationContainerRef();
+
 // The navigator lives inside ThemeProvider so it can paint the scene background
 // with the active app theme — otherwise React Navigation's DefaultTheme shows a
 // light-gray (#f2f2f2) backdrop through safe-area regions on dark themes.
@@ -65,7 +69,7 @@ function ThemedNavigator({ entry, Screen }: { entry: ScreenEntry; Screen: React.
     },
   };
   return (
-    <NavigationContainer theme={navTheme} documentTitle={{ enabled: false }}>
+    <NavigationContainer ref={galleryNavRef} theme={navTheme} documentTitle={{ enabled: false }}>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'none' }}>
         <Stack.Screen name={entry.id} component={Screen} initialParams={entry.params} />
       </Stack.Navigator>
@@ -231,10 +235,24 @@ export function PreviewApp() {
   // Remount the whole Stage on any of these so screen state / theme reset cleanly.
   const stageKey = `${selectedId}-${themeId}-${deviceKey}-${reloadKey}`;
 
+  // Simulate the hardware/OS back button: drive goBack() on whichever navigator
+  // is active (the app's own ref in Live App mode, the gallery's otherwise).
+  const goBack = () => {
+    const ref = isLive ? navigationRef : galleryNavRef;
+    if (ref.isReady() && ref.canGoBack()) ref.goBack();
+  };
+
   // The same controls, laid out horizontally in the top bar (sidebar open) or
   // stacked vertically inside the collapsed sidebar.
   const renderControls = (vertical: boolean) => (
     <div style={vertical ? styles.controlsV : styles.controls}>
+      <button
+        onClick={goBack}
+        style={vertical ? styles.backBtnV : styles.backBtn}
+        title="Back (hardware back / goBack)"
+      >
+        ‹ Back
+      </button>
       <label style={styles.ctrlLabel}>Device</label>
       <select
         style={vertical ? styles.selectV : styles.select}
@@ -434,6 +452,8 @@ const styles: Record<string, React.CSSProperties> = {
   // Auto width so each control is only as wide as its selected text needs.
   selectV: { width: 'auto', maxWidth: 200, background: '#161a22', border: '1px solid #262c3a', borderRadius: 8, color: '#e5e7eb', fontSize: 12, padding: '7px 8px', outline: 'none' },
   reload: { background: '#161a22', border: '1px solid #262c3a', borderRadius: 8, color: '#e5e7eb', fontSize: 12, padding: '6px 10px', cursor: 'pointer' },
+  backBtn: { background: '#161a22', border: '1px solid #262c3a', borderRadius: 8, color: '#e5e7eb', fontSize: 12, padding: '6px 10px', cursor: 'pointer' },
+  backBtnV: { alignSelf: 'flex-start', background: '#161a22', border: '1px solid #262c3a', borderRadius: 8, color: '#e5e7eb', fontSize: 12, padding: '6px 10px', cursor: 'pointer' },
   zoomBar: { display: 'flex', alignItems: 'center', gap: 6, background: '#161a22', border: '1px solid #262c3a', borderRadius: 999, padding: '4px 6px' },
   zoomBarV: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, alignSelf: 'flex-start', background: '#161a22', border: '1px solid #262c3a', borderRadius: 14, padding: '10px 8px' },
   zoomSliderV: { writingMode: 'vertical-lr', direction: 'rtl', width: 22, height: 104, accentColor: '#1d4ed8', cursor: 'pointer', margin: 0 },
