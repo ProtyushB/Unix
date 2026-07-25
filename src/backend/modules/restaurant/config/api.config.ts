@@ -1,6 +1,6 @@
+import { RESTAURANT_API_URL } from '../../../../config/env';
 
-
-export const RESTAURANT_BASE_URL = 'https://modulex.eternitytechnologies.in';
+export const RESTAURANT_BASE_URL = RESTAURANT_API_URL;
 
 export const RESTAURANT_ROUTES = {
   PRODUCTS_VIEW_ALL: '/restaurantProduct/viewAll',

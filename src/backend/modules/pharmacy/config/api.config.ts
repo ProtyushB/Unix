@@ -1,6 +1,6 @@
+import { PHARMACY_API_URL } from '../../../../config/env';
 
-
-export const PHARMACY_BASE_URL = 'https://modulex.eternitytechnologies.in';
+export const PHARMACY_BASE_URL = PHARMACY_API_URL;
 
 export const PHARMACY_ROUTES = {
   PRODUCTS_VIEW_ALL: '/pharmacyProduct/viewAll',

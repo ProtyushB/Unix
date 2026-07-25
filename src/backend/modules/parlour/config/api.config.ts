@@ -1,6 +1,6 @@
+import { PARLOUR_API_URL } from '../../../../config/env';
 
-
-export const PARLOUR_BASE_URL = 'https://modulex.eternitytechnologies.in';
+export const PARLOUR_BASE_URL = PARLOUR_API_URL;
 
 export const PARLOUR_ROUTES = {
   // Products

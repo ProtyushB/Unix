@@ -2,9 +2,9 @@
  * API Configuration for Person Module
  */
 
+import { PERSON_API_URL } from '../../../config/env';
 
-
-export const PERSON_BASE_URL: string = 'https://modulex.eternitytechnologies.in';
+export const PERSON_BASE_URL: string = PERSON_API_URL;
 
 export const PERSON_API_CONFIG = {
   BASE_URL: PERSON_BASE_URL,
