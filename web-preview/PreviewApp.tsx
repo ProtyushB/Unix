@@ -44,6 +44,13 @@ const THEMES: { id: string; label: string }[] = [
   { id: 'pearl', label: 'Pearl' }, { id: 'brocade', label: 'Brocade' },
 ];
 
+// Physical device frame, in device px: metal rail + inner bezel around the
+// screen. The screen itself stays exactly device.w × device.h so RN layout is
+// untouched — the frame only adds around it.
+const RAIL = 9;   // outer metal band
+const BEZEL = 6;  // black bezel between rail and glass
+const FRAME_PAD = RAIL + BEZEL;
+
 const Stack = createNativeStackNavigator();
 
 // Ref to the gallery's own NavigationContainer (Live App mode uses the app's
@@ -167,6 +174,17 @@ export function PreviewApp() {
   const entry = REGISTRY.find(e => e.id === selectedId);
   const device = DEVICES[deviceKey];
 
+  // ThemeProvider hydrates the theme from storage, so the picker must start
+  // from the same persisted value — otherwise it reports 'midnight' while a
+  // different theme is actually on screen.
+  useLayoutEffect(() => {
+    let alive = true;
+    AsyncStorage.getItem('theme')
+      .then(stored => { if (alive && stored) setThemeId(stored); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
   // Track the canvas size so "Fit" can shrink the frame to whatever space is
   // available (the browser pane is often shorter than an 844px phone).
   useLayoutEffect(() => {
@@ -202,9 +220,11 @@ export function PreviewApp() {
   // No upscale cap: Fit grows the device to fill whichever dimension is tighter,
   // so any device (small phone, tablet) fills the workspace instead of floating
   // small in it. Fitting the tighter axis keeps both axes on-screen (no scroll).
+  // Fit against the framed footprint (screen + rail + bezel), not just the
+  // screen, so the whole device body lands inside the pane.
   const fitScale = Math.min(
-    (avail.w - MARGIN) / device.w,
-    (avail.h - MARGIN) / device.h,
+    (avail.w - MARGIN) / (device.w + FRAME_PAD * 2),
+    (avail.h - MARGIN) / (device.h + FRAME_PAD * 2),
   );
   const scale = zoom === 'fit' ? (avail.w ? Math.max(fitScale, 0.1) : 1) : zoom;
 
@@ -395,26 +415,43 @@ export function PreviewApp() {
             // centered and the canvas never overflows; the inner phone renders
             // at true device pixels and is visually scaled (screens still lay
             // out at real device dimensions).
-            <div style={{ width: device.w * scale, height: device.h * scale, flexShrink: 0 }}>
+            <div
+              style={{
+                width: (device.w + FRAME_PAD * 2) * scale,
+                height: (device.h + FRAME_PAD * 2) * scale,
+                flexShrink: 0,
+              }}
+            >
               <div
                 style={{
-                  ...styles.phone,
-                  width: device.w,
-                  height: device.h,
+                  ...styles.deviceFrame,
+                  width: device.w + FRAME_PAD * 2,
+                  height: device.h + FRAME_PAD * 2,
                   transform: `scale(${scale})`,
                   transformOrigin: 'top left',
                 }}
               >
-                <ScreenBoundary
-                  key={stageKey}
-                  onError={() => setErrored(m => ({ ...m, [selectedId]: true }))}
-                >
-                  <Suspense fallback={<div style={styles.loading}>Loading…</div>}>
-                    {isLive
-                      ? <LiveApp device={device} />
-                      : <Stage entry={entry!} device={device} />}
-                  </Suspense>
-                </ScreenBoundary>
+                {/* Physical side buttons — purely cosmetic, sit on the rail. */}
+                <div style={styles.btnPower} />
+                <div style={styles.btnVolUp} />
+                <div style={styles.btnVolDown} />
+                <div style={styles.deviceBezel}>
+                  <div
+                    data-device-screen=""
+                    style={{ ...styles.deviceScreen, width: device.w, height: device.h }}
+                  >
+                    <ScreenBoundary
+                      key={stageKey}
+                      onError={() => setErrored(m => ({ ...m, [selectedId]: true }))}
+                    >
+                      <Suspense fallback={<div style={styles.loading}>Loading…</div>}>
+                        {isLive
+                          ? <LiveApp device={device} />
+                          : <Stage entry={entry!} device={device} />}
+                      </Suspense>
+                    </ScreenBoundary>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -463,8 +500,53 @@ const styles: Record<string, React.CSSProperties> = {
   zoomBtn: { width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f1115', border: '1px solid #262c3a', borderRadius: '50%', color: '#e5e7eb', fontSize: 15, lineHeight: 1, cursor: 'pointer', padding: 0 },
   zoomSlider: { width: 120, accentColor: '#1d4ed8', cursor: 'pointer' },
   zoomVal: { fontSize: 11, color: '#9ca3af', minWidth: 34, textAlign: 'right', fontVariantNumeric: 'tabular-nums' },
-  canvas: { flex: 1, overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 16 },
-  phone: { position: 'relative', flexShrink: 0, background: '#000', borderRadius: 36, overflow: 'hidden', boxShadow: '0 8px 28px rgba(0,0,0,0.5), 0 0 0 5px #111, 0 0 0 6px #2b3140', display: 'flex' },
+  // White so the device reads clearly against it — the phone's dark bezel ring
+  // keeps the edge visible for light-themed screens too.
+  canvas: { flex: 1, overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 16, background: '#ffffff' },
+  // ── Device body ───────────────────────────────────────────────────────────
+  // Brushed-metal rail. The gradient runs across the band so the light edges
+  // land on the left/right sides (specular highlight) and the middle stays
+  // dark, which is what reads as a rounded metal edge rather than flat color.
+  deviceFrame: {
+    position: 'relative',
+    flexShrink: 0,
+    padding: RAIL,
+    borderRadius: 54,
+    background:
+      'linear-gradient(100deg, #c2c9d4 0%, #7c8494 5%, #3a404c 14%, #23272f 30%, #1a1d24 50%, #23272f 70%, #3a404c 86%, #7c8494 95%, #c2c9d4 100%)',
+    boxShadow: [
+      '0 30px 60px rgba(15,23,42,0.30)',   // ambient cast shadow (grounds it)
+      '0 10px 22px rgba(15,23,42,0.22)',   // contact shadow
+      'inset 0 1px 1px rgba(255,255,255,0.65)',  // top edge catches the light
+      'inset 0 -1px 1px rgba(255,255,255,0.22)', // bottom bounce light
+      'inset 2px 0 2px rgba(255,255,255,0.14)',  // left rail sheen
+      'inset -2px 0 2px rgba(255,255,255,0.14)', // right rail sheen
+    ].join(', '),
+  },
+  // Recessed black bezel — the dark step between metal and glass that makes
+  // the screen look inset rather than painted on.
+  deviceBezel: {
+    width: '100%',
+    height: '100%',
+    padding: BEZEL,
+    borderRadius: 46,
+    background: '#07080a',
+    boxShadow: 'inset 0 2px 3px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.04)',
+    display: 'flex',
+  },
+  // The glass. Intentionally free of overlays/glare so screen colors stay
+  // exactly what the app renders — this harness is used to judge them.
+  deviceScreen: {
+    position: 'relative',
+    flexShrink: 0,
+    borderRadius: 40,
+    overflow: 'hidden',
+    background: '#000',
+    display: 'flex',
+  },
+  btnPower: { position: 'absolute', right: -3, top: '24%', width: 4, height: 74, borderRadius: 3, background: 'linear-gradient(90deg, #23272f 0%, #5c6472 45%, #9aa2b0 100%)', boxShadow: '1px 0 2px rgba(0,0,0,0.4)' },
+  btnVolUp: { position: 'absolute', left: -3, top: '30%', width: 4, height: 40, borderRadius: 3, background: 'linear-gradient(270deg, #23272f 0%, #5c6472 45%, #9aa2b0 100%)', boxShadow: '-1px 0 2px rgba(0,0,0,0.4)' },
+  btnVolDown: { position: 'absolute', left: -3, top: '30%', marginTop: 50, width: 4, height: 40, borderRadius: 3, background: 'linear-gradient(270deg, #23272f 0%, #5c6472 45%, #9aa2b0 100%)', boxShadow: '-1px 0 2px rgba(0,0,0,0.4)' },
   loading: { color: '#6b7280', fontSize: 14, padding: 24 },
   crash: { padding: 20, background: '#1a1114', color: '#fecaca', width: '100%', height: '100%', overflow: 'auto' },
   crashTitle: { fontWeight: 700, marginBottom: 10, color: '#f87171' },
