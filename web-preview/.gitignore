@@ -1,0 +1,2 @@
+# Vite cache / any local deps resolved under the preview folder
+node_modules/

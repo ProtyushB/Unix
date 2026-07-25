@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Unix · Screen Preview</title>
+    <script>
+      // React Native / RN-web libraries expect these Node-ish globals to exist.
+      // Define them before any module loads so stray `global` / `process.env`
+      // references never throw in the browser.
+      window.global = window;
+      window.process = window.process || { env: { NODE_ENV: 'development' } };
+    </script>
+    <style>
+      html, body, #root { height: 100%; margin: 0; }
+      #root { display: flex; }
+      * { box-sizing: border-box; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>
