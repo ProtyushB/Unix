@@ -49,7 +49,7 @@ pipeline {
                     def branch = (env.GIT_BRANCH ?: '').replaceFirst(/^origin\//, '')
                     def suffix
                     if (branch == 'dev')       { suffix = '-dev' }
-                    else if (branch == 'live') { suffix = '' }
+                    else if (branch == 'live') { suffix = '-live' }
                     else { error("Refusing to publish from unexpected branch '${branch}'") }
 
                     echo "Publishing APK -> /opt/centrix${suffix}/downloads/unix.apk"
