@@ -45,7 +45,12 @@ local.properties
 /ios/Pods/
 
 # Env
+# .env is the active config; .env.dev / .env.live / .env.main are the per-branch
+# copies you switch between (see .env.example). All of them hold real backend
+# URLs and stay out of git — .env.example is the only tracked one.
 .env
+.env.*
+!.env.example
 
 # Metro
 .metro-health-check*
