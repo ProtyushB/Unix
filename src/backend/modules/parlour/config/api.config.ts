@@ -20,6 +20,8 @@ export const PARLOUR_ROUTES = {
   // Orders
   ORDERS_VIEW_ALL: '/parlourOrder/viewAll',
   ORDERS_SUMMARY: '/parlourOrder/summary',
+  // PATCH /{id}/status — status-only change (cascades items, reconciles inventory, audits).
+  ORDERS_STATUS: '/parlourOrder',
   ORDERS_VIEW: '/parlourOrder/view',
   ORDERS_CREATE: '/parlourOrder/create',
   ORDERS_UPDATE: '/parlourOrder/update',

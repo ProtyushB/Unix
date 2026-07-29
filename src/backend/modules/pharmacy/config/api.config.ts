@@ -17,6 +17,8 @@ export const PHARMACY_ROUTES = {
 
   ORDERS_VIEW_ALL: '/pharmacyOrder/viewAll',
   ORDERS_SUMMARY: '/pharmacyOrder/summary',
+  // PATCH /{id}/status — status-only change (cascades items, reconciles inventory, audits).
+  ORDERS_STATUS: '/pharmacyOrder',
   ORDERS_VIEW: '/pharmacyOrder/view',
   ORDERS_CREATE: '/pharmacyOrder/create',
   ORDERS_UPDATE: '/pharmacyOrder/update',

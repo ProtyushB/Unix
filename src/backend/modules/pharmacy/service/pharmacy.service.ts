@@ -41,6 +41,11 @@ export class PharmacyService {
     if (!businessId) throw new Error('Business ID is required');
     return this.api.getOrderSummary(businessId, options);
   }
+  async updateOrderStatus(id: number, status: string, options: {userId?: number; reason?: string} = {}) {
+    if (!id) throw new Error('Order ID is required');
+    if (!status) throw new Error('Status is required');
+    return this.api.updateOrderStatus(id, status, options);
+  }
   async getOrderById(id: number) { return this.api.getOrderById(id); }
   async createOrder(data: Record<string, unknown>) {
     if (!data.customerId || !data.businessId) throw new Error('Customer ID and Business ID are required');

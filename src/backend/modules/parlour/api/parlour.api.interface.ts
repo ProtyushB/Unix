@@ -44,6 +44,7 @@ export abstract class ParlourApiInterface {
   // Orders
   abstract getAllOrders(businessId: number, page: number, limit: number, options?: OrderListOptions): Promise<ApiResponse<unknown[]>>;
   abstract getOrderSummary(businessId: number, options?: {fromDate?: string; toDate?: string}): Promise<ApiResponse<OrderSummary>>;
+  abstract updateOrderStatus(id: number, status: string, options?: {userId?: number; reason?: string}): Promise<ApiResponse<unknown>>;
   abstract getOrderById(id: number): Promise<ApiResponse<unknown>>;
   abstract createOrder(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateOrder(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;

@@ -55,6 +55,9 @@ interface ModuleService {
   // Optional: only modules whose backend exposes /{module}Order/summary implement it (Parlour,
   // Pharmacy). Restaurant omits it, so callers must guard with `service.getOrderSummary?.(...)`.
   getOrderSummary?(businessId: number, options?: {fromDate?: string; toDate?: string}): Promise<ServiceResult<OrderSummary>>;
+  // Optional for the same reason as getOrderSummary — only Parlour and Pharmacy expose
+  // PATCH /{module}Order/{id}/status. Callers must guard with `service.updateOrderStatus?.(...)`.
+  updateOrderStatus?(id: number, status: string, options?: {userId?: number; reason?: string}): Promise<ServiceResult>;
   createOrder(data: Record<string, unknown>): Promise<ServiceResult>;
   updateOrder(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteOrder(id: number): Promise<ServiceResult>;
@@ -412,6 +415,43 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           setOrderSummary(response.success && response.data ? response.data : null);
         } catch {
           setOrderSummary(null);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Orders V2 Quick Actions: change only an order's status. The backend cascades item statuses,
+     * reconciles inventory and writes the audit row, so the caller just refetches.
+     *
+     * Returns `{success, error, code}`. `code` carries the backend's ErrorCode — notably
+     * `ORDER_LOCKED` (HTTP 409) when the order sits on a finalized bill, which the screen shows as
+     * the "Couldn't cancel order" dialog rather than a generic failure.
+     */
+    const updateOrderStatus = useCallback(
+      async (orderId: number, status: string, reason?: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+          if (!service.updateOrderStatus) {
+            const message = 'Changing order status is not supported for this module';
+            setError(message);
+            return { success: false, error: message };
+          }
+          const response = await service.updateOrderStatus(orderId, status, { reason });
+          if (response.success) return { success: true, data: response.data };
+          const message = response.error || response.message || 'Failed to update order status';
+          setError(message);
+          return { success: false, error: message };
+        } catch (err) {
+          // Axios error → pull the wrapper out of the 409/400 body so callers can branch on `code`.
+          const body = (err as any)?.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to update order status';
+          setError(message);
+          return { success: false, error: message, code: body?.code, data: body?.data };
+        } finally {
+          setLoading(false);
         }
       },
       [service],
@@ -870,6 +910,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       loadOrders,
       loadOrderSummary,
       loadOrdersByCustomer,
+      updateOrderStatus,
       createOrder,
       updateOrder,
       deleteOrder,

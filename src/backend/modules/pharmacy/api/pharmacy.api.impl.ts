@@ -51,6 +51,10 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.get(PHARMACY_ROUTES.ORDERS_SUMMARY, {params: {businessId, ...options}});
     return res.data;
   }
+  async updateOrderStatus(id: number, status: string, options: {userId?: number; reason?: string} = {}): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.ORDERS_STATUS}/${id}/status`, null, {params: {status, ...options}});
+    return res.data;
+  }
   async getOrderById(id: number): Promise<ApiResponse<unknown>> {
     const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.ORDERS_VIEW}/${id}`);
     return res.data;

@@ -56,6 +56,10 @@ export class ParlourApiImpl extends ParlourApiInterface {
     const res = await parlourApiClient.get(PARLOUR_ROUTES.ORDERS_SUMMARY, {params: {businessId, ...options}});
     return res.data;
   }
+  async updateOrderStatus(id: number, status: string, options: {userId?: number; reason?: string} = {}): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.patch(`${PARLOUR_ROUTES.ORDERS_STATUS}/${id}/status`, null, {params: {status, ...options}});
+    return res.data;
+  }
   async getOrderById(id: number): Promise<ApiResponse<unknown>> {
     const res = await parlourApiClient.get(`${PARLOUR_ROUTES.ORDERS_VIEW}/${id}`);
     return res.data;
