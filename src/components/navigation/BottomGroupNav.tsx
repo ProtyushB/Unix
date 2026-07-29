@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,13 @@ import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { useBlurTargets } from '../common/BlurTargetContext';
 import type { AppTheme } from '../../theme/theme.types';
-import { NAV_GROUPS, findGroupByTabName } from '../../navigation/navGroups';
+import {
+  NAV_GROUPS,
+  filterNavGroupsByTabs,
+  findGroupByTabName,
+} from '../../navigation/navGroups';
+import { useTabGateRedirect } from '../../navigation/useTabGateRedirect';
+import { useTabConfig } from '../../backend/tab-config';
 import {
   openGroupSheet,
   setActiveTabName,
@@ -44,6 +50,10 @@ function initialsOf(name: string): string {
 // Per mockup `xmOUX`: the active tint sits on a borderless accent-soft pill
 // behind the icon only (not the whole tab), and the Account tab renders a
 // user-initials avatar instead of a group icon.
+//
+// Which groups appear is driven by the per-business tab config, exactly like the
+// Centrix web sidebar: an item whose tabKey is off drops out of its group's
+// sheet, and a group left with no items drops off the bar entirely.
 
 export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
   const theme = useTheme();
@@ -53,6 +63,15 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
   const { openGroupId } = useGroupSheetState();
   const { gradientTarget } = useBlurTargets();
   const isDark = theme.mode === 'dark';
+
+  const { tabs } = useTabConfig();
+  const visibleGroups = useMemo(
+    () => filterNavGroupsByTabs(NAV_GROUPS, tabs),
+    [tabs],
+  );
+
+  // Bounce off a screen whose tab just got switched off.
+  useTabGateRedirect(state, navigation);
 
   const [accountName, setAccountName] = useState('User');
   useEffect(() => {
@@ -72,6 +91,8 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
   const accountColor = avatar.forName(accountName).bg;
 
   const activeTabName = state.routes[state.index].name;
+  // Deliberately the UNFILTERED lookup: if the active group was just filtered
+  // out, no tab highlights for the frame or two before the redirect lands.
   const activeGroupId = findGroupByTabName(activeTabName)?.id;
 
   useEffect(() => {
@@ -115,11 +136,13 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={[styles.barContent, styles.barScrollContent]}
       >
-        {NAV_GROUPS.map(group => {
+        {visibleGroups.map(group => {
           const GroupIcon  = group.groupIcon;
           const isActive   = activeGroupId === group.id;
           const isOpen     = openGroupId   === group.id;
           const tintActive = isActive || isOpen;
+          // Counts VISIBLE items: a group filtered down to one surviving item
+          // navigates straight there instead of opening a one-row sheet.
           const isSingle   = group.items.length === 1;
           const isAccount  = group.id === 'account';
 

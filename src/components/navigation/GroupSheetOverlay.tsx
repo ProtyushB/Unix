@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { useBlurTargets } from '../common/BlurTargetContext';
 import type { AppTheme } from '../../theme/theme.types';
-import { NAV_GROUPS } from '../../navigation/navGroups';
+import { NAV_GROUPS, filterNavGroupsByTabs } from '../../navigation/navGroups';
+import { useTabConfig } from '../../backend/tab-config';
 import {
   useGroupSheetState,
   closeGroupSheet,
@@ -38,6 +39,14 @@ export function GroupSheetOverlay() {
   const insets = useSafeAreaInsets();
   const { contentTarget } = useBlurTargets();
   const isDark = theme.mode === 'dark';
+
+  // Same filter the bar applies, so the sheet lists exactly the items whose tab
+  // the group's bar entry is claiming to hold.
+  const { tabs } = useTabConfig();
+  const visibleGroups = useMemo(
+    () => filterNavGroupsByTabs(NAV_GROUPS, tabs),
+    [tabs],
+  );
 
   const slideAnim   = useRef(new Animated.Value(400)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
@@ -74,8 +83,21 @@ export function GroupSheetOverlay() {
     }
   }, [openGroupId]);
 
+  // The open group can vanish mid-session — a refetch or a business switch turns
+  // off its last item. Hard-cut rather than animate out: the render below already
+  // short-circuits to null, so an exit animation would play against nothing and
+  // the bar tab would keep its "open" tint.
+  useEffect(() => {
+    if (!openGroupId) return;
+    if (visibleGroups.some(g => g.id === openGroupId)) return;
+    closeGroupSheet();
+    setRenderedGroupId(null);
+    slideAnim.setValue(400);
+    overlayAnim.setValue(0);
+  }, [openGroupId, visibleGroups, slideAnim, overlayAnim]);
+
   const group = renderedGroupId
-    ? NAV_GROUPS.find(g => g.id === renderedGroupId)
+    ? visibleGroups.find(g => g.id === renderedGroupId)
     : null;
   if (!group) return null;
 

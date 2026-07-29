@@ -23,6 +23,7 @@ export type OwnerTabParamList = {
   Consumptions: undefined;
   StockTransfers: undefined;
   Wastage: undefined;
+  Expenses: undefined;
   Customers: undefined;
   Employees: undefined;
   WarrantyClaims: undefined;
