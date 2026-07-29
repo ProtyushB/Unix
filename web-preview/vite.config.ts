@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
@@ -15,6 +15,28 @@ import path from 'node:path';
 const previewRoot = __dirname;
 const repoRoot = path.resolve(previewRoot, '..');
 
+// The keys the app actually reads off `react-native-config` (src/config/env.ts
+// and src/config/features.ts). Enumerated rather than passing the whole loaded
+// env through: loadEnv with an empty prefix also returns process.env, and none
+// of the machine's environment belongs in a bundle.
+const RN_CONFIG_KEYS = [
+  'AUTH_API_URL',
+  'PERSON_API_URL',
+  'PARLOUR_API_URL',
+  'PHARMACY_API_URL',
+  'RESTAURANT_API_URL',
+  'DMS_API_URL',
+  'DMS_APP_ROOT_FOLDER_ID',
+  'DMS_BUSINESS_APP_ROOT_FOLDER_ID',
+  'PAYMENT_QR_FILE_ID',
+] as const;
+
+// Virtual module the react-native-config stub imports. A module rather than a
+// `define` substitution: define only rewrites bare identifiers, and the stub's
+// `typeof __RN_CONFIG__` guard slipped through unreplaced.
+const RN_CONFIG_MODULE = 'virtual:rn-config';
+const RN_CONFIG_MODULE_RESOLVED = '\0' + RN_CONFIG_MODULE;
+
 // Web-first resolution: a Foo.web.tsx wins over Foo.tsx, matching RN's own
 // platform-extension rules so any web-specific overrides are picked up.
 const rnExtensions = [
@@ -22,10 +44,28 @@ const rnExtensions = [
   '.tsx', '.ts', '.jsx', '.js', '.json',
 ];
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Read the repo-root .env — the same file react-native-config bakes into a
+  // native build — so the preview talks to whichever backend the build would.
+  // '' as the prefix because these keys are not VITE_-prefixed.
+  const rootEnv = loadEnv(mode, repoRoot, '');
+  const rnConfig = Object.fromEntries(
+    RN_CONFIG_KEYS.filter(k => rootEnv[k]).map(k => [k, rootEnv[k]]),
+  );
+
+  return {
   root: previewRoot,
   cacheDir: path.resolve(previewRoot, 'node_modules/.vite'),
   plugins: [
+    {
+      name: 'rn-config-env',
+      resolveId: (id: string) =>
+        id === RN_CONFIG_MODULE ? RN_CONFIG_MODULE_RESOLVED : null,
+      load: (id: string) =>
+        id === RN_CONFIG_MODULE_RESOLVED
+          ? `export default ${JSON.stringify(rnConfig)}`
+          : null,
+    },
     react({
       // Run the worklets babel plugin over project source (../src) so screens
       // that define reanimated worklets don't crash on web. node_modules are
@@ -79,4 +119,5 @@ export default defineConfig({
     // Screens live in ../src, outside this Vite root — allow serving them.
     fs: { allow: [repoRoot] },
   },
+  };
 });

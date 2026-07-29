@@ -1,11 +1,16 @@
 // Web stub for `react-native-config`, which has no browser build.
 //
-// The app only reads a couple of keys from it (see src/config/features.ts), and
-// always at import time, so a plain object with the .env defaults is enough for
-// UI preview. Any missing key returns '' rather than throwing.
-const values: Record<string, string> = {
-  PAYMENT_QR_FILE_ID: '0',
-};
+// Values come from the repo-root .env — the same file react-native-config bakes
+// into a native build — read by web-preview/vite.config.ts and served as the
+// `virtual:rn-config` module. So the preview talks to whichever backend the APK
+// would, and repointing .env moves both together.
+//
+// Any missing key returns '' rather than throwing, which is what makes
+// src/config/env.ts log its "missing .env" warning and fall back to localhost.
+// @ts-expect-error — virtual module supplied by the rn-config-env Vite plugin.
+import rnConfig from 'virtual:rn-config';
+
+const values: Record<string, string> = { ...(rnConfig as Record<string, string>) };
 
 const Config = new Proxy(values, {
   get: (target, key: string) => (key in target ? target[key] : ''),
