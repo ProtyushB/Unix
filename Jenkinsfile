@@ -43,6 +43,44 @@ pipeline {
             }
         }
 
+        stage('Verify Baked URLs') {
+            steps {
+                script {
+                    // Staging the right .env is necessary but NOT sufficient: react-native-config
+                    // reads those values by reflection, so R8 silently stripped BuildConfig and
+                    // every release APK fell back to the localhost defaults in src/config/env.ts.
+                    // Nothing failed — the build was green, the APK installed, and it simply
+                    // talked to nothing. Assert the URLs survived minification instead of trusting
+                    // that they did.
+                    def branch = (env.GIT_BRANCH ?: '').replaceFirst(/^origin\//, '')
+                    def expected, wrong
+                    if (branch == 'dev')       { expected = 'auth.dev.eternitytechnologies.in';  wrong = 'auth.live.eternitytechnologies.in' }
+                    else if (branch == 'live') { expected = 'auth.live.eternitytechnologies.in'; wrong = 'auth.dev.eternitytechnologies.in'  }
+                    else { error("Refusing to verify an unexpected branch '${branch}'") }
+
+                    sh """
+                        set -e
+                        rm -rf verify-apk && mkdir verify-apk
+                        unzip -qo android/app/build/outputs/apk/release/app-release.apk 'classes*.dex' -d verify-apk
+
+                        grep -aq '${expected}' verify-apk/classes*.dex || {
+                            echo "FAIL: '${expected}' is not baked into the APK."
+                            echo "R8 has most likely stripped com.unixtemp.BuildConfig again — react-native-config"
+                            echo "reads it reflectively, so it needs the -keep rule in android/app/proguard-rules.pro."
+                            exit 1
+                        }
+
+                        if grep -aq '${wrong}' verify-apk/classes*.dex; then
+                            echo "FAIL: the APK also contains '${wrong}' — the wrong .env was staged."
+                            exit 1
+                        fi
+
+                        echo "OK: APK is baked against ${expected}"
+                    """
+                }
+            }
+        }
+
         stage('Publish APK') {
             steps {
                 script {
