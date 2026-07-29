@@ -21,6 +21,14 @@ import Config from 'react-native-config';
  * fail immediately and visibly. Defaulting to production would silently
  * recreate the very bug this module exists to prevent — a "dev" build quietly
  * reading and writing live data.
+ *
+ * These apply to DEV BUILDS ONLY. A release build with no config throws — see
+ * `readBaseUrl`. Falling back to localhost in a release APK is never right: no
+ * phone is running the backends, so the app simply fails at every call with no
+ * indication why. That is not hypothetical — it shipped. R8 stripped the
+ * BuildConfig class that `react-native-config` reads reflectively, this module
+ * quietly substituted localhost, and every release APK from 6b86641 onward
+ * talked to nothing while looking completely healthy.
  */
 const LOCAL_DEFAULTS: Record<string, string> = {
   AUTH_API_URL: 'http://localhost:8085',
@@ -38,6 +46,25 @@ const LOCAL_DEFAULTS: Record<string, string> = {
 function readBaseUrl(name: keyof typeof LOCAL_DEFAULTS): string {
   const value = Config[name];
   if (!value) {
+    // `__DEV__` is undefined only outside React Native's bundler and the web
+    // preview (which defines it as true), so treating that as a release build
+    // is the strict reading — an unknown environment fails loudly rather than
+    // inheriting the localhost fallback by accident.
+    const isDevBuild = typeof __DEV__ !== 'undefined' && __DEV__;
+
+    if (!isDevBuild) {
+      throw new Error(
+        `[env] ${name} is missing from a RELEASE build. The APK has no backend to ` +
+          'talk to and must not start.\n\n' +
+          'Two causes, both silent:\n' +
+          '  1. R8 stripped com.unixtemp.BuildConfig — react-native-config reads it by ' +
+          'reflection, so it needs the -keep rule in android/app/proguard-rules.pro.\n' +
+          '  2. The build ran without a .env staged (Jenkins copies it per branch).\n\n' +
+          'The Verify Baked URLs stage in the Jenkinsfile is meant to catch both before ' +
+          'publish; if you are seeing this on a device, that stage was skipped or removed.',
+      );
+    }
+
     console.warn(
       `[env] ${name} is not set — falling back to ${LOCAL_DEFAULTS[name]}. ` +
         'This build is missing its .env and will not reach a real backend.',
