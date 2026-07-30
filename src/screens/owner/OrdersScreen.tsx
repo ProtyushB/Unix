@@ -37,6 +37,7 @@ import { FAB } from '../../components/layout/FAB';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useToast } from '../../hooks/useToast';
 import type { AppTheme } from '../../theme/theme.types';
 import { formatCurrency } from '../../utils/formatters';
 import { DATE_PRESETS, rangeForPreset, toYmd, type DatePresetId } from '../../utils/dateRange';
@@ -215,6 +216,7 @@ export function OrdersScreen() {
   const theme = useTheme();
   const { colors, palette } = theme;
   const styles = useThemedStyles(createStyles);
+  const { showToast } = useToast();
 
   const { selectedModule } = useAppContext();
   const parlour = useParlour();
@@ -237,9 +239,8 @@ export function OrdersScreen() {
 
   const [sheet, setSheet] = useState<null | 'filter' | 'actions'>(null);
   const [activeOrder, setActiveOrder] = useState<OrderRow | null>(null);
-  const [dialog, setDialog] = useState<null | 'cancelConfirm' | 'cancelBlocked'>(null);
-  const [blockedTitle, setBlockedTitle] = useState("Couldn't update order");
-  const [blockedMessage, setBlockedMessage] = useState('');
+  // Cancel-blocked is a toast, not a dialog — see the mockup and the note in changeStatus.
+  const [dialog, setDialog] = useState<null | 'cancelConfirm'>(null);
 
   const pageRef = useRef(1);
   const loadingMoreRef = useRef(false);
@@ -452,21 +453,32 @@ export function OrdersScreen() {
         reload();
         return;
       }
+      // Dismiss the sheet and dialog BEFORE reporting. The action was refused, so leaving the
+      // sheet up just invites a retry loop against a lock that will not clear from here.
+      setSheet(null);
+      setActiveOrder(null);
+      setDialog(null);
+
       // Title follows the action the user actually took — a failed "Processing" must not
       // say "Couldn't cancel order".
       const cancelling = status === 'CANCELLED';
-      setBlockedTitle(cancelling ? "Couldn't cancel order" : "Couldn't update order");
 
       // A finalized bill freezes the order's status — that reason is worth showing verbatim.
       // Anything else gets a friendly line: raw server text ("No static resource …") is noise.
-      setBlockedMessage(
+      showToast(
         (res as any)?.code === 'ORDER_LOCKED'
           ? `This order has a finalized bill. Void the bill before it can be ${cancelling ? 'cancelled' : 'updated'}.`
           : 'Something went wrong while updating this order. Please try again.',
+        'error',
+        {
+          title: cancelling ? "Couldn't cancel order" : "Couldn't update order",
+          // Longer than the 3500ms default: the bill-lock message runs to two lines and tells
+          // the user to go do something else first.
+          duration: 5000,
+        },
       );
-      setDialog('cancelBlocked');
     },
-    [activeModule, reload],
+    [activeModule, reload, showToast],
   );
 
   const contactCustomer = useCallback((order: OrderRow) => {
@@ -816,15 +828,6 @@ export function OrdersScreen() {
           onCancel={() => setDialog(null)}
         />
       )}
-
-      {dialog === 'cancelBlocked' && (
-        <NoticeDialog
-          styles={styles}
-          title={blockedTitle}
-          message={blockedMessage}
-          onClose={() => setDialog(null)}
-        />
-      )}
     </SafeAreaView>
   );
 }
@@ -875,28 +878,6 @@ function HeroBlock({
         </Pressable>
       )}
     </View>
-  );
-}
-
-// ─── Notice dialog (single action) ───────────────────────────────────────────
-
-function NoticeDialog({
-  styles, title, message, onClose,
-}: {
-  styles: any; title: string; message: string; onClose: () => void;
-}) {
-  return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.dialogOverlay}>
-        <View style={styles.dialogCard}>
-          <Text style={styles.dialogTitle}>{title}</Text>
-          <Text style={styles.dialogMessage}>{message}</Text>
-          <Pressable style={styles.dialogBtn} onPress={onClose}>
-            <Text style={styles.dialogBtnLabel}>Got it</Text>
-          </Pressable>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -1320,24 +1301,6 @@ function createStyles(theme: AppTheme) {
     actionMid: { flex: 1, gap: 2 },
     actionLabel: { fontSize: 15, fontWeight: '500', color: theme.palette.onBackground },
     actionSub: { fontSize: 12, color: theme.palette.muted },
-
-    // Notice dialog
-    dialogOverlay: {
-      flex: 1, alignItems: 'center', justifyContent: 'center',
-      backgroundColor: theme.palette.overlay ?? '#00000088', paddingHorizontal: 32,
-    },
-    dialogCard: {
-      width: '100%', borderRadius: 18, padding: 22, gap: 10,
-      backgroundColor: theme.palette.surfaceElevated ?? theme.palette.surface,
-      borderWidth: 1, borderColor: theme.palette.divider,
-    },
-    dialogTitle: { fontSize: 17, fontWeight: '700', color: theme.palette.onBackground },
-    dialogMessage: { fontSize: 13, lineHeight: 19, color: theme.palette.muted },
-    dialogBtn: {
-      marginTop: 6, height: 44, borderRadius: 12,
-      alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.primary,
-    },
-    dialogBtnLabel: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
 
     footer: { paddingVertical: 16 },
   });
