@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { CreditCard } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Toast } from '../../components/common/Toast';
 import { useToast } from '../../hooks/useToast';
 import AuthBackground from '../../components/auth/AuthBackground';
 import AuthBarMask from '../../components/auth/AuthBarMask';
@@ -42,7 +41,7 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
-  const { toasts, showToast, dismissToast } = useToast();
+  const { showToast } = useToast();
 
   const handleConfirm = async ({
     employeeCode,
@@ -103,8 +102,6 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <AuthBackground />
       <AuthBarMask />
-      <Toast toasts={toasts} onDismiss={dismissToast} />
-
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -8,7 +8,6 @@ import {AppButton} from '../../components/common/AppButton';
 import {StatusPill} from '../../components/common/StatusPill';
 import {ConfirmDialog} from '../../components/common/ConfirmDialog';
 import {LoadingSpinner} from '../../components/common/LoadingSpinner';
-import {Toast} from '../../components/common/Toast';
 import {formatDate, formatDateTime} from '../../utils/formatters';
 import {useAppContext} from '../../context/AppContext';
 import {useParlour} from '../../backend/modules/parlour/hook/useParlour';
@@ -29,7 +28,7 @@ export const AppointmentDetailScreen: React.FC<Props> = ({route, navigation}) =>
   const parlour = useParlour();
   const pharmacy = usePharmacy();
   const restaurant = useRestaurant();
-  const {toasts, showToast} = useToast();
+  const {showToast} = useToast();
 
   const activeModule =
     selectedModule?.toLowerCase().includes('restaurant') ? restaurant
@@ -169,8 +168,6 @@ export const AppointmentDetailScreen: React.FC<Props> = ({route, navigation}) =>
         onConfirm={handleCancel}
         onCancel={() => setCancelConfirm(false)}
       />
-
-      <Toast toasts={toasts} />
     </ScreenWrapper>
   );
 };

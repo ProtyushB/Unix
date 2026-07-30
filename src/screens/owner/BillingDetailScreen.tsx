@@ -7,7 +7,6 @@ import {AppCard} from '../../components/common/AppCard';
 import {AppButton} from '../../components/common/AppButton';
 import {StatusPill} from '../../components/common/StatusPill';
 import {LoadingSpinner} from '../../components/common/LoadingSpinner';
-import {Toast} from '../../components/common/Toast';
 import {formatCurrency, formatDate} from '../../utils/formatters';
 import {useAppContext} from '../../context/AppContext';
 import {useParlour} from '../../backend/modules/parlour/hook/useParlour';
@@ -27,7 +26,7 @@ export const BillingDetailScreen: React.FC<Props> = ({route}) => {
   const parlour = useParlour();
   const pharmacy = usePharmacy();
   const restaurant = useRestaurant();
-  const {toasts, showToast} = useToast();
+  const {showToast} = useToast();
 
   const activeModule =
     selectedModule?.toLowerCase().includes('restaurant') ? restaurant
@@ -160,9 +159,7 @@ export const BillingDetailScreen: React.FC<Props> = ({route}) => {
         {bill?.status !== 'PAID' && (
           <AppButton title="Mark as Paid" onPress={handleMarkPaid} style={styles.actionBtn} />
         )}
-      </ScrollView>
-      <Toast toasts={toasts} />
-    </ScreenWrapper>
+      </ScrollView>    </ScreenWrapper>
   );
 };
 

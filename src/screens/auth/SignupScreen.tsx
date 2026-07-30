@@ -14,7 +14,6 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppInput } from '../../components/common/AppInput';
 import PasswordInput from '../../components/forms/PasswordInput';
 import AppButton from '../../components/common/AppButton';
-import { Toast } from '../../components/common/Toast';
 import { useToast } from '../../hooks/useToast';
 import AuthBackground from '../../components/auth/AuthBackground';
 import AuthBarMask from '../../components/auth/AuthBarMask';
@@ -74,7 +73,7 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
-  const { toasts, showToast, dismissToast } = useToast();
+  const { showToast } = useToast();
   const { setDraft, setClaim, clearClaim } = useSignupDraft();
   const authService = getAuthService();
   const personService = getPersonService();
@@ -258,8 +257,6 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <AuthBackground />
       <AuthBarMask />
-      <Toast toasts={toasts} onDismiss={dismissToast} />
-
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

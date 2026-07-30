@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getLoggedInUser, LoggedInUser } from '../../storage/auth.storage';
+import { CUSTOMER_PORTAL_ENABLED } from '../../utils/portals';
 import { getUserProfile, setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
@@ -106,6 +107,13 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const navigateToCustomer = () => {
+    // Kill switch — see CUSTOMER_PORTAL_ENABLED. Guarded here rather than at the
+    // call sites because this covers both the 1.5s auto-navigate for single-role
+    // users and a manual tap on the customer card.
+    if (!CUSTOMER_PORTAL_ENABLED) {
+      navigateToOwner();
+      return;
+    }
     if (autoNavRef.current) {
       clearTimeout(autoNavRef.current);
     }

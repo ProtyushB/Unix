@@ -15,7 +15,6 @@ import {AppCard} from '../../components/common/AppCard';
 import {AppButton} from '../../components/common/AppButton';
 import {StatusPill} from '../../components/common/StatusPill';
 import {LoadingSpinner} from '../../components/common/LoadingSpinner';
-import {Toast} from '../../components/common/Toast';
 import BottomSheet, {BottomSheetView} from '@gorhom/bottom-sheet';
 import {formatCurrency, formatDate} from '../../utils/formatters';
 import {useAppContext} from '../../context/AppContext';
@@ -37,7 +36,7 @@ export const OrderDetailScreen: React.FC<Props> = ({route, navigation}) => {
   const parlour = useParlour();
   const pharmacy = usePharmacy();
   const restaurant = useRestaurant();
-  const {toasts, showToast} = useToast();
+  const {showToast} = useToast();
 
   const activeModule =
     selectedModule?.toLowerCase().includes('restaurant') ? restaurant
@@ -178,8 +177,6 @@ export const OrderDetailScreen: React.FC<Props> = ({route, navigation}) => {
           </View>
         </View>
       )}
-
-      <Toast toasts={toasts} />
     </ScreenWrapper>
   );
 };
