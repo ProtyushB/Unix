@@ -8,19 +8,19 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     return res.data;
   }
   async getProductById(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.PRODUCTS_VIEW}/${id}`);
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.PRODUCTS_BASE}/${id}`);
     return res.data;
   }
   async createProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.PRODUCTS_CREATE, data);
+    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.PRODUCTS_BASE, data);
     return res.data;
   }
   async updateProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.put(PHARMACY_ROUTES.PRODUCTS_UPDATE, data);
+    const res = await pharmacyApiClient.put(PHARMACY_ROUTES.PRODUCTS_BASE, data);
     return res.data;
   }
   async deleteProduct(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.PRODUCTS_DELETE}/${id}`);
+    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.PRODUCTS_BASE}/${id}`);
     return res.data;
   }
   async getAllServices(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>> {
@@ -28,19 +28,19 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     return res.data;
   }
   async getServiceById(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.SERVICES_VIEW}/${id}`);
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.SERVICES_BASE}/${id}`);
     return res.data;
   }
   async createService(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.SERVICES_CREATE, data);
+    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.SERVICES_BASE, data);
     return res.data;
   }
   async updateService(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.put(PHARMACY_ROUTES.SERVICES_UPDATE, data);
+    const res = await pharmacyApiClient.put(PHARMACY_ROUTES.SERVICES_BASE, data);
     return res.data;
   }
   async deleteService(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.SERVICES_DELETE}/${id}`);
+    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.SERVICES_BASE}/${id}`);
     return res.data;
   }
   async getAllOrders(businessId: number, page: number, limit: number, options: OrderListOptions = {}): Promise<ApiResponse<unknown[]>> {
@@ -52,23 +52,23 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     return res.data;
   }
   async updateOrderStatus(id: number, status: string, options: {userId?: number; reason?: string} = {}): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.ORDERS_STATUS}/${id}/status`, null, {params: {status, ...options}});
+    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.ORDERS_BASE}/${id}/status`, null, {params: {status, ...options}});
     return res.data;
   }
   async getOrderById(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.ORDERS_VIEW}/${id}`);
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.ORDERS_BASE}/${id}`);
     return res.data;
   }
   async createOrder(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.ORDERS_CREATE, data);
+    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.ORDERS_BASE, data);
     return res.data;
   }
   async updateOrder(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.put(PHARMACY_ROUTES.ORDERS_UPDATE, data);
+    const res = await pharmacyApiClient.put(PHARMACY_ROUTES.ORDERS_BASE, data);
     return res.data;
   }
   async deleteOrder(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.ORDERS_DELETE}/${id}`);
+    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.ORDERS_BASE}/${id}`);
     return res.data;
   }
   async getOrdersByCustomer(customerId: number, options: Record<string, unknown>): Promise<ApiResponse<unknown[]>> {
@@ -93,19 +93,19 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     return res.data;
   }
   async getAppointmentById(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.APPOINTMENTS_VIEW}/${id}`);
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${id}`);
     return res.data;
   }
   async createAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.APPOINTMENTS_CREATE, data);
+    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.APPOINTMENTS_BASE, data);
     return res.data;
   }
   async updateAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.put(PHARMACY_ROUTES.APPOINTMENTS_UPDATE, data);
+    const res = await pharmacyApiClient.put(PHARMACY_ROUTES.APPOINTMENTS_BASE, data);
     return res.data;
   }
   async deleteAppointment(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.APPOINTMENTS_DELETE}/${id}`);
+    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${id}`);
     return res.data;
   }
   async getAppointmentsByCustomer(customerId: number, options: Record<string, unknown>): Promise<ApiResponse<unknown[]>> {
@@ -117,7 +117,7 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     return res.data;
   }
   async getBillById(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.BILLS_VIEW}/${id}`);
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.BILLS_BASE}/${id}`);
     return res.data;
   }
   async getBillsByBusiness(businessId: number): Promise<ApiResponse<unknown[]>> {
@@ -129,15 +129,15 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     return res.data;
   }
   async createBill(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.BILLS_CREATE, data);
+    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.BILLS_BASE, data);
     return res.data;
   }
   async updateBill(billId: number, data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.put(`${PHARMACY_ROUTES.BILLS_UPDATE}/${billId}`, data);
+    const res = await pharmacyApiClient.put(`${PHARMACY_ROUTES.BILLS_BASE}/${billId}`, data);
     return res.data;
   }
   async deleteBill(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.BILLS_DELETE}/${id}`);
+    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.BILLS_BASE}/${id}`);
     return res.data;
   }
   async addInventoryBatch(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {

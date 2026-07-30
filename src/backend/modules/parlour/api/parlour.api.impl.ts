@@ -9,19 +9,19 @@ export class ParlourApiImpl extends ParlourApiInterface {
     return res.data;
   }
   async getProductById(id: number): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.PRODUCTS_VIEW}/${id}`);
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.PRODUCTS_BASE}/${id}`);
     return res.data;
   }
   async createProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.post(PARLOUR_ROUTES.PRODUCTS_CREATE, data);
+    const res = await parlourApiClient.post(PARLOUR_ROUTES.PRODUCTS_BASE, data);
     return res.data;
   }
   async updateProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.put(PARLOUR_ROUTES.PRODUCTS_UPDATE, data);
+    const res = await parlourApiClient.put(PARLOUR_ROUTES.PRODUCTS_BASE, data);
     return res.data;
   }
   async deleteProduct(id: number): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.PRODUCTS_DELETE}/${id}`);
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.PRODUCTS_BASE}/${id}`);
     return res.data;
   }
 
@@ -31,19 +31,19 @@ export class ParlourApiImpl extends ParlourApiInterface {
     return res.data;
   }
   async getServiceById(id: number): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.SERVICES_VIEW}/${id}`);
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.SERVICES_BASE}/${id}`);
     return res.data;
   }
   async createService(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.post(PARLOUR_ROUTES.SERVICES_CREATE, data);
+    const res = await parlourApiClient.post(PARLOUR_ROUTES.SERVICES_BASE, data);
     return res.data;
   }
   async updateService(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.put(PARLOUR_ROUTES.SERVICES_UPDATE, data);
+    const res = await parlourApiClient.put(PARLOUR_ROUTES.SERVICES_BASE, data);
     return res.data;
   }
   async deleteService(id: number): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.SERVICES_DELETE}/${id}`);
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.SERVICES_BASE}/${id}`);
     return res.data;
   }
 
@@ -57,23 +57,23 @@ export class ParlourApiImpl extends ParlourApiInterface {
     return res.data;
   }
   async updateOrderStatus(id: number, status: string, options: {userId?: number; reason?: string} = {}): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.patch(`${PARLOUR_ROUTES.ORDERS_STATUS}/${id}/status`, null, {params: {status, ...options}});
+    const res = await parlourApiClient.patch(`${PARLOUR_ROUTES.ORDERS_BASE}/${id}/status`, null, {params: {status, ...options}});
     return res.data;
   }
   async getOrderById(id: number): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.ORDERS_VIEW}/${id}`);
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.ORDERS_BASE}/${id}`);
     return res.data;
   }
   async createOrder(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.post(PARLOUR_ROUTES.ORDERS_CREATE, data);
+    const res = await parlourApiClient.post(PARLOUR_ROUTES.ORDERS_BASE, data);
     return res.data;
   }
   async updateOrder(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.put(PARLOUR_ROUTES.ORDERS_UPDATE, data);
+    const res = await parlourApiClient.put(PARLOUR_ROUTES.ORDERS_BASE, data);
     return res.data;
   }
   async deleteOrder(id: number): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.ORDERS_DELETE}/${id}`);
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.ORDERS_BASE}/${id}`);
     return res.data;
   }
   async getOrdersByCustomer(customerId: number, options: Record<string, unknown>): Promise<ApiResponse<unknown[]>> {
@@ -101,19 +101,19 @@ export class ParlourApiImpl extends ParlourApiInterface {
     return res.data;
   }
   async getAppointmentById(id: number): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.APPOINTMENTS_VIEW}/${id}`);
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.APPOINTMENTS_BASE}/${id}`);
     return res.data;
   }
   async createAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.post(PARLOUR_ROUTES.APPOINTMENTS_CREATE, data);
+    const res = await parlourApiClient.post(PARLOUR_ROUTES.APPOINTMENTS_BASE, data);
     return res.data;
   }
   async updateAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.put(PARLOUR_ROUTES.APPOINTMENTS_UPDATE, data);
+    const res = await parlourApiClient.put(PARLOUR_ROUTES.APPOINTMENTS_BASE, data);
     return res.data;
   }
   async deleteAppointment(id: number): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.APPOINTMENTS_DELETE}/${id}`);
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.APPOINTMENTS_BASE}/${id}`);
     return res.data;
   }
   async getAppointmentsByCustomer(customerId: number, options: Record<string, unknown>): Promise<ApiResponse<unknown[]>> {
@@ -127,7 +127,7 @@ export class ParlourApiImpl extends ParlourApiInterface {
     return res.data;
   }
   async getBillById(id: number): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.BILLS_VIEW}/${id}`);
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.BILLS_BASE}/${id}`);
     return res.data;
   }
   async getBillsByBusiness(businessId: number): Promise<ApiResponse<unknown[]>> {
@@ -139,15 +139,15 @@ export class ParlourApiImpl extends ParlourApiInterface {
     return res.data;
   }
   async createBill(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.post(PARLOUR_ROUTES.BILLS_CREATE, data);
+    const res = await parlourApiClient.post(PARLOUR_ROUTES.BILLS_BASE, data);
     return res.data;
   }
   async updateBill(billId: number, data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.put(`${PARLOUR_ROUTES.BILLS_UPDATE}/${billId}`, data);
+    const res = await parlourApiClient.put(`${PARLOUR_ROUTES.BILLS_BASE}/${billId}`, data);
     return res.data;
   }
   async deleteBill(id: number): Promise<ApiResponse<unknown>> {
-    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.BILLS_DELETE}/${id}`);
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.BILLS_BASE}/${id}`);
     return res.data;
   }
 

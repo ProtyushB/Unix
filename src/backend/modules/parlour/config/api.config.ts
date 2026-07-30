@@ -2,55 +2,50 @@ import { PARLOUR_API_URL } from '../../../../config/env';
 
 export const PARLOUR_BASE_URL = PARLOUR_API_URL;
 
+/**
+ * Routes for the parlour module, checked entry by entry against Parlour*Controller.
+ *
+ * This table used to declare `/create`, `/update`, `/delete` and `/view` on five resources. None of
+ * those routes has ever existed. The controllers are REST-conventional: POST and PUT on the bare
+ * resource base, GET and DELETE on `base/{id}`, and sub-collections under a named segment. Nothing
+ * called the fictional entries yet, so nothing was visibly broken — the first create flow to use
+ * one would have 404'd.
+ *
+ * One `*_BASE` per resource rather than four aliases pointing at the same string: the aliases are
+ * what made the fiction plausible in the first place.
+ */
 export const PARLOUR_ROUTES = {
-  // Products
+  // POST base · PUT base · GET|DELETE base/{id}
+  PRODUCTS_BASE: '/parlourProduct',
   PRODUCTS_VIEW_ALL: '/parlourProduct/viewAll',
-  PRODUCTS_VIEW: '/parlourProduct/view',
-  PRODUCTS_CREATE: '/parlourProduct/create',
-  PRODUCTS_UPDATE: '/parlourProduct/update',
-  PRODUCTS_DELETE: '/parlourProduct/delete',
 
-  // Services
+  SERVICES_BASE: '/parlourService',
   SERVICES_VIEW_ALL: '/parlourService/viewAll',
-  SERVICES_VIEW: '/parlourService/view',
-  SERVICES_CREATE: '/parlourService/create',
-  SERVICES_UPDATE: '/parlourService/update',
-  SERVICES_DELETE: '/parlourService/delete',
 
-  // Orders
+  // ORDERS_BASE also carries PATCH base/{id}/status — status-only change (cascades items,
+  // reconciles inventory, audits).
+  ORDERS_BASE: '/parlourOrder',
   ORDERS_VIEW_ALL: '/parlourOrder/viewAll',
   ORDERS_SUMMARY: '/parlourOrder/summary',
-  // PATCH /{id}/status — status-only change (cascades items, reconciles inventory, audits).
-  ORDERS_STATUS: '/parlourOrder',
-  ORDERS_VIEW: '/parlourOrder/view',
-  ORDERS_CREATE: '/parlourOrder/create',
-  ORDERS_UPDATE: '/parlourOrder/update',
-  ORDERS_DELETE: '/parlourOrder/delete',
-  ORDERS_BY_CUSTOMER: '/parlourOrder/viewByCustomer',
+  ORDERS_BY_CUSTOMER: '/parlourOrder/customer',
 
-  // Appointments
+  // APPOINTMENTS_BASE also carries PATCH base/{id}/status and base/{id}/schedule.
+  APPOINTMENTS_BASE: '/parlourAppointment',
   APPOINTMENTS_VIEW_ALL: '/parlourAppointment/viewAll',
   // Per-IST-day counts for the week strip / month grid dots.
   APPOINTMENTS_DAY_COUNTS: '/parlourAppointment/dayCounts',
-  // Bare base — the id-suffixed PATCHes append /{id}/status and /{id}/schedule, same shape as
-  // ORDERS_STATUS above.
-  APPOINTMENTS_BASE: '/parlourAppointment',
-  APPOINTMENTS_VIEW: '/parlourAppointment/view',
-  APPOINTMENTS_CREATE: '/parlourAppointment/create',
-  APPOINTMENTS_UPDATE: '/parlourAppointment/update',
-  APPOINTMENTS_DELETE: '/parlourAppointment/delete',
-  APPOINTMENTS_BY_CUSTOMER: '/parlourAppointment/viewByCustomer',
+  APPOINTMENTS_BY_CUSTOMER: '/parlourAppointment/customer',
 
-  // Bills
+  // Bills are the one exception to the shape above: update is PUT base/{billId}, not PUT base.
+  BILLS_BASE: '/parlourBill',
   BILLS_VIEW_ALL: '/parlourBill/viewAll',
-  BILLS_VIEW: '/parlourBill/view',
-  BILLS_CREATE: '/parlourBill/create',
-  BILLS_UPDATE: '/parlourBill/update',
-  BILLS_DELETE: '/parlourBill/delete',
-  BILLS_BY_BUSINESS: '/parlourBill/viewByBusiness',
-  BILLS_BY_CUSTOMER: '/parlourBill/viewByCustomer',
+  BILLS_BY_BUSINESS: '/parlourBill/business',
+  BILLS_BY_CUSTOMER: '/parlourBill/customer',
 
   // Inventory
+  // ⚠ Not yet audited against ParlourInventoryController, unlike everything above. Known wrong:
+  // INVENTORY_UPDATE has no backend at all (batches are immutable), UPDATE_STATUS is really
+  // PATCH /{id}/status, and BY_BUSINESS takes a query param rather than a path segment.
   INVENTORY_ADD: '/parlourInventory/add',
   INVENTORY_UPDATE: '/parlourInventory/update',
   INVENTORY_VIEW: '/parlourInventory/view',
