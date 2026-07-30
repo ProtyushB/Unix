@@ -68,16 +68,47 @@ export function RootNavigator() {
         const isBusiness = isBusinessUser(roles, types);
 
         const savedPortal = await AsyncStorage.getItem('session:activeProfile');
+
+        // `types` is cached at sign-in by LoginScreen.cacheProfile, which swallows
+        // every failure and returns [] — a network blip during login leaves the
+        // cache empty while login still succeeds. So "no types" means WE DON'T
+        // KNOW, not "not a business user".
+        //
+        // Deliberately keyed on `types` alone, NOT on roles. Despite the comment in
+        // portals.ts calling roles a fallback, auth returns roles like
+        // ["CUSTOMER","USER","PLATFORM_ADMIN"] and never BUSINESS_OWNER, so roles
+        // is useless as positive evidence and actively misleading as negative
+        // evidence — it is always non-empty, which would make this guard a no-op.
+        const haveProfileSignal = types.length > 0;
+
         let route: keyof RootStackParamList;
 
         if (savedPortal === PORTALS.customer.key) {
           route = PORTALS.customer.route;
-        } else if (savedPortal === PORTALS.business.key && isBusiness) {
-          route = PORTALS.business.route;
+        } else if (savedPortal === PORTALS.business.key) {
+          // A stored 'business' choice is itself evidence of access: nothing writes
+          // that key unless the business portal was offered, and it is only offered
+          // to business users. Honour it unless access is positively disproved.
+          //
+          // Critically, this branch no longer writes to storage. It used to fall
+          // through to the else below, which overwrote the key with 'customer' —
+          // so one unlucky launch permanently discarded the user's portal choice
+          // and every subsequent launch opened the customer portal on its own.
+          route = isBusiness || !haveProfileSignal
+            ? PORTALS.business.route
+            : PORTALS.customer.route;
         } else {
+          // No stored choice at all — derive one. This is the only path that may
+          // write the key, and it only does so when the profile cache actually
+          // told us something: recording "customer" off an empty cache would bake
+          // a guess into storage and make the next launch treat it as the user's
+          // decision. Leaving the key unset instead lets this re-derive, and
+          // self-correct as soon as `types` is populated.
           route = isBusiness ? PORTALS.business.route : PORTALS.customer.route;
-          const defaultKey = isBusiness ? PORTALS.business.key : PORTALS.customer.key;
-          await AsyncStorage.setItem('session:activeProfile', defaultKey);
+          if (haveProfileSignal) {
+            const defaultKey = isBusiness ? PORTALS.business.key : PORTALS.customer.key;
+            await AsyncStorage.setItem('session:activeProfile', defaultKey);
+          }
         }
 
         if (route !== 'Auth') {

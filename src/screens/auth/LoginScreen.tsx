@@ -115,7 +115,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         return personTypes;
       } catch {
         // Sign-in still succeeds if the profile fetch fails — the portals just
-        // start colder.
+        // start colder. Returning fallbackTypes rather than [] is what keeps that
+        // true: types is the sole evidence of business access, so an empty return
+        // does not mean "colder", it means "demoted to customer-only". Callers
+        // must pass the last known types for this account.
         return fallbackTypes;
       }
     },
@@ -201,7 +204,21 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const response = await authService.login(username.trim(), password);
       const user = response.user as any;
 
-      const personTypes = await cacheProfile(username.trim());
+      // Seed the fallback with what we already knew about THIS account. A failed
+      // profile fetch otherwise caches types: [], and types is the only signal for
+      // business access — auth roles come back as CUSTOMER/USER/PLATFORM_ADMIN and
+      // never carry BUSINESS_OWNER. An empty cache therefore reads as "customer
+      // only", which silently sent owners to the customer portal and hid the
+      // business option in the portal switcher.
+      //
+      // Guarded on the username: without that check a different user signing in on
+      // the same device would inherit the previous user's access during a network
+      // blip. Compared case-insensitively because the login field is free text.
+      const prior = await getLoggedInUser();
+      const sameAccount =
+        !!prior?.username &&
+        prior.username.trim().toLowerCase() === username.trim().toLowerCase();
+      const personTypes = await cacheProfile(username.trim(), sameAccount ? prior.types ?? [] : []);
 
       if (user) {
         await setLoggedInUser({
