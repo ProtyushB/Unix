@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   BadgeCheck,
@@ -523,7 +523,12 @@ export function OrdersScreen() {
       contentContainerStyle={styles.list}
       renderSectionHeader={({ section }) =>
         view === 'SEARCH' || view === 'FILTERED' ? null : (
-          <View style={styles.sectionHeader}>
+          // The first header drops its top padding. That padding exists to separate
+          // one day group from the previous one, and above the first group there is
+          // no previous group — only the filter chips, whose spacing is owned by
+          // list.paddingTop. Leaving it on stacked the two and pushed the list
+          // 24px below the chips while every other gap in the header was 8.
+          <View style={[styles.sectionHeader, section === sections[0] && styles.sectionHeaderFirst]}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
             <Text style={styles.sectionCount}>
               {section.data.length} order{section.data.length === 1 ? '' : 's'}
@@ -646,8 +651,16 @@ export function OrdersScreen() {
         <>
           <View style={styles.titleBlock}>
             <Text style={styles.title}>Orders</Text>
+            {/* A space, not null, while loading: the count is genuinely unknown until the
+                first page lands, and rendering "0 orders" over a screenful of skeletons
+                states something false. Keeping a blank line reserves the height so the
+                search row does not jump down when the real count arrives. */}
             <Text style={styles.subtitle}>
-              {summary ? `${summary.total} total` : `${rows.length} orders`}
+              {view === 'LOADING'
+                ? ' '
+                : summary
+                  ? `${summary.total} total`
+                  : `${rows.length} orders`}
             </Text>
           </View>
 
@@ -719,7 +732,7 @@ export function OrdersScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={styles.chipScroll}
+              style={styles.chipScrollTight}
               contentContainerStyle={styles.statusChipRow}
               keyboardShouldPersistTaps="handled"
             >
@@ -745,8 +758,11 @@ export function OrdersScreen() {
         )
       )}
 
-      {/* Result count line */}
-      {(view === 'FILTERED' || view === 'SEARCH') && (
+      {/* Result count line.
+          SEARCH additionally requires a non-empty query: opening the search box shows the
+          full list until something is typed, and the line rendered "20 results for ''" —
+          a result count attributed to a search nobody performed, with empty quotes. */}
+      {((view === 'FILTERED') || (view === 'SEARCH' && !!debouncedSearch)) && (
         <Text style={view === 'SEARCH' ? styles.searchResultLine : styles.filterCountLine}>
           {view === 'SEARCH'
             ? `${rows.length} result${rows.length === 1 ? '' : 's'} for '${debouncedSearch}'`
@@ -899,6 +915,11 @@ function FilterSheet({
   // always opens reflecting whatever filter is currently applied.
   const [draft, setDraft] = useState<OrderFilters>(initial);
   const [picking, setPicking] = useState<null | 'from' | 'to'>(null);
+  // The screen's SafeAreaView deliberately omits the bottom edge (the tab bar owns
+  // it), and a Modal renders outside that view anyway — so a sheet gets no bottom
+  // inset from anywhere. Without this, Android's navigation bar sliced the Apply
+  // Filters button in half on a 3-button device.
+  const insets = useSafeAreaInsets();
 
   const toggleStatus = (s: string) =>
     setDraft(d => ({
@@ -909,7 +930,7 @@ function FilterSheet({
   return (
     <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.sheetOverlay} onPress={onClose} />
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { paddingBottom: 28 + insets.bottom }]}>
         <View style={styles.grabberWrap}><View style={styles.grabber} /></View>
 
         <View style={styles.sheetHeader}>
@@ -1007,6 +1028,8 @@ function ActionsSheet({
   onPickStatus: (status: string) => void;
   onContact: () => void;
 }) {
+  // Same bottom-inset problem as FilterSheet — see the note there.
+  const insets = useSafeAreaInsets();
   const pair = theme.avatar.forName(order.customerName);
   const st = theme.status[order.status] ?? theme.status.FALLBACK;
   // Offering the status the order already has is meaningless — drop that row.
@@ -1015,7 +1038,7 @@ function ActionsSheet({
   return (
     <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.sheetOverlay} onPress={onClose} />
-      <View style={styles.sheetTight}>
+      <View style={[styles.sheetTight, { paddingBottom: 24 + insets.bottom }]}>
         <View style={styles.grabberWrap}><View style={styles.grabber} /></View>
 
         <View style={styles.summaryWrap}>
@@ -1113,8 +1136,25 @@ function createStyles(theme: AppTheme) {
     },
 
     // Chips
-    chipScroll: { flexGrow: 0, marginTop: 18 },
-    chipRowStatic: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginTop: 18, marginBottom: 4 },
+    // flexShrink: 0 is load-bearing, not defensive. This header sits in a
+    // height-constrained flex column, and a horizontal ScrollView is a flexible
+    // child: flexGrow: 0 alone stops it expanding but still lets it be CRUSHED,
+    // which is what happened — the 30px chips were squeezed into a ~8px row and
+    // rendered as sliced-off text. The row must keep its content height and let
+    // the order list take whatever is left.
+    // Two rows, two different gaps. chipScroll separates the chip GROUP from the
+    // search box above it; chipScrollTight separates the status row from the date
+    // row, which belong together and read as one block. Both previously used 18,
+    // so the two related rows sat as far apart as they did from a different
+    // control entirely, and the whole header looked airy and loose.
+    // One rhythm for the whole header stack: search → 8 → date chips → 8 → status
+    // chips → 8 → list. The two styles are kept separate only because the second
+    // row previously needed its own value; they are equal by intent, not accident.
+    chipScroll: { flexGrow: 0, flexShrink: 0, marginTop: 8 },
+    chipScrollTight: { flexGrow: 0, flexShrink: 0, marginTop: 8 },
+    // marginTop matches chipScroll so the skeleton row and the real chip row sit at
+    // the same y — otherwise the header nudges when the first page lands.
+    chipRowStatic: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginTop: 8, marginBottom: 4 },
     dateChipRow: { paddingHorizontal: 16, gap: 6, alignItems: 'center' },
     statusChipRow: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
     dateChip: {
@@ -1158,12 +1198,21 @@ function createStyles(theme: AppTheme) {
     },
 
     // List
-    list: { paddingTop: 8, paddingBottom: 100 },
+    // The header stack is an even 8 (search → dates → statuses); this last gap is
+    // deliberately a touch wider so the chips stay grouped with the search box and
+    // the list reads as the start of a new block rather than a fourth chip row.
+    // Owned solely by this value — the first section header zeroes its own top
+    // padding (see sectionHeaderFirst), so nothing else contributes here.
+    list: { paddingTop: 12, paddingBottom: 100 },
+    // 2, not 12, because the preceding card already contributes its own 10px
+    // marginBottom — the two stack, so 2 + 10 lands on the same 12 the chips-to-list
+    // gap uses. Changing the card margin will silently change this gap too.
     sectionHeader: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 18, paddingTop: 16, paddingBottom: 6,
+      paddingHorizontal: 18, paddingTop: 2, paddingBottom: 6,
       backgroundColor: theme.palette.background,
     },
+    sectionHeaderFirst: { paddingTop: 0 },
     sectionTitle: { fontSize: 11, fontWeight: '600', letterSpacing: 1, color: dim },
     sectionCount: { fontSize: 11, fontWeight: '500', color: dim },
 
