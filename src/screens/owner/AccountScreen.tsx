@@ -26,6 +26,7 @@ import type {AppTheme, ThemeId} from '../../theme/theme.types';
 import {THEMES, type ThemeDefinition} from '../../theme/colors';
 import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
 import {biometricStorage} from '../../storage/biometric.storage';
+import {AppVersionRow} from '../../components/common/AppVersionRow';
 
 const SETTINGS_ROWS = [
   {key: 'businesses', label: 'My Businesses', icon: Building2},
@@ -194,6 +195,8 @@ export const AccountScreen: React.FC = () => {
             );
           })}
         </View>
+
+        <AppVersionRow />
 
         <AppButton
           title="Logout"

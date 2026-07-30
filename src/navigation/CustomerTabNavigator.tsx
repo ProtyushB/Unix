@@ -14,6 +14,7 @@ import {CustomerProfileScreen} from '../screens/customer/CustomerProfileScreen';
 import {SecurityScreen} from '../screens/shared/SecurityScreen';
 import {AuthMethodsScreen} from '../screens/shared/AuthMethodsScreen';
 import {BiometricOnboardingModal} from '../components/common/BiometricOnboardingModal';
+import {UpdatePromptModal} from '../components/common/UpdatePromptModal';
 
 // ─── Profile Stack ───────────────────────────────────────────────────────────
 
@@ -82,6 +83,9 @@ export function CustomerTabNavigator() {
         />
       </Tab.Navigator>
       <BiometricOnboardingModal />
+      {/* See OwnerTabNavigator — mounted in both shells so a customer-only user
+          still gets updates; the check itself runs once per process. */}
+      <UpdatePromptModal />
     </View>
   );
 }

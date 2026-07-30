@@ -9,4 +9,6 @@ export { ErrorState } from './ErrorState';
 export { ErrorBanner } from './ErrorBanner';
 export { Toast } from './Toast';
 export { ConfirmDialog } from './ConfirmDialog';
+export { UpdatePromptModal, UpdatePrompt } from './UpdatePromptModal';
+export { AppVersionRow } from './AppVersionRow';
 export { SectionHeader } from './SectionHeader';

@@ -90,6 +90,27 @@ def enableProguardInReleaseBuilds = true
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+/**
+ * App version, owned by CI.
+ *
+ * Jenkins passes -PversionCode/-PversionName on assembleRelease (versionCode = 1000 + BUILD_NUMBER);
+ * the defaults below keep `npm run android` working with nothing configured.
+ *
+ * These land in com.unixtemp.BuildConfig, and react-native-config reflects over EVERY BuildConfig
+ * field — so JS reads them as Config.VERSION_CODE / Config.VERSION_NAME (see src/config/appVersion.ts).
+ * That is how the app knows its own version, which is the whole basis of the in-app updater.
+ *
+ * versionCode default stays 1 (not something high) so a locally-built APK still sees the published
+ * dev manifest as newer, letting a developer exercise the update path without CI. versionName default
+ * is deliberately "1.0-local": a device reporting that is unmistakably a laptop build.
+ *
+ * Resolved here rather than inline in defaultConfig because Groovy parses
+ * `versionCode (expr).toInteger()` as `versionCode(expr).toInteger()` — it calls the DSL setter with
+ * the raw value, then chains onto its void return, and configuration dies with "Value is null".
+ */
+def appVersionCode = (project.findProperty('versionCode') ?: '1').toString().toInteger()
+def appVersionName = (project.findProperty('versionName') ?: '1.0-local').toString()
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -100,8 +121,9 @@ android {
         applicationId "com.unixtemp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // See appVersionCode/appVersionName above — CI owns these.
+        versionCode appVersionCode
+        versionName appVersionName
     }
     signingConfigs {
         debug {

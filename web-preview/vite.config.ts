@@ -29,6 +29,12 @@ const RN_CONFIG_KEYS = [
   'DMS_APP_ROOT_FOLDER_ID',
   'DMS_BUSINESS_APP_ROOT_FOLDER_ID',
   'PAYMENT_QR_FILE_ID',
+  // Read by src/config/appVersion.ts. Passed through so the preview reflects the
+  // real .env, but VERSION_CODE is deliberately NOT here — it comes from Android's
+  // generated BuildConfig, which has no web equivalent. So the preview reports
+  // version 0 and the updater self-disables, which is correct: there is nothing to
+  // install into a browser tab. It must not crash on the way there.
+  'UPDATE_MANIFEST_URL',
 ] as const;
 
 // Virtual module the react-native-config stub imports. A module rather than a

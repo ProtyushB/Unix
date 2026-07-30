@@ -50,6 +50,7 @@
     "@react-native/eslint-config": "0.82.1",
     "@react-native/metro-config": "0.82.1",
     "@react-native/typescript-config": "0.82.1",
+    "@types/jest": "^30.0.0",
     "@types/react": "^19.1.1",
     "@types/react-dom": "^19.2.3",
     "@types/uuid": "^10.0.0",

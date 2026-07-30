@@ -43,6 +43,7 @@ import { ReportsScreen } from '../screens/owner/ReportsScreen';
 import { SecurityScreen } from '../screens/shared/SecurityScreen';
 import { AuthMethodsScreen } from '../screens/shared/AuthMethodsScreen';
 import { BiometricOnboardingModal } from '../components/common/BiometricOnboardingModal';
+import { UpdatePromptModal } from '../components/common/UpdatePromptModal';
 import { BottomGroupNav } from '../components/navigation/BottomGroupNav';
 import { GroupSheetOverlay } from '../components/navigation/GroupSheetOverlay';
 import { BusinessSheetOverlay } from '../components/navigation/BusinessSheetOverlay';
@@ -150,6 +151,13 @@ export function OwnerTabNavigator() {
           <GroupSheetOverlay />
           <BusinessSheetOverlay />
           <BiometricOnboardingModal />
+          {/* Mounted here rather than in RootNavigator's bootstrap: that gates
+              `isReady` behind a spinner, so an awaited check would become
+              cold-start latency, and its blanket catch defaults to the Auth
+              stack — a network hiccup mid-check would log the user out. Also
+              mounted in CustomerTabNavigator; useAppUpdate dedupes to one
+              automatic check per process. */}
+          <UpdatePromptModal />
         </View>
       </BlurTargetProvider>
     </TabConfigProvider>
