@@ -26,6 +26,10 @@ export const PHARMACY_ROUTES = {
   ORDERS_BY_CUSTOMER: '/pharmacyOrder/viewByCustomer',
 
   APPOINTMENTS_VIEW_ALL: '/pharmacyAppointment/viewAll',
+  // Per-IST-day counts for the week strip / month grid dots.
+  APPOINTMENTS_DAY_COUNTS: '/pharmacyAppointment/dayCounts',
+  // Bare base — the id-suffixed PATCHes append /{id}/status and /{id}/schedule.
+  APPOINTMENTS_BASE: '/pharmacyAppointment',
   APPOINTMENTS_VIEW: '/pharmacyAppointment/view',
   APPOINTMENTS_CREATE: '/pharmacyAppointment/create',
   APPOINTMENTS_UPDATE: '/pharmacyAppointment/update',

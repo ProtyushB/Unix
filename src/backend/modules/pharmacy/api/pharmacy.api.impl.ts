@@ -1,4 +1,4 @@
-import {PharmacyApiInterface, ApiResponse, OrderListOptions, OrderSummary} from './pharmacy.api.interface';
+import {PharmacyApiInterface, ApiResponse, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts} from './pharmacy.api.interface';
 import pharmacyApiClient from '../config/axios.instance';
 import {PHARMACY_ROUTES} from '../config/api.config';
 
@@ -75,8 +75,21 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.ORDERS_BY_CUSTOMER}/${customerId}`, {params: options});
     return res.data;
   }
-  async getAllAppointments(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.APPOINTMENTS_VIEW_ALL, {params: {businessId, page, limit}});
+  async getAllAppointments(businessId: number, page: number, limit: number, options: AppointmentListOptions = {}): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.APPOINTMENTS_VIEW_ALL, {params: {businessId, page, limit, ...options}});
+    return res.data;
+  }
+  async getAppointmentDayCounts(businessId: number, options: {fromDate: string; toDate: string}): Promise<ApiResponse<AppointmentDayCounts>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.APPOINTMENTS_DAY_COUNTS, {params: {businessId, ...options}});
+    return res.data;
+  }
+  async updateAppointmentStatus(id: number, status: string, options: {userId?: number; reason?: string} = {}): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${id}/status`, null, {params: {status, ...options}});
+    return res.data;
+  }
+  // appointmentDateTime is a zone-less IST wall clock — never an ISO instant with a Z.
+  async rescheduleAppointment(id: number, appointmentDateTime: string, options: {userId?: number; reason?: string} = {}): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${id}/schedule`, null, {params: {appointmentDateTime, ...options}});
     return res.data;
   }
   async getAppointmentById(id: number): Promise<ApiResponse<unknown>> {

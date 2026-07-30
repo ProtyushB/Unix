@@ -1,4 +1,4 @@
-import {PharmacyApiInterface, OrderListOptions} from '../api/pharmacy.api.interface';
+import {PharmacyApiInterface, OrderListOptions, AppointmentListOptions} from '../api/pharmacy.api.interface';
 
 export class PharmacyService {
   constructor(private api: PharmacyApiInterface) {}
@@ -58,9 +58,25 @@ export class PharmacyService {
   async deleteOrder(id: number) { return this.api.deleteOrder(id); }
   async getOrdersByCustomer(customerId: number, options = {}) { return this.api.getOrdersByCustomer(customerId, options); }
 
-  async getAllAppointments(businessId: number, page = 1, limit = 10) {
+  async getAllAppointments(businessId: number, page = 1, limit = 10, options: AppointmentListOptions = {}) {
     if (!businessId) throw new Error('Business ID is required');
-    return this.api.getAllAppointments(businessId, page, limit);
+    return this.api.getAllAppointments(businessId, page, limit, options);
+  }
+  async getAppointmentDayCounts(businessId: number, options: {fromDate: string; toDate: string}) {
+    if (!businessId) throw new Error('Business ID is required');
+    // Both bounds are mandatory server-side — an unbounded day map is unbounded output.
+    if (!options?.fromDate || !options?.toDate) throw new Error('fromDate and toDate are required');
+    return this.api.getAppointmentDayCounts(businessId, options);
+  }
+  async updateAppointmentStatus(id: number, status: string, options: {userId?: number; reason?: string} = {}) {
+    if (!id) throw new Error('Appointment ID is required');
+    if (!status) throw new Error('Status is required');
+    return this.api.updateAppointmentStatus(id, status, options);
+  }
+  async rescheduleAppointment(id: number, appointmentDateTime: string, options: {userId?: number; reason?: string} = {}) {
+    if (!id) throw new Error('Appointment ID is required');
+    if (!appointmentDateTime) throw new Error('Appointment date and time is required');
+    return this.api.rescheduleAppointment(id, appointmentDateTime, options);
   }
   async getAppointmentById(id: number) { return this.api.getAppointmentById(id); }
   async createAppointment(data: Record<string, unknown>) {

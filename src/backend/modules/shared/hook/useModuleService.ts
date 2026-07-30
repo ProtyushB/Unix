@@ -40,6 +40,28 @@ export interface OrderSummary {
   byStatus: Record<string, number>;
 }
 
+/**
+ * Appointments list filters. The day view sends fromDate === toDate plus `sortDir: 'asc'` — the
+ * backend's viewAll defaults to desc, so ascending has to be explicit or the day reads bottom-up.
+ */
+export interface AppointmentListOptions {
+  search?: string;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/**
+ * Per-IST-day appointment counts backing the week strip / month grid dots. Keys are YYYY-MM-DD and
+ * match a row's own `appointmentDate`, so one indexes the other with no client-side date maths.
+ */
+export interface AppointmentDayCounts {
+  total: number;
+  counts: Record<string, number>;
+}
+
 interface ModuleService {
   getAllProducts(businessId: number, page: number, limit: number): Promise<ServiceResult>;
   createProduct(data: Record<string, unknown>): Promise<ServiceResult>;
@@ -63,7 +85,12 @@ interface ModuleService {
   deleteOrder(id: number): Promise<ServiceResult>;
   getOrdersByCustomer(customerId: number, options: Record<string, unknown>): Promise<ServiceResult>;
 
-  getAllAppointments(businessId: number, page: number, limit: number): Promise<ServiceResult>;
+  getAllAppointments(businessId: number, page: number, limit: number, options?: AppointmentListOptions): Promise<ServiceResult>;
+  // Optional for the same reason as getOrderSummary — only Parlour and Pharmacy expose these three.
+  // Restaurant omits them, so callers must guard with `service.getAppointmentDayCounts?.(...)`.
+  getAppointmentDayCounts?(businessId: number, options: {fromDate: string; toDate: string}): Promise<ServiceResult<AppointmentDayCounts>>;
+  updateAppointmentStatus?(id: number, status: string, options?: {userId?: number; reason?: string}): Promise<ServiceResult>;
+  rescheduleAppointment?(id: number, appointmentDateTime: string, options?: {userId?: number; reason?: string}): Promise<ServiceResult>;
   createAppointment(data: Record<string, unknown>): Promise<ServiceResult>;
   updateAppointment(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteAppointment(id: number): Promise<ServiceResult>;
@@ -120,6 +147,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     const [ordersTotalPages, setOrdersTotalPages] = useState(1);
     const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
     const [appointments, setAppointments] = useState<unknown[]>([]);
+    const [appointmentsTotalPages, setAppointmentsTotalPages] = useState(1);
+    const [appointmentDayCounts, setAppointmentDayCounts] = useState<Record<string, number>>({});
     const [bills, setBills] = useState<unknown[]>([]);
     const [inventory, setInventory] = useState<unknown[]>([]);
     const [loading, setLoading] = useState(false);
@@ -563,7 +592,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     // ═══════════════════════════════════════════════════════════════
 
     const loadAppointments = useCallback(
-      async (page = 1, limit = 10) => {
+      async (page = 1, limit = 10, options: AppointmentListOptions = {}) => {
         setLoading(true);
         setError(null);
         try {
@@ -574,10 +603,13 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
             setLoading(false);
             return;
           }
-          const response = await service.getAllAppointments(businessId, page, limit);
+          const response = await service.getAllAppointments(businessId, page, limit, options);
           if (response.success) {
             const data = response.data;
             setAppointments(Array.isArray(data) ? data : []);
+            // Captured so the screen can page — this used to be dropped, which capped the list at
+            // whatever the first request returned.
+            setAppointmentsTotalPages(response.totalPages ?? 1);
           } else {
             setError(response.error || response.message || null);
             setAppointments([]);
@@ -585,6 +617,101 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
         } catch (err) {
           setError((err as Error).message || 'Failed to load appointments');
           setAppointments([]);
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Per-day counts for the week strip / month grid dots.
+     *
+     * Best-effort, exactly like loadOrderSummary: never toggles `loading`, never sets `error`, and
+     * no-ops for modules without the endpoint or on any failure. The dots are decoration — a 500
+     * here must not take the screen down.
+     *
+     * MERGES rather than replaces. Switching Day↔Calendar or paging months fetches a different
+     * window, and blanking the map first would drop every dot for a frame.
+     */
+    const loadAppointmentDayCounts = useCallback(
+      async (options: {fromDate: string; toDate: string}) => {
+        try {
+          const businessId = await getSelectedBusinessId();
+          if (!businessId || !service.getAppointmentDayCounts) return;
+          const response = await service.getAppointmentDayCounts(businessId, options);
+          if (response.success && response.data?.counts) {
+            const next = response.data.counts;
+            setAppointmentDayCounts(prev => ({ ...prev, ...next }));
+          }
+        } catch {
+          // Swallowed on purpose — see the note above.
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Quick Actions: change only an appointment's status. The backend cascades item statuses and,
+     * on CANCELLED, releases the package slots redeemed from the linked order.
+     *
+     * Returns `{success, error, code}`. `code` carries `APPOINTMENT_LOCKED` (HTTP 409) when the
+     * appointment sits on a finalized bill, which the screen reports as a specific toast rather
+     * than a generic failure.
+     */
+    const updateAppointmentStatus = useCallback(
+      async (appointmentId: number, status: string, reason?: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+          if (!service.updateAppointmentStatus) {
+            const message = 'Changing appointment status is not supported for this module';
+            setError(message);
+            return { success: false, error: message };
+          }
+          const response = await service.updateAppointmentStatus(appointmentId, status, { reason });
+          if (response.success) return { success: true, data: response.data };
+          const message = response.error || response.message || 'Failed to update appointment status';
+          setError(message);
+          return { success: false, error: message };
+        } catch (err) {
+          const body = (err as any)?.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to update appointment status';
+          setError(message);
+          return { success: false, error: message, code: body?.code, data: body?.data };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Move an appointment to a new date/time. `appointmentDateTime` is a zone-less IST wall clock
+     * ("2025-04-24T14:30:00") — the same format create/update use. Never pass an ISO instant.
+     */
+    const rescheduleAppointment = useCallback(
+      async (appointmentId: number, appointmentDateTime: string, reason?: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+          if (!service.rescheduleAppointment) {
+            const message = 'Rescheduling is not supported for this module';
+            setError(message);
+            return { success: false, error: message };
+          }
+          const response = await service.rescheduleAppointment(appointmentId, appointmentDateTime, { reason });
+          if (response.success) return { success: true, data: response.data };
+          const message = response.error || response.message || 'Failed to reschedule appointment';
+          setError(message);
+          return { success: false, error: message };
+        } catch (err) {
+          const body = (err as any)?.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to reschedule appointment';
+          setError(message);
+          return { success: false, error: message, code: body?.code, data: body?.data };
         } finally {
           setLoading(false);
         }
@@ -889,6 +1016,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       ordersTotalPages,
       orderSummary,
       appointments,
+      appointmentsTotalPages,
+      appointmentDayCounts,
       bills,
       inventory,
       loading,
@@ -917,6 +1046,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
 
       // Appointment CRUD
       loadAppointments,
+      loadAppointmentDayCounts,
+      updateAppointmentStatus,
+      rescheduleAppointment,
       loadAppointmentsByCustomer,
       createAppointment,
       updateAppointment,

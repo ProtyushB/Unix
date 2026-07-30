@@ -30,6 +30,11 @@ export const PARLOUR_ROUTES = {
 
   // Appointments
   APPOINTMENTS_VIEW_ALL: '/parlourAppointment/viewAll',
+  // Per-IST-day counts for the week strip / month grid dots.
+  APPOINTMENTS_DAY_COUNTS: '/parlourAppointment/dayCounts',
+  // Bare base — the id-suffixed PATCHes append /{id}/status and /{id}/schedule, same shape as
+  // ORDERS_STATUS above.
+  APPOINTMENTS_BASE: '/parlourAppointment',
   APPOINTMENTS_VIEW: '/parlourAppointment/view',
   APPOINTMENTS_CREATE: '/parlourAppointment/create',
   APPOINTMENTS_UPDATE: '/parlourAppointment/update',

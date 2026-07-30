@@ -26,6 +26,32 @@ export interface OrderSummary {
   byStatus: Record<string, number>;
 }
 
+/**
+ * Appointments list filters. Same shape as OrderListOptions — `status` is a comma-separated
+ * AppointmentStatus list, dates are YYYY-MM-DD IST with `toDate` inclusive.
+ *
+ * The day view sends fromDate === toDate plus `sortDir: 'asc'`; the backend's viewAll defaults to
+ * desc, so ascending must be explicit or the day reads bottom-up.
+ */
+export interface AppointmentListOptions {
+  search?: string;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/**
+ * Per-IST-day appointment counts for the week strip / month grid dots. Keys are YYYY-MM-DD and
+ * match a row's own `appointmentDate`, so the client indexes one by the other with no date maths.
+ * Days with no appointments are omitted.
+ */
+export interface AppointmentDayCounts {
+  total: number;
+  counts: Record<string, number>;
+}
+
 export abstract class ParlourApiInterface {
   // Products
   abstract getAllProducts(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>>;
@@ -52,7 +78,10 @@ export abstract class ParlourApiInterface {
   abstract getOrdersByCustomer(customerId: number, options: Record<string, unknown>): Promise<ApiResponse<unknown[]>>;
 
   // Appointments
-  abstract getAllAppointments(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>>;
+  abstract getAllAppointments(businessId: number, page: number, limit: number, options?: AppointmentListOptions): Promise<ApiResponse<unknown[]>>;
+  abstract getAppointmentDayCounts(businessId: number, options: {fromDate: string; toDate: string}): Promise<ApiResponse<AppointmentDayCounts>>;
+  abstract updateAppointmentStatus(id: number, status: string, options?: {userId?: number; reason?: string}): Promise<ApiResponse<unknown>>;
+  abstract rescheduleAppointment(id: number, appointmentDateTime: string, options?: {userId?: number; reason?: string}): Promise<ApiResponse<unknown>>;
   abstract getAppointmentById(id: number): Promise<ApiResponse<unknown>>;
   abstract createAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
