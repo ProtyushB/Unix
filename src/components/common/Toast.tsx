@@ -16,21 +16,28 @@ import {
   Info,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useTheme } from '../../hooks/useTheme';
 import type { Toast as ToastItem, ToastType } from '../../hooks/useToast';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
+/** Accent colour per toast type, resolved from the theme by ToastProvider. */
+export type ToastColors = Record<ToastType, string>;
+
 interface ToastProps {
   toasts: ToastItem[];
+  colors: ToastColors;
   /** Optional — toasts auto-dismiss; tap-to-dismiss is a no-op when omitted. */
   onDismiss?: (id: string) => void;
 }
 
-interface Variant {
-  icon: LucideIcon;
-  color: string;
-}
+// Icons are fixed per type and owe nothing to the theme, so they live at module
+// scope rather than being rebuilt inside the row on every render.
+const ICONS: Record<ToastType, LucideIcon> = {
+  success: CircleCheck,
+  info: Info,
+  warning: TriangleAlert,
+  error: CircleAlert,
+};
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -53,7 +60,7 @@ const SOLID_BG = '#111e35';
 const ENTERING = SlideInUp.springify().damping(18);
 const EXITING = SlideOutUp.duration(200);
 
-export function Toast({ toasts, onDismiss }: ToastProps) {
+export function Toast({ toasts, colors, onDismiss }: ToastProps) {
   const insets = useSafeAreaInsets();
 
   if (toasts.length === 0) return null;
@@ -61,29 +68,35 @@ export function Toast({ toasts, onDismiss }: ToastProps) {
   return (
     <View style={[styles.container, { top: insets.top + 10 }]} pointerEvents="box-none">
       {toasts.map(toast => (
-        <ToastRow key={toast.id} toast={toast} onDismiss={onDismiss} />
+        <ToastRow
+          key={toast.id}
+          toast={toast}
+          color={colors[toast.type]}
+          onDismiss={onDismiss}
+        />
       ))}
     </View>
   );
 }
 
-function ToastRow({
+// Memoised, and takes its accent colour as a plain string rather than reading the
+// theme itself. ToastRow is the animated component, so it must re-render as
+// rarely as possible: it previously called useTheme() for three colours, which
+// subscribed every live toast to theme changes and re-rendered it on every theme
+// switch. Now the props are a stable object plus a string, so switching theme
+// re-renders this only if the accent colour genuinely differs — and never at all
+// for the two types whose colours are theme-independent.
+const ToastRow = React.memo(function ToastRow({
   toast,
+  color,
   onDismiss,
 }: {
   toast: ToastItem;
+  color: string;
   onDismiss?: (id: string) => void;
 }) {
-  const { palette } = useTheme();
   const progress = useSharedValue(1);
-
-  const variants: Record<ToastType, Variant> = {
-    success: { icon: CircleCheck, color: palette.success },
-    info: { icon: Info, color: '#60a5fa' },
-    warning: { icon: TriangleAlert, color: palette.warning },
-    error: { icon: CircleAlert, color: palette.error },
-  };
-  const { icon: Icon, color } = variants[toast.type];
+  const Icon = ICONS[toast.type];
 
   useEffect(() => {
     progress.value = withTiming(0, { duration: toast.duration, easing: Easing.linear });
@@ -134,7 +147,7 @@ function ToastRow({
       </View>
     </Animated.View>
   );
-}
+});
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 

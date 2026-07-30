@@ -1,6 +1,15 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Toast as ToastOverlay } from '../components/common/Toast';
+import { Toast as ToastOverlay, type ToastColors } from '../components/common/Toast';
+import { useTheme } from '../hooks/useTheme';
 
 /**
  * The one and only way to show a toast.
@@ -55,6 +64,24 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const { palette } = useTheme();
+
+  // The theme is read HERE, once, rather than inside the animated toast row.
+  // That row is a Reanimated component with entering/exiting animations, so the
+  // fewer reasons it has to re-render the better — subscribing it to the theme is
+  // what tied every visible toast to every theme switch. Resolving the accents up
+  // here keeps the theme dependency on a plain, non-animated component.
+  const colors: ToastColors = useMemo(
+    () => ({
+      success: palette.success,
+      // Not theme-derived: the palette has no distinct "info" tone, so this is
+      // the same fixed blue the toast has always used.
+      info: '#60a5fa',
+      warning: palette.warning,
+      error: palette.error,
+    }),
+    [palette.success, palette.warning, palette.error],
+  );
 
   const dismissToast = useCallback((id: string) => {
     const timer = timersRef.current.get(id);
@@ -101,7 +128,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {/* The single overlay for the whole app. Rendered after children so it
           stacks above them without needing a zIndex race. */}
-      <ToastOverlay toasts={toasts} onDismiss={dismissToast} />
+      <ToastOverlay toasts={toasts} colors={colors} onDismiss={dismissToast} />
     </ToastContext.Provider>
   );
 }
