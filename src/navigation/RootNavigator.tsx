@@ -11,7 +11,7 @@ import { useThemedStyles } from '../hooks/useThemedStyles';
 import type { AppTheme } from '../theme/theme.types';
 import { getAccessToken, getLoggedInUser } from '../storage/auth.storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PORTALS, isBusinessUser } from '../utils/portals';
+import { PORTALS, isBusinessUser, CUSTOMER_PORTAL_ENABLED } from '../utils/portals';
 import { biometricStorage } from '../storage/biometric.storage';
 import { promptBiometric } from '../hooks/useBiometric';
 import { AuthNavigator } from './AuthNavigator';
@@ -83,7 +83,13 @@ export function RootNavigator() {
 
         let route: keyof RootStackParamList;
 
-        if (savedPortal === PORTALS.customer.key) {
+        if (!CUSTOMER_PORTAL_ENABLED) {
+          // Kill switch. Deliberately does NOT touch session:activeProfile — a
+          // user who last chose 'customer' keeps that stored preference, so it is
+          // honoured again the moment the portal is re-enabled rather than being
+          // quietly rewritten while the feature is off.
+          route = PORTALS.business.route;
+        } else if (savedPortal === PORTALS.customer.key) {
           route = PORTALS.customer.route;
         } else if (savedPortal === PORTALS.business.key) {
           // A stored 'business' choice is itself evidence of access: nothing writes

@@ -11,7 +11,6 @@ import {AppCard} from '../../components/common/AppCard';
 import {AvatarBadge} from '../../components/common/AvatarBadge';
 import {AppButton} from '../../components/common/AppButton';
 import {ConfirmDialog} from '../../components/common/ConfirmDialog';
-import {Toast} from '../../components/common/Toast';
 import {PortalSwitcherSheet} from '../../components/common/PortalSwitcherSheet';
 import {useTheme} from '../../hooks/useTheme';
 import {useThemeActions} from '../../hooks/useThemeActions';
@@ -79,7 +78,7 @@ export const AccountScreen: React.FC = () => {
   const { colors, palette, name: currentThemeId } = useTheme();
   const { setTheme } = useThemeActions();
   const styles = useThemedStyles(createStyles);
-  const {toasts, showToast} = useToast();
+  const {showToast} = useToast();
   const [user, setUser] = useState<any>(null);
   const [showLogout, setShowLogout] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -140,6 +139,7 @@ export const AccountScreen: React.FC = () => {
   }, []);
 
   const availablePortals = getAvailablePortals(user);
+  const canSwitchPortal = availablePortals.length > 1;
   const fullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'User';
 
   return (
@@ -147,19 +147,33 @@ export const AccountScreen: React.FC = () => {
       <View style={styles.container}>
         <Text style={styles.title}>Profile</Text>
 
-        <AppCard style={styles.profileCard}>
+        {/* contentStyle is required, not optional polish. In DARK themes AppCard
+            wraps its children in an inner cardContent view (centred column), so a
+            flexDirection on `style` lands on the outer container — which has only
+            that one child — and never reaches the avatar or the details. Light
+            themes have no wrapper, which is why this card looked right in Dawn and
+            stacked vertically in Midnight. Both props are needed to cover both. */}
+        <AppCard style={styles.profileCard} contentStyle={styles.profileCardContent}>
           <AvatarBadge name={fullName} size={72} />
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{fullName}</Text>
             <Text style={styles.profileEmail}>{user?.email || ''}</Text>
-            <TouchableOpacity
-              style={styles.rolePill}
-              onPress={openPortalSheet}
-              activeOpacity={0.7}>
-              <Building2 size={11} color={colors.primary} />
-              <Text style={styles.rolePillText}>Business</Text>
-              <ChevronDown size={11} color={colors.primary} />
-            </TouchableOpacity>
+            {/* The portal dropdown is the only way into the customer portal, so it
+                disappears entirely while CUSTOMER_PORTAL_ENABLED is off — not just
+                disabled, since a dead control invites taps. Gated on "is there
+                more than one portal to choose from" rather than on the flag
+                directly, which is the honest condition and also hides the pill for
+                a single-portal user once the feature returns. */}
+            {canSwitchPortal && (
+              <TouchableOpacity
+                style={styles.rolePill}
+                onPress={openPortalSheet}
+                activeOpacity={0.7}>
+                <Building2 size={11} color={colors.primary} />
+                <Text style={styles.rolePillText}>Business</Text>
+                <ChevronDown size={11} color={colors.primary} />
+              </TouchableOpacity>
+            )}
           </View>
         </AppCard>
 
@@ -269,8 +283,6 @@ export const AccountScreen: React.FC = () => {
           onClose={() => closePortalSheet()}
           onSwitch={handleSwitchPortal}
         />
-
-        <Toast toasts={toasts} />
       </View>
     </ScreenWrapper>
   );
@@ -281,6 +293,9 @@ function createStyles(theme: AppTheme) {
     container: {flex: 1, paddingHorizontal: 16},
     title: {fontSize: 28, fontWeight: '700', color: theme.palette.onBackground, marginTop: 16, marginBottom: 16},
     profileCard: {flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16},
+    // Mirrors profileCard's layout onto the dark-theme inner wrapper. Padding is
+    // deliberately not set here so AppCard's own 16 is preserved by the merge.
+    profileCardContent: {flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 16},
     profileInfo: {flex: 1},
     profileName: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground},
     profileEmail: {fontSize: 13, color: theme.palette.muted, marginTop: 2},

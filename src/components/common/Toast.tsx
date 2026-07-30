@@ -42,6 +42,17 @@ interface Variant {
 
 const SOLID_BG = '#111e35';
 
+// Built ONCE at module scope, not inline in the render body.
+//
+// This is the theme-change jump. ToastRow calls useTheme() for three accent
+// colours, so switching theme re-renders every visible toast — and when these
+// builders were constructed inline, each render handed Reanimated a brand new
+// layout-animation descriptor, which re-ran the enter animation and made the
+// toast spring in from the top again. Hoisting them makes the descriptor stable,
+// so a re-render restyles without re-animating.
+const ENTERING = SlideInUp.springify().damping(18);
+const EXITING = SlideOutUp.duration(200);
+
 export function Toast({ toasts, onDismiss }: ToastProps) {
   const insets = useSafeAreaInsets();
 
@@ -82,8 +93,8 @@ function ToastRow({
 
   return (
     <Animated.View
-      entering={SlideInUp.springify().damping(18)}
-      exiting={SlideOutUp.duration(200)}
+      entering={ENTERING}
+      exiting={EXITING}
       style={[styles.toast, { borderColor: color + '55' }]}
     >
       <TouchableOpacity

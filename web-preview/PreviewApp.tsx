@@ -9,6 +9,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../src/hooks/useTheme';
 import { ThemeProvider } from '../src/context/ThemeContext';
 import { AppProvider } from '../src/context/AppContext';
+// Must mirror App.tsx: useToast throws without this provider, so every screen
+// that raises a toast would fail to render in the preview without it.
+import { ToastProvider } from '../src/context/ToastContext';
 import { SignupDraftProvider } from '../src/context/SignupDraftContext';
 import { RootNavigator, navigationRef } from '../src/navigation/RootNavigator';
 import { REGISTRY, lazyScreen, type ScreenEntry } from './registry';
@@ -126,7 +129,9 @@ function LiveApp({ device }: { device: Device }) {
       <SafeAreaProvider initialMetrics={deviceMetrics(device)}>
         <ThemeProvider>
           <AppProvider>
-            <RootNavigator />
+            <ToastProvider>
+              <RootNavigator />
+            </ToastProvider>
           </AppProvider>
         </ThemeProvider>
       </SafeAreaProvider>
@@ -144,9 +149,11 @@ function Stage({ entry, device }: { entry: ScreenEntry; device: Device }) {
       <SafeAreaProvider initialMetrics={metrics}>
         <ThemeProvider>
           <AppProvider>
-            <SignupDraftProvider>
-              <ThemedNavigator entry={entry} Screen={Screen} />
-            </SignupDraftProvider>
+            <ToastProvider>
+              <SignupDraftProvider>
+                <ThemedNavigator entry={entry} Screen={Screen} />
+              </SignupDraftProvider>
+            </ToastProvider>
           </AppProvider>
         </ThemeProvider>
       </SafeAreaProvider>

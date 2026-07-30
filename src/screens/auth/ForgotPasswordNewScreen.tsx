@@ -12,7 +12,6 @@ import { CircleCheck } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import PasswordInput from '../../components/forms/PasswordInput';
 import AppButton from '../../components/common/AppButton';
-import { Toast } from '../../components/common/Toast';
 import { useToast } from '../../hooks/useToast';
 import AuthBackground from '../../components/auth/AuthBackground';
 import AuthBarMask from '../../components/auth/AuthBarMask';
@@ -43,7 +42,7 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
   const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
-  const { toasts, showToast, dismissToast } = useToast();
+  const { showToast } = useToast();
   const authService = getAuthService();
 
   const allPasswordRulesPass = PASSWORD_RULES.every(rule => rule.test(newPassword));
@@ -90,9 +89,7 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <AuthBackground />
-      <AuthBarMask />
-      <Toast toasts={toasts} onDismiss={dismissToast} />
-      <KeyboardAvoidingView
+      <AuthBarMask />      <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >

@@ -12,6 +12,7 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {StyleSheet} from 'react-native';
 import {ThemeProvider} from './src/context/ThemeContext';
 import {AppProvider} from './src/context/AppContext';
+import {ToastProvider} from './src/context/ToastContext';
 import {RootNavigator} from './src/navigation/RootNavigator';
 
 const App: React.FC = () => {
@@ -20,7 +21,12 @@ const App: React.FC = () => {
       <SafeAreaProvider>
         <ThemeProvider>
           <AppProvider>
-            <RootNavigator />
+            {/* Inside ThemeProvider (the toast reads accent colours from it) and
+                wrapping the navigator, so the single overlay sits above every
+                screen and survives navigation. */}
+            <ToastProvider>
+              <RootNavigator />
+            </ToastProvider>
           </AppProvider>
         </ThemeProvider>
       </SafeAreaProvider>

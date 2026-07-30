@@ -20,7 +20,6 @@ import {InventoryBatchCard} from '../../components/list/InventoryBatchCard';
 import {EmptyState} from '../../components/common/EmptyState';
 import {LoadingSpinner} from '../../components/common/LoadingSpinner';
 import {ConfirmDialog} from '../../components/common/ConfirmDialog';
-import {Toast} from '../../components/common/Toast';
 import {FAB} from '../../components/layout/FAB';
 import {ProgressBar} from '../../components/forms/ProgressBar';
 import {SelectField} from '../../components/forms/SelectField';
@@ -58,7 +57,7 @@ export const InventoryScreen: React.FC = () => {
   const parlour = useParlour();
   const pharmacy = usePharmacy();
   const restaurant = useRestaurant();
-  const {toasts, showToast} = useToast();
+  const {showToast} = useToast();
 
   const activeModule =
     selectedModule?.toLowerCase().includes('restaurant') ? restaurant
@@ -239,9 +238,7 @@ export const InventoryScreen: React.FC = () => {
             {selectedBatch.costPrice && <LabelValue label="Cost Price" value={formatCurrency(selectedBatch.costPrice)} />}
             {selectedBatch.sellingPrice && <LabelValue label="Selling Price" value={formatCurrency(selectedBatch.sellingPrice)} />}
           </AppCard>
-        </ScrollView>
-        <Toast toasts={toasts} />
-      </ScreenWrapper>
+        </ScrollView>      </ScreenWrapper>
     );
   }
 
@@ -275,9 +272,7 @@ export const InventoryScreen: React.FC = () => {
             <Text style={styles.expiryWarning}>⚠ Expires in {expiryWarning} days</Text>
           )}
           <AppButton title={viewState === 'add' ? 'Add Batch' : 'Save Changes'} onPress={handleSave} style={styles.saveBtn} />
-        </ScrollView>
-        <Toast toasts={toasts} />
-      </ScreenWrapper>
+        </ScrollView>      </ScreenWrapper>
     );
   }
 
@@ -351,8 +346,6 @@ export const InventoryScreen: React.FC = () => {
         onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
         onCancel={() => setDeleteConfirm(null)}
       />
-
-      <Toast toasts={toasts} />
     </ScreenWrapper>
   );
 };

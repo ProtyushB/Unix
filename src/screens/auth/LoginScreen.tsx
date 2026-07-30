@@ -16,7 +16,6 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppInput } from '../../components/common/AppInput';
 import PasswordInput from '../../components/forms/PasswordInput';
 import AppButton from '../../components/common/AppButton';
-import { Toast } from '../../components/common/Toast';
 import { useToast } from '../../hooks/useToast';
 import AuthBackground from '../../components/auth/AuthBackground';
 import AuthBarMask from '../../components/auth/AuthBarMask';
@@ -34,7 +33,7 @@ import { setUserProfile, setBusinessTypeMap } from '../../storage/session.storag
 import { setDmsFolderMap, DmsFolderMap } from '../../storage/dms.storage';
 import { biometricStorage } from '../../storage/biometric.storage';
 import { promptBiometric } from '../../hooks/useBiometric';
-import { PORTALS, isBusinessUser } from '../../utils/portals';
+import { PORTALS, isBusinessUser, CUSTOMER_PORTAL_ENABLED } from '../../utils/portals';
 import { CLAIM_ACCOUNT_ENABLED } from '../../config/features';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../hooks/useTheme';
@@ -59,7 +58,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
-  const { toasts, showToast, dismissToast } = useToast();
+  const { showToast } = useToast();
 
   const authService = getAuthService();
   const personService = getPersonService();
@@ -127,6 +126,20 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   const navigateToPortal = useCallback(
     async (roles: string[], types: string[] = []) => {
+      // Kill switch — see CUSTOMER_PORTAL_ENABLED. Sign-in goes straight to the
+      // business portal and leaves session:activeProfile untouched, so a stored
+      // 'customer' preference survives to be honoured when the portal returns.
+      if (!CUSTOMER_PORTAL_ENABLED) {
+        InteractionManager.runAfterInteractions(() => {
+          const parent = navigation.getParent();
+          (parent ?? navigation).reset({
+            index: 0,
+            routes: [{ name: PORTALS.business.route as any }],
+          });
+        });
+        return;
+      }
+
       const savedPortal = await AsyncStorage.getItem('session:activeProfile');
       const isBusiness = isBusinessUser(roles, types);
       let portalKey: string;
@@ -265,9 +278,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <AuthBackground />
-      <AuthBarMask />
-      <Toast toasts={toasts} onDismiss={dismissToast} />
-      <KeyboardAvoidingView
+      <AuthBarMask />      <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >

@@ -36,8 +36,16 @@ import Config from 'react-native-config';
  */
 export const APP_VERSION_CODE = Number(Config.VERSION_CODE ?? 0) || 0;
 
-/** Display-only ("1.0.0-42"). Never compare versions with this — see below. */
-export const APP_VERSION_NAME = String(Config.VERSION_NAME ?? 'unknown');
+/**
+ * Display-only ("1.0.0-42"). Never compare versions with this — see below.
+ *
+ * `||`, not `??`: react-native-config returns an empty string for an absent key
+ * (the web stub proxies missing keys to '', and a stripped BuildConfig reads the
+ * same way), and `'' ?? 'unknown'` is still ''. That rendered the Account row
+ * blank instead of "unknown" — defeating the one diagnostic that tells you R8
+ * has stripped the version fields.
+ */
+export const APP_VERSION_NAME = String(Config.VERSION_NAME || 'unknown');
 
 /**
  * Where the published release manifest lives, baked per environment.

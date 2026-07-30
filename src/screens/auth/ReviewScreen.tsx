@@ -10,7 +10,6 @@ import {
 import { User, Building2, Pencil, CircleCheck, X } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppButton from '../../components/common/AppButton';
-import { Toast } from '../../components/common/Toast';
 import { useToast } from '../../hooks/useToast';
 import AuthBackground from '../../components/auth/AuthBackground';
 import AuthBarMask from '../../components/auth/AuthBarMask';
@@ -45,7 +44,7 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
-  const { toasts, showToast, dismissToast } = useToast();
+  const { showToast } = useToast();
 
   const hasBusiness = businesses && businesses.length > 0;
 
@@ -102,8 +101,6 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <AuthBackground />
       <AuthBarMask />
-      <Toast toasts={toasts} onDismiss={dismissToast} />
-
       <ScrollView
         removeClippedSubviews={false}
         style={styles.flex}

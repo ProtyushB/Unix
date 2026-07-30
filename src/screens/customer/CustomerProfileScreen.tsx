@@ -147,7 +147,10 @@ export const CustomerProfileScreen: React.FC = () => {
       <View style={styles.container}>
         <Text style={styles.title}>Profile</Text>
 
-        <AppCard style={styles.profileCard}>
+        {/* contentStyle is required in dark themes — AppCard wraps children in a
+            centred column there, so flexDirection on `style` never reaches them.
+            Same fix as the owner AccountScreen profile card. */}
+        <AppCard style={styles.profileCard} contentStyle={styles.profileCardContent}>
           <AvatarBadge name={fullName} size={80} />
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{fullName}</Text>
@@ -245,6 +248,14 @@ function createStyles(theme: AppTheme) {
       alignItems: 'center',
       gap: 16,
       marginBottom: 16,
+    },
+    // Mirrors profileCard onto AppCard's dark-theme inner wrapper. Padding is
+    // omitted so AppCard's own 16 survives the style merge.
+    profileCardContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      gap: 16,
     },
     profileInfo: {
       flex: 1,
