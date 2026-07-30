@@ -2,48 +2,41 @@ import { PHARMACY_API_URL } from '../../../../config/env';
 
 export const PHARMACY_BASE_URL = PHARMACY_API_URL;
 
+/**
+ * Routes for the pharmacy module. Mirror of the parlour table — see the note there for why the
+ * `/create`, `/update`, `/delete` and `/view` entries were removed rather than repointed.
+ */
 export const PHARMACY_ROUTES = {
+  // POST base · PUT base · GET|DELETE base/{id}
+  PRODUCTS_BASE: '/pharmacyProduct',
   PRODUCTS_VIEW_ALL: '/pharmacyProduct/viewAll',
-  PRODUCTS_VIEW: '/pharmacyProduct/view',
-  PRODUCTS_CREATE: '/pharmacyProduct/create',
-  PRODUCTS_UPDATE: '/pharmacyProduct/update',
-  PRODUCTS_DELETE: '/pharmacyProduct/delete',
 
+  SERVICES_BASE: '/pharmacyService',
   SERVICES_VIEW_ALL: '/pharmacyService/viewAll',
-  SERVICES_VIEW: '/pharmacyService/view',
-  SERVICES_CREATE: '/pharmacyService/create',
-  SERVICES_UPDATE: '/pharmacyService/update',
-  SERVICES_DELETE: '/pharmacyService/delete',
 
+  // ORDERS_BASE also carries PATCH base/{id}/status — status-only change (cascades items,
+  // reconciles inventory, audits).
+  ORDERS_BASE: '/pharmacyOrder',
   ORDERS_VIEW_ALL: '/pharmacyOrder/viewAll',
   ORDERS_SUMMARY: '/pharmacyOrder/summary',
-  // PATCH /{id}/status — status-only change (cascades items, reconciles inventory, audits).
-  ORDERS_STATUS: '/pharmacyOrder',
-  ORDERS_VIEW: '/pharmacyOrder/view',
-  ORDERS_CREATE: '/pharmacyOrder/create',
-  ORDERS_UPDATE: '/pharmacyOrder/update',
-  ORDERS_DELETE: '/pharmacyOrder/delete',
-  ORDERS_BY_CUSTOMER: '/pharmacyOrder/viewByCustomer',
+  ORDERS_BY_CUSTOMER: '/pharmacyOrder/customer',
 
+  // APPOINTMENTS_BASE also carries PATCH base/{id}/status and base/{id}/schedule.
+  APPOINTMENTS_BASE: '/pharmacyAppointment',
   APPOINTMENTS_VIEW_ALL: '/pharmacyAppointment/viewAll',
   // Per-IST-day counts for the week strip / month grid dots.
   APPOINTMENTS_DAY_COUNTS: '/pharmacyAppointment/dayCounts',
-  // Bare base — the id-suffixed PATCHes append /{id}/status and /{id}/schedule.
-  APPOINTMENTS_BASE: '/pharmacyAppointment',
-  APPOINTMENTS_VIEW: '/pharmacyAppointment/view',
-  APPOINTMENTS_CREATE: '/pharmacyAppointment/create',
-  APPOINTMENTS_UPDATE: '/pharmacyAppointment/update',
-  APPOINTMENTS_DELETE: '/pharmacyAppointment/delete',
-  APPOINTMENTS_BY_CUSTOMER: '/pharmacyAppointment/viewByCustomer',
+  APPOINTMENTS_BY_CUSTOMER: '/pharmacyAppointment/customer',
 
+  // Bills are the one exception to the shape above: update is PUT base/{billId}, not PUT base.
+  BILLS_BASE: '/pharmacyBill',
   BILLS_VIEW_ALL: '/pharmacyBill/viewAll',
-  BILLS_VIEW: '/pharmacyBill/view',
-  BILLS_CREATE: '/pharmacyBill/create',
-  BILLS_UPDATE: '/pharmacyBill/update',
-  BILLS_DELETE: '/pharmacyBill/delete',
-  BILLS_BY_BUSINESS: '/pharmacyBill/viewByBusiness',
-  BILLS_BY_CUSTOMER: '/pharmacyBill/viewByCustomer',
+  BILLS_BY_BUSINESS: '/pharmacyBill/business',
+  BILLS_BY_CUSTOMER: '/pharmacyBill/customer',
 
+  // Inventory
+  // ⚠ Not yet audited against PharmacyInventoryController, unlike everything above. Same three
+  // known defects as the parlour table.
   INVENTORY_ADD: '/pharmacyInventory/add',
   INVENTORY_UPDATE: '/pharmacyInventory/update',
   INVENTORY_VIEW: '/pharmacyInventory/view',
