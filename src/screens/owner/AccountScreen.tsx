@@ -25,6 +25,8 @@ import type {AppTheme, ThemeId} from '../../theme/theme.types';
 import {THEMES, type ThemeDefinition} from '../../theme/colors';
 import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
 import {biometricStorage} from '../../storage/biometric.storage';
+import {clearTabConfigCache} from '../../backend/tab-config';
+import {resetRefreshState} from '../../backend/shared/config/authInterceptors';
 import {AppVersionRow} from '../../components/common/AppVersionRow';
 
 const SETTINGS_ROWS = [
@@ -117,7 +119,11 @@ export const AccountScreen: React.FC = () => {
 
   const handleLogout = useCallback(async () => {
     setShowLogout(false);
-    await biometricStorage.logoutClear();
+    // logoutClear only removes a fixed key list; the tab-config cache is per-business suffixed
+    // and lives partly in module memory, so it needs its own sweep. Without it, logging in as a
+    // different owner within the 5-minute TTL paints the previous account's navbar.
+    await Promise.all([biometricStorage.logoutClear(), clearTabConfigCache()]);
+    resetRefreshState();
     navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: 'Auth'}]}));
   }, []);
 
