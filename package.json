@@ -8,6 +8,7 @@
     "start": "react-native start",
     "web": "vite --config web-preview/vite.config.ts",
     "test": "jest",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
   "dependencies": {

@@ -117,14 +117,16 @@ export function RootNavigator() {
           }
         }
 
-        if (route !== 'Auth') {
-          const biometricEnabled = await biometricStorage.isEnabled();
-          if (biometricEnabled) {
-            const passed = await promptBiometric('Verify your identity to continue');
-            if (!passed) {
-              await AsyncStorage.clear();
-              route = 'Auth';
-            }
+        // No `route !== 'Auth'` guard: the no-token case already returned above and
+        // every branch of the chain assigns a portal route, so this is only ever
+        // reached with an authenticated route. The guard was dead, and TS flagged
+        // it as a comparison that can never be true.
+        const biometricEnabled = await biometricStorage.isEnabled();
+        if (biometricEnabled) {
+          const passed = await promptBiometric('Verify your identity to continue');
+          if (!passed) {
+            await AsyncStorage.clear();
+            route = 'Auth';
           }
         }
 

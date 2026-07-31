@@ -33,12 +33,15 @@ export function ListCard({
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
+  // Falls back to theme.status.FALLBACK rather than null. Previously an unmapped key rendered NO
+  // pill at all — the row simply lost its status, silently. That hit real screens: Billing's
+  // OVERDUE and PARTIAL, Stock Transfers' IN_TRANSIT and RECEIVED, and every APPROVED / RESOLVED /
+  // RECORDED row. Those keys are now in the token map, but a neutral pill beats a missing one for
+  // whatever comes next.
   const statusColors =
-    statusKey && theme.status[statusKey]
-      ? theme.status[statusKey]
-      : status && theme.status[status]
-        ? theme.status[status]
-        : null;
+    (statusKey && theme.status[statusKey]) ||
+    (status && theme.status[status]) ||
+    ((statusKey || status) ? theme.status.FALLBACK : null);
 
   const accent = statusColors?.border ?? theme.colors.primary;
 
@@ -126,6 +129,10 @@ function createStyles(theme: AppTheme) {
       color:    theme.palette.muted,
     },
     amount: {
+      // marginLeft:auto keeps the amount flush right even when `meta` is absent. space-between
+      // alone left-aligns a lone child, which is why Subscriptions' prices sat on the wrong side
+      // while every other list screen's sat on the right.
+      marginLeft: 'auto',
       fontSize:   15,
       fontWeight: '700',
       color:      theme.palette.onBackground,

@@ -42,11 +42,15 @@ export function AppButton({
   const styles = useThemedStyles(createStyles);
   const isDisabled = disabled || loading;
 
-  const bgStyle = isDisabled ? styles[`bg_${variant}_disabled` as keyof typeof styles] : styles[`bg_${variant}` as keyof typeof styles];
-  const textColorStyle = isDisabled ? styles[`text_${variant}_disabled` as keyof typeof styles] : styles[`text_${variant}` as keyof typeof styles];
+  // Indexing `styles` by a computed key widens to the union of EVERY entry in the
+  // sheet, text styles included, so the result is not assignable to a ViewStyle /
+  // TextStyle slot. The keys are built from ButtonVariant, so the lookup is sound
+  // — the cast just restores what the union erased.
+  const bgStyle = (isDisabled ? styles[`bg_${variant}_disabled` as keyof typeof styles] : styles[`bg_${variant}` as keyof typeof styles]) as ViewStyle;
+  const textColorStyle = (isDisabled ? styles[`text_${variant}_disabled` as keyof typeof styles] : styles[`text_${variant}` as keyof typeof styles]) as TextStyle;
   const borderStyle = variant === 'secondary' ? styles.borderSecondary : undefined;
 
-  const textColor = (StyleSheet.flatten(textColorStyle) as TextStyle).color as string;
+  const textColor = StyleSheet.flatten(textColorStyle).color as string;
 
   return (
     <TouchableOpacity

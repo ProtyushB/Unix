@@ -274,7 +274,9 @@ function createStyles(theme: AppTheme) {
       padding: 4,
     },
     filterRow: {
-      maxHeight:    40,
+      // No maxHeight. A chip's natural height is ~35px (7+7 padding, 2 border, 13sp line), so the
+      // old 40 cap clipped them vertically at an Android font scale of ~1.25 or above. flexGrow:0
+      // is what actually keeps this row from expanding; the cap was never load-bearing.
       marginTop:    2,
       marginBottom: 6,
       flexGrow:     0,

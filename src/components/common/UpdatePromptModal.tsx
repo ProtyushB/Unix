@@ -56,6 +56,7 @@ export function UpdatePrompt({controller}: {controller: UseAppUpdateResult}) {
       transparent
       animationType="fade"
       statusBarTranslucent
+      navigationBarTranslucent
       // Android back button. Blocked while busy so a stray tap cannot abandon a
       // download mid-flight, which would also count as dismissing the release.
       onRequestClose={busy ? () => {} : dismiss}>

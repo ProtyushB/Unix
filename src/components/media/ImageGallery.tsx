@@ -5,12 +5,13 @@ import {
   FlatList,
   TouchableOpacity,
   Modal,
-  Dimensions,
+  useWindowDimensions,
   StyleSheet,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
 import { Plus, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
 
@@ -25,11 +26,6 @@ interface ImageGalleryProps {
   onAddImage?: () => void;
 }
 
-// ─── Constants ──────────────────────────────────────────────────────────────
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const THUMBNAIL_SIZE = SCREEN_WIDTH - 64;
-
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
@@ -39,13 +35,23 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
   const [viewerIndex, setViewerIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
+  // useWindowDimensions, not a module-scope Dimensions.get('window'): the latter is captured once
+  // at import and never updates, so after a rotation the page width, the snap interval and
+  // getItemLayout's stride all disagree with the actual viewport and paging lands mid-image.
+  const { width: screenWidth } = useWindowDimensions();
+  const thumbnailSize = screenWidth - 64;
+
+  // A Modal renders in its own native window, outside any SafeAreaView, so the close button needs
+  // the insets directly — a hardcoded top would drift on devices with a taller status bar.
+  const insets = useSafeAreaInsets();
+
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetX = e.nativeEvent.contentOffset.x;
-      const index = Math.round(offsetX / THUMBNAIL_SIZE);
+      const index = Math.round(offsetX / thumbnailSize);
       setActiveIndex(index);
     },
-    [],
+    [thumbnailSize],
   );
 
   const openViewer = useCallback((index: number) => {
@@ -63,23 +69,26 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
         onPress={() => openViewer(index)}
         activeOpacity={0.85}
       >
-        <Image source={{ uri: item.uri }} style={styles.thumbnail} />
+        <Image
+          source={{ uri: item.uri }}
+          style={[styles.thumbnail, { width: thumbnailSize, height: thumbnailSize * 0.6 }]}
+        />
       </TouchableOpacity>
     ),
-    [openViewer, styles.thumbnail],
+    [openViewer, styles.thumbnail, thumbnailSize],
   );
 
   const renderViewerItem = useCallback(
     ({ item }: { item: GalleryImage }) => (
-      <View style={styles.viewerImageContainer}>
+      <View style={[styles.viewerImageContainer, { width: screenWidth }]}>
         <Image
           source={{ uri: item.uri }}
-          style={styles.viewerImage}
+          style={[styles.viewerImage, { width: screenWidth, height: screenWidth }]}
           resizeMode="contain"
         />
       </View>
     ),
-    [styles.viewerImageContainer, styles.viewerImage],
+    [styles.viewerImageContainer, styles.viewerImage, screenWidth],
   );
 
   return (
@@ -96,7 +105,7 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
           showsHorizontalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          snapToInterval={THUMBNAIL_SIZE}
+          snapToInterval={thumbnailSize}
           decelerationRate="fast"
           contentContainerStyle={styles.listContent}
         />
@@ -133,12 +142,13 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
         transparent
         animationType="fade"
         statusBarTranslucent
+        navigationBarTranslucent
         onRequestClose={closeViewer}
       >
         <View style={styles.viewer}>
           <TouchableOpacity
             onPress={closeViewer}
-            style={styles.closeBtn}
+            style={[styles.closeBtn, { top: insets.top + 12, right: insets.right + 20 }]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <X size={24} color="#ffffff" />
@@ -153,8 +163,8 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
             showsHorizontalScrollIndicator={false}
             initialScrollIndex={viewerIndex}
             getItemLayout={(_, index) => ({
-              length: SCREEN_WIDTH,
-              offset: SCREEN_WIDTH * index,
+              length: screenWidth,
+              offset: screenWidth * index,
               index,
             })}
           />
@@ -178,9 +188,8 @@ function createStyles(theme: AppTheme) {
     listContent: {
       gap: 0,
     },
+    // width / height come from the component — they track useWindowDimensions.
     thumbnail: {
-      width: THUMBNAIL_SIZE,
-      height: THUMBNAIL_SIZE * 0.6,
       borderRadius: 14,
       backgroundColor: theme.palette.divider,
     },
@@ -215,23 +224,18 @@ function createStyles(theme: AppTheme) {
       backgroundColor: 'rgba(0, 0, 0, 0.95)',
       justifyContent: 'center',
     },
+    // top / right come from the component — they track the safe-area insets.
     closeBtn: {
       position: 'absolute',
-      top: 50,
-      right: 20,
       zIndex: 10,
       padding: 8,
       backgroundColor: 'rgba(255, 255, 255, 0.15)',
       borderRadius: 20,
     },
     viewerImageContainer: {
-      width: SCREEN_WIDTH,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    viewerImage: {
-      width: SCREEN_WIDTH,
-      height: SCREEN_WIDTH,
-    },
+    viewerImage: {},
   });
 }

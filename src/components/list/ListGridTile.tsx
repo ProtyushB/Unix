@@ -33,7 +33,8 @@ export function ListGridTile({
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
-  const statusColors = statusKey ? theme.status[statusKey] : null;
+  // FALLBACK rather than nothing for an unmapped key — see the note in ListCard.
+  const statusColors = statusKey ? theme.status[statusKey] ?? theme.status.FALLBACK : null;
   const metaColor    = statusColors?.text ?? theme.palette.muted;
 
   return (
@@ -63,7 +64,13 @@ export function ListGridTile({
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     tile: {
+      // flex:1 alone lets the last tile of an odd-length set expand to the full row width — a
+      // single full-bleed card with a full-width square image block, which reads as broken. It
+      // happens on every filter that yields an odd count (Subscriptions → Weekly is one item).
+      // maxWidth caps it at a column; flex still divides the row evenly when there are two.
+      // columnWrapperStyle's space-between cannot fix this on its own, because flex:1 overrides it.
       flex:            1,
+      maxWidth:        '50%',
       backgroundColor: theme.palette.surface,
       borderWidth:     1,
       borderColor:     theme.palette.divider,

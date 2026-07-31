@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -86,6 +86,17 @@ export function OwnerTabNavigator() {
         contentTarget={contentTarget}
       >
         <View style={styles.flex}>
+          {/*
+            One status bar for the whole portal. It used to be set only by DashboardScreen, so bar
+            style leaked from whatever screen mounted last — and since every auth screen hardcodes
+            'light-content', landing anywhere but the Dashboard in a light theme left white icons
+            on a light background. Set here, it covers all 20 tabs.
+
+            No `backgroundColor`: the app is permanently edge-to-edge at targetSdk 36, so Android
+            forces the status bar transparent and the prop is a deprecated no-op.
+          */}
+          <StatusBar barStyle={theme.mode === 'dark' ? 'light-content' : 'dark-content'} />
+
           {/* Gradient backdrop — scoped so card BlurViews capture ONLY this. */}
           <BlurTargetView ref={gradientTarget} style={StyleSheet.absoluteFill}>
             <Svg style={StyleSheet.absoluteFill} pointerEvents="none">

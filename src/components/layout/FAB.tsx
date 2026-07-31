@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
@@ -28,6 +29,14 @@ export function FAB({ onPress, icon }: FABProps) {
   const styles = useThemedStyles(createStyles);
   const scale = useSharedValue(1);
 
+  // The FAB is an absolute child of the screen's SafeAreaView, and Yoga positions absolute children
+  // from the border edge — so the SafeAreaView's left/right padding never reaches it and `right: 20`
+  // is 20px from the raw screen edge. Fine in portrait, under the cutout in landscape.
+  //
+  // `bottom` stays 24 with no inset added: the custom tab bar is an in-flow sibling that already
+  // owns insets.bottom, so the screen never extends under the gesture bar.
+  const insets = useSafeAreaInsets();
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -46,7 +55,11 @@ export function FAB({ onPress, icon }: FABProps) {
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       activeOpacity={0.8}
-      style={[styles.fab, { backgroundColor: colors.primary, shadowColor: colors.primary }, animatedStyle]}
+      style={[
+        styles.fab,
+        { backgroundColor: colors.primary, shadowColor: colors.primary, right: 20 + insets.right },
+        animatedStyle,
+      ]}
     >
       {icon ?? <Plus size={26} color="#ffffff" />}
     </AnimatedTouchable>
@@ -57,10 +70,10 @@ export function FAB({ onPress, icon }: FABProps) {
 
 function createStyles(_theme: AppTheme) {
   return StyleSheet.create({
+    // `right` comes from the component — it tracks the safe-area inset.
     fab: {
       position: 'absolute',
       bottom: 24,
-      right: 20,
       width: 58,
       height: 58,
       borderRadius: 29,

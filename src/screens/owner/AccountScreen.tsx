@@ -1,7 +1,8 @@
 import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Animated,
+  View, Text, TouchableOpacity, StyleSheet, Animated, Modal, ScrollView,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {
   ChevronRight, ChevronDown, Palette, Bell, HelpCircle,
   Shield, LogOut, Building2, Lock,
@@ -81,6 +82,8 @@ export const AccountScreen: React.FC = () => {
   const { setTheme } = useThemeActions();
   const styles = useThemedStyles(createStyles);
   const {showToast} = useToast();
+  // For the theme sheet: it renders in a Modal window, outside this screen's SafeAreaView.
+  const insets = useSafeAreaInsets();
   const [user, setUser] = useState<any>(null);
   const [showLogout, setShowLogout] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -237,48 +240,68 @@ export const AccountScreen: React.FC = () => {
           onCancel={() => setShowLogout(false)}
         />
 
-        {showThemePicker && (
+        {/*
+          A real Modal, not an absolutely-positioned View. It used to live inside this screen's
+          content, which sits inside ScreenWrapper's ScrollView — so it anchored to the scroll
+          content's height rather than the viewport and dropped below the fold once the page grew,
+          its scrim started below the status bar (an absolute child gets no safe-area padding), and
+          it never covered the tab bar, leaving the tabs tappable behind a supposedly blocking
+          sheet. A Modal gets its own window and fixes all three at once. Same prop set as
+          ConfirmDialog and PortalSwitcherSheet.
+        */}
+        <Modal
+          visible={showThemePicker}
+          transparent
+          animationType="slide"
+          statusBarTranslucent
+          navigationBarTranslucent
+          onRequestClose={() => setShowThemePicker(false)}
+        >
           <View style={styles.overlay}>
             <TouchableOpacity style={styles.overlayBg} onPress={() => setShowThemePicker(false)} />
-            <View style={styles.sheet}>
+            <View style={[styles.sheet, {paddingBottom: 24 + insets.bottom}]}>
               <Text style={styles.sheetTitle}>Choose Theme</Text>
 
-              <Text style={styles.sheetSection}>Dark</Text>
-              <View style={styles.themeGrid}>
-                {DARK_THEMES.map(t => (
-                  <ThemeSwatch
-                    key={t.id}
-                    theme={t}
-                    active={currentThemeId === t.id}
-                    styles={styles}
-                    onPick={(id: ThemeId, label: string) => {
-                      setTheme(id);
-                      setShowThemePicker(false);
-                      showToast(`Theme changed to ${label}`, 'success');
-                    }}
-                  />
-                ))}
-              </View>
+              {/* maxHeight on the sheet without a scroller would simply clip the Light grid on a
+                  short device. */}
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.sheetSection}>Dark</Text>
+                <View style={styles.themeGrid}>
+                  {DARK_THEMES.map(t => (
+                    <ThemeSwatch
+                      key={t.id}
+                      theme={t}
+                      active={currentThemeId === t.id}
+                      styles={styles}
+                      onPick={(id: ThemeId, label: string) => {
+                        setTheme(id);
+                        setShowThemePicker(false);
+                        showToast(`Theme changed to ${label}`, 'success');
+                      }}
+                    />
+                  ))}
+                </View>
 
-              <Text style={[styles.sheetSection, {marginTop: 18}]}>Light</Text>
-              <View style={styles.themeGrid}>
-                {LIGHT_THEMES.map(t => (
-                  <ThemeSwatch
-                    key={t.id}
-                    theme={t}
-                    active={currentThemeId === t.id}
-                    styles={styles}
-                    onPick={(id: ThemeId, label: string) => {
-                      setTheme(id);
-                      setShowThemePicker(false);
-                      showToast(`Theme changed to ${label}`, 'success');
-                    }}
-                  />
-                ))}
-              </View>
+                <Text style={[styles.sheetSection, {marginTop: 18}]}>Light</Text>
+                <View style={styles.themeGrid}>
+                  {LIGHT_THEMES.map(t => (
+                    <ThemeSwatch
+                      key={t.id}
+                      theme={t}
+                      active={currentThemeId === t.id}
+                      styles={styles}
+                      onPick={(id: ThemeId, label: string) => {
+                        setTheme(id);
+                        setShowThemePicker(false);
+                        showToast(`Theme changed to ${label}`, 'success');
+                      }}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
             </View>
           </View>
-        )}
+        </Modal>
 
         <PortalSwitcherSheet
           visible={showPortalSheet}

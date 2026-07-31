@@ -36,6 +36,14 @@ export function AuthBarMask() {
           style={[styles.bottom, { height: bottomH, backgroundColor: bg }]}
         />
       )}
+      {/* Side strips for landscape display cutouts — the top/bottom strips alone leave scrolled
+          content visible beside the notch when the device is rotated. */}
+      {insets.left > 0 && (
+        <View pointerEvents="none" style={[styles.left, { width: insets.left, backgroundColor: bg }]} />
+      )}
+      {insets.right > 0 && (
+        <View pointerEvents="none" style={[styles.right, { width: insets.right, backgroundColor: bg }]} />
+      )}
     </>
   );
 }
@@ -52,6 +60,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     left: 0,
+    right: 0,
+    zIndex: 20,
+  },
+  left: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 20,
+  },
+  right: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
     right: 0,
     zIndex: 20,
   },

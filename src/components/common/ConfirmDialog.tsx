@@ -37,6 +37,7 @@ export function ConfirmDialog({
       transparent
       animationType="fade"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onCancel}
     >
       <View style={styles.overlay}>

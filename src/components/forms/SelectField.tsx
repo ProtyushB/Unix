@@ -46,7 +46,7 @@ export function SelectField({
 }: SelectFieldProps) {
   const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const triggerRef = useRef<TouchableOpacity>(null);
+  const triggerRef = useRef<React.ComponentRef<typeof TouchableOpacity>>(null);
   const searchRef = useRef<TextInput>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -62,7 +62,11 @@ export function SelectField({
   const dropdownHeight = SEARCH_BAR_HEIGHT + listHeight + (filtered.length === 0 ? OPTION_HEIGHT : 0);
 
   const openDropdown = () => {
-    triggerRef.current?.measure((_fx, _fy, width, height, px, py) => {
+    // `measure` reports px/py in window coordinates, where y=0 is behind the status
+    // bar under edge-to-edge. The Modal below must therefore be statusBarTranslucent
+    // so its own origin is the same y=0 — otherwise RN insets the modal content and
+    // the dropdown lands a status-bar-height below its trigger.
+    triggerRef.current?.measure((_fx: number, _fy: number, width: number, height: number, px: number, py: number) => {
       setDropdownPos({ x: px, y: py + height + 4, width });
       setSearch('');
       setIsOpen(true);
@@ -103,6 +107,12 @@ export function SelectField({
         transparent
         animationType="none"
         onRequestClose={closeDropdown}
+        // Load-bearing, not cosmetic. `dropdownPos` comes from measuring the trigger in window
+        // coordinates, where y=0 is behind the status bar under edge-to-edge. Without these the
+        // modal window fits itself inside the system bars, its origin shifts down by the status
+        // bar height, and the dropdown renders that far below the field it belongs to.
+        statusBarTranslucent
+        navigationBarTranslucent
       >
         {/* Backdrop */}
         <TouchableOpacity
