@@ -6,12 +6,12 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  SectionList,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
@@ -34,10 +34,13 @@ import {
 } from 'lucide-react-native';
 
 import { FAB } from '../../components/layout/FAB';
+import { CollapsingHeader, AnimatedSectionList } from '../../components/layout/CollapsingHeader';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useCollapsingHeader } from '../../hooks/useCollapsingHeader';
 import { useToast } from '../../hooks/useToast';
+import { headerCollapses, type OrdersView } from './order.view';
 import type { AppTheme } from '../../theme/theme.types';
 import { formatCurrency } from '../../utils/formatters';
 import { DATE_PRESETS, rangeForPreset, toYmd, type DatePresetId } from '../../utils/dateRange';
@@ -51,6 +54,14 @@ import type { OrderListOptions } from '../../backend/modules/shared/hook/useModu
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20;
+
+/**
+ * Gap between the collapsing header and the first row — see the note by `sectionHeaderFirst`.
+ * Lives on the header (`gapBelow`), not in the list's content padding, so it cannot scroll away.
+ */
+const LIST_TOP_PAD = 12;
+/** FAB clearance, so the last card is never trapped under it. */
+const LIST_BOTTOM_PAD = 100;
 
 const MONTHS = [
   'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
@@ -377,9 +388,7 @@ export function OrdersScreen() {
   const errored = !!activeModule.error && rows.length === 0 && loadedOnce;
   const searching = mode === 'search';
 
-  type View =
-    | 'ERROR' | 'SEARCH' | 'NO_RESULTS' | 'LOADING'
-    | 'EMPTY' | 'FILTERED_EMPTY' | 'FILTERED' | 'MAIN';
+  type View = OrdersView;
 
   /**
    * `EMPTY` is the onboarding state — this business has no orders at all. When a
@@ -528,12 +537,29 @@ export function OrdersScreen() {
     [theme, styles, palette.divider],
   );
 
+  const { headerProps, listProps, headerHeight } = useCollapsingHeader({
+    pinned: !headerCollapses(view),
+    refreshing,
+    contentBottomPadding: LIST_BOTTOM_PAD,
+  });
+  const bodyInset = useMemo(() => ({ paddingTop: headerHeight }), [headerHeight]);
+
+  // Pagination is `onEndReached` alone — the list keeps refilling itself as you scroll, with no
+  // manual step. The mockup briefly carried a "Load older orders" pill here, but auto-load always
+  // won the race to the footer (onEndReachedThreshold fires well before it scrolls into view), so
+  // the button was unreachable in practice. It was dropped from the design rather than kept as
+  // dead furniture.
+
   const list = (
-    <SectionList
+    <AnimatedSectionList
+      {...listProps}
       sections={sections}
-      keyExtractor={item => String(item.id)}
-      contentContainerStyle={styles.list}
-      renderSectionHeader={({ section }) =>
+      keyExtractor={(item: OrderRow) => String(item.id)}
+      // Explicit, and load-bearing: the default is true on iOS, which would pin these opaque
+      // headers at scroll-view y=0 — behind the overlay header — then pop them into view the
+      // moment it collapses. The mockup shows them inline mid-list.
+      stickySectionHeadersEnabled={false}
+      renderSectionHeader={({ section }: { section: (typeof sections)[number] }) =>
         view === 'SEARCH' || view === 'FILTERED' ? null : (
           // The first header drops its top padding. That padding exists to separate
           // one day group from the previous one, and above the first group there is
@@ -548,7 +574,7 @@ export function OrdersScreen() {
           </View>
         )
       }
-      renderItem={({ item }) => renderRow(item)}
+      renderItem={({ item }: { item: OrderRow }) => renderRow(item)}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.3}
       refreshControl={
@@ -557,6 +583,8 @@ export function OrdersScreen() {
           onRefresh={onRefresh}
           tintColor={colors.primary}
           colors={[colors.primary]}
+          // Or the spinner turns behind the opaque header instead of below it.
+          progressViewOffset={headerHeight}
         />
       }
       ListFooterComponent={
@@ -573,7 +601,7 @@ export function OrdersScreen() {
   let body: React.ReactNode;
   if (view === 'LOADING') {
     body = (
-      <View>
+      <View style={bodyInset}>
         <View style={styles.chipRowStatic}>
           {[0, 1, 2, 3].map(i => <View key={i} style={styles.skelChip} />)}
         </View>
@@ -584,6 +612,7 @@ export function OrdersScreen() {
     body = (
       <HeroBlock
         styles={styles}
+        style={bodyInset}
         icon={<CircleX size={40} color={palette.muted} />}
         headline="Couldn't load orders"
         subtext="Something went wrong while loading. Check your connection and try again."
@@ -596,6 +625,7 @@ export function OrdersScreen() {
     body = (
       <HeroBlock
         styles={styles}
+        style={bodyInset}
         icon={<Package size={40} color={palette.muted} />}
         headline="No orders yet"
         subtext="New orders from customers will appear here as they come in."
@@ -608,6 +638,7 @@ export function OrdersScreen() {
     body = (
       <HeroBlock
         styles={styles}
+        style={bodyInset}
         icon={<Search size={40} color={palette.muted} />}
         headline="No orders found"
         subtext={`No orders match '${debouncedSearch}'. Try a different name or order number.`}
@@ -617,6 +648,7 @@ export function OrdersScreen() {
     body = (
       <HeroBlock
         styles={styles}
+        style={bodyInset}
         icon={<SlidersHorizontal size={40} color={palette.muted} />}
         headline="No orders match these filters"
         subtext="Nothing here for the selected status or date. Try widening the range."
@@ -631,8 +663,11 @@ export function OrdersScreen() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+  // Overlay, rendered AFTER the body so Android's paint order agrees with its zIndex. It
+  // translates off-screen on a downward scroll and back on an upward one; see CollapsingHeader
+  // for why it is absolute rather than laid out above the list.
+  const header = (
+    <CollapsingHeader {...headerProps} backgroundColor={palette.background} gapBelow={LIST_TOP_PAD}>
       {searching ? (
         <View style={styles.searchRow}>
           <View style={[styles.searchBox, styles.searchBoxFocused]}>
@@ -781,8 +816,14 @@ export function OrdersScreen() {
             : filteredCount}
         </Text>
       )}
+    </CollapsingHeader>
+  );
 
+  return (
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       {body}
+
+      {header}
 
       {showFab && <FAB onPress={() => { /* TODO: navigate to order create */ }} />}
 
@@ -854,9 +895,11 @@ function SkeletonRow({ styles }: { styles: any }) {
 // ─── Hero block (empty / error / no-results) ─────────────────────────────────
 
 function HeroBlock({
-  styles, icon, headline, subtext, ctaLabel, ctaIcon, onCta,
+  styles, style, icon, headline, subtext, ctaLabel, ctaIcon, onCta,
 }: {
   styles: any;
+  /** Reserves the overlay header's height so the block centres in the visible region. */
+  style?: StyleProp<ViewStyle>;
   icon: React.ReactNode;
   headline: string;
   subtext: string;
@@ -865,7 +908,7 @@ function HeroBlock({
   onCta?: () => void;
 }) {
   return (
-    <View style={styles.hero}>
+    <View style={[styles.hero, style]}>
       <View style={styles.heroCircle}>{icon}</View>
       <View style={styles.heroText}>
         <Text style={styles.heroHeadline}>{headline}</Text>
@@ -1183,8 +1226,8 @@ function createStyles(theme: AppTheme) {
     // deliberately a touch wider so the chips stay grouped with the search box and
     // the list reads as the start of a new block rather than a fourth chip row.
     // Owned solely by this value — the first section header zeroes its own top
-    // padding (see sectionHeaderFirst), so nothing else contributes here.
-    list: { paddingTop: 12, paddingBottom: 100 },
+    // padding (see sectionHeaderFirst), so nothing else contributes here. It now lives as
+    // LIST_TOP_PAD, carried as the header's own paddingBottom so it cannot scroll away.
     // 2, not 12, because the preceding card already contributes its own 10px
     // marginBottom — the two stack, so 2 + 10 lands on the same 12 the chips-to-list
     // gap uses. Changing the card margin will silently change this gap too.
