@@ -15,6 +15,7 @@ import AuthBackground from '../../components/auth/AuthBackground';
 import AuthBarMask from '../../components/auth/AuthBarMask';
 import PaymentStep from '../../components/auth/PaymentStep';
 import { useSignupDraft } from '../../context/SignupDraftContext';
+import { useAppContext } from '../../context/AppContext';
 import { completeSignup } from '../../services/completeSignup';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
@@ -42,6 +43,7 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
   const { showToast } = useToast();
+  const { hydrateSelection } = useAppContext();
 
   const handleConfirm = async ({
     employeeCode,
@@ -72,6 +74,8 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
     if (result.ok) {
       clearDraft();
       clearClaim();
+      // completeSignup has just written the business map; AppContext hydrated before it existed.
+      await hydrateSelection();
       navigation.reset({ index: 0, routes: [{ name: 'PortalSelection' }] });
       return;
     }

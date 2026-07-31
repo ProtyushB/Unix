@@ -44,7 +44,7 @@ import {
 } from '../util/tab-config.normalize';
 import tabConfigService from '../service/tab-config.service';
 import { useAppContext } from '../../../context/AppContext';
-import { findBusiness } from '../../../storage/session.storage';
+import { resolveSelectedBusiness } from '../../../storage/session.storage';
 
 const ALWAYS_ON_SET = new Set<string>(ALWAYS_ON_TABS);
 
@@ -199,11 +199,16 @@ export function TabConfigProvider({ children }: { children: React.ReactNode }) {
     const seq = ++requestSeqRef.current;
     const isCurrent = () => mountedRef.current && requestSeqRef.current === seq;
 
-    // Resolve via findBusiness, NOT useModuleService.getSelectedBusinessId —
-    // only findBusiness falls back to `b.name` when a cached record has no
-    // `businessName`. With the other resolver a name-only record yields null,
-    // the config never loads, and the gated groups stay hidden permanently.
-    const business = await findBusiness(selectedModule, selectedBusiness);
+    // Resolve via resolveSelectedBusiness, NOT useModuleService.getSelectedBusinessId —
+    // only this path falls back to `b.name` when a cached record has no `businessName`. With
+    // the other resolver a name-only record yields null, the config never loads, and the gated
+    // groups stay hidden permanently.
+    //
+    // It also falls back to storage when AppContext has nothing, which is the web port's
+    // behaviour: that provider re-reads localStorage on every refetch, so a fresh login is
+    // visible immediately. AppContext hydrates once at process start, so without the fallback a
+    // first login leaves this null and no request is ever made.
+    const business = await resolveSelectedBusiness(selectedModule, selectedBusiness);
     const bizId = (business?.id as number | undefined) ?? null;
     if (!isCurrent()) return;
 
