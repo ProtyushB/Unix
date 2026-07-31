@@ -32,6 +32,8 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
 import {ProfileStackParamList} from '../../navigation/types';
 import {biometricStorage} from '../../storage/biometric.storage';
+import {clearTabConfigCache} from '../../backend/tab-config';
+import {resetRefreshState} from '../../backend/shared/config/authInterceptors';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
@@ -113,7 +115,10 @@ export const CustomerProfileScreen: React.FC = () => {
   const handleLogout = useCallback(async () => {
     setShowLogoutConfirm(false);
     try {
-      await biometricStorage.logoutClear();
+      // Same sweep as the owner portal: logoutClear misses the per-business tab-config cache,
+      // which would otherwise survive into the next account's session.
+      await Promise.all([biometricStorage.logoutClear(), clearTabConfigCache()]);
+      resetRefreshState();
       navigationRef.dispatch(
         CommonActions.reset({
           index: 0,

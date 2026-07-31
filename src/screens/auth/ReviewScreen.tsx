@@ -17,6 +17,7 @@ import AuthHeader from '../../components/auth/AuthHeader';
 import SignupStepper from '../../components/auth/SignupStepper';
 import { getBusinessTypeLabel } from '../../utils/businessTypes';
 import { useSignupDraft } from '../../context/SignupDraftContext';
+import { useAppContext } from '../../context/AppContext';
 import { completeSignup } from '../../services/completeSignup';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
@@ -45,6 +46,7 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
   const { showToast } = useToast();
+  const { hydrateSelection } = useAppContext();
 
   const hasBusiness = businesses && businesses.length > 0;
 
@@ -75,6 +77,9 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
 
     clearDraft();
     clearClaim();
+    // completeSignup has just written the business map; AppContext hydrated before it existed.
+    // Without this the new owner lands in the portal with no business selected.
+    await hydrateSelection();
     navigation.reset({ index: 0, routes: [{ name: 'PortalSelection' }] });
   };
 

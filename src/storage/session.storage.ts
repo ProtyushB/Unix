@@ -11,6 +11,11 @@ const KEYS = {
   BUSINESS_TYPE_MAP: `${PREFIX}businessTypeMap`,
   SELECTED_BUSINESS_TYPE: `${PREFIX}selectedBusinessType`,
   SELECTED_BUSINESS: `${PREFIX}selectedBusiness`,
+  // AppContext's module pointer. It used to be declared privately in AppContext, which kept it
+  // out of SESSION_KEYS and therefore out of logoutClear — so logout removed the selected
+  // business but left the module behind, a half-state that fed straight back into the
+  // never-fetches-tab-config bug. Owned here so it is cleared with everything else.
+  SELECTED_MODULE: `${PREFIX}selectedModule`,
   ACTIVE_TAB: `${PREFIX}activeTab`,
   DMS_PREVIEW_FOLDERS: `${PREFIX}dmsPreviewFolders`,
 } as const;
@@ -128,6 +133,39 @@ export async function findBusiness(
   if (!map) return null;
   const businesses = map[module] || [];
   return businesses.find(b => (b.businessName || b.name) === businessName) ?? null;
+}
+
+/**
+ * Resolve the active business, falling back through storage when the caller has nothing.
+ *
+ * The web port reads the selected business id straight out of localStorage on every refetch, so
+ * whatever login just wrote is visible immediately. Here the equivalent state lives in React and
+ * is hydrated once at process start — which on a first login happens BEFORE the business map
+ * exists, leaving it null for the rest of the session. Anything that resolves a business only
+ * from that state silently does nothing.
+ *
+ * Order: what the caller has → the persisted selection → the first business we know about.
+ * The last step mirrors AppContext's own first-login default, so a caller can always get a
+ * sensible business as long as the user has one at all.
+ */
+export async function resolveSelectedBusiness(
+  module: string | null,
+  businessName: string | null,
+): Promise<Business | null> {
+  const direct = await findBusiness(module, businessName);
+  if (direct) return direct;
+
+  const [storedModule, storedName] = await Promise.all([
+    AsyncStorage.getItem(KEYS.SELECTED_MODULE),
+    AsyncStorage.getItem(KEYS.SELECTED_BUSINESS),
+  ]);
+  const stored = await findBusiness(storedModule, storedName);
+  if (stored) return stored;
+
+  const map = await getBusinessTypeMap();
+  if (!map) return null;
+  const firstType = Object.keys(map).find(t => (map[t] || []).length > 0);
+  return firstType ? map[firstType][0] ?? null : null;
 }
 
 // ─── Selected Business Type ──────────────────────────────────────────────────

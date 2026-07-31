@@ -30,6 +30,7 @@ import {
   clearRefreshToken,
 } from '../../storage/auth.storage';
 import { setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
+import { useAppContext } from '../../context/AppContext';
 import { setDmsFolderMap, DmsFolderMap } from '../../storage/dms.storage';
 import { biometricStorage } from '../../storage/biometric.storage';
 import { promptBiometric } from '../../hooks/useBiometric';
@@ -59,6 +60,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
   const { showToast } = useToast();
+  const { hydrateSelection } = useAppContext();
 
   const authService = getAuthService();
   const personService = getPersonService();
@@ -111,6 +113,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           await setDmsFolderMap(dmsFolderMap);
         }
 
+        // The business map has just landed. AppContext hydrated its selection once at process
+        // start — before login, so before this map existed — and nothing else would ever poke it:
+        // the post-login reset() only resets the navigator, and AppProvider sits above it. Without
+        // this the whole session runs with no selected business, so the tab config and the
+        // dashboard never load, and it only fixes itself on the next cold start.
+        await hydrateSelection();
+
         return personTypes;
       } catch {
         // Sign-in still succeeds if the profile fetch fails — the portals just
@@ -121,7 +130,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         return fallbackTypes;
       }
     },
-    [personService],
+    [personService, hydrateSelection],
   );
 
   const navigateToPortal = useCallback(
