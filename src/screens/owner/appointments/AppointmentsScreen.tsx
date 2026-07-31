@@ -4,7 +4,6 @@ import {
   Text,
   Pressable,
   ScrollView,
-  SectionList,
   TextInput,
   Modal,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
@@ -19,6 +19,7 @@ import {
   X,
   CalendarDays,
   CalendarClock,
+  CalendarCheck,
   ChevronLeft,
   ChevronRight,
   BadgeCheck,
@@ -31,9 +32,14 @@ import {
   Scissors,
 } from 'lucide-react-native';
 import { FAB } from '../../../components/layout/FAB';
+import {
+  CollapsingHeader,
+  AnimatedSectionList,
+} from '../../../components/layout/CollapsingHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useTheme } from '../../../hooks/useTheme';
 import { useThemedStyles } from '../../../hooks/useThemedStyles';
+import { useCollapsingHeader } from '../../../hooks/useCollapsingHeader';
 import { useToast } from '../../../hooks/useToast';
 import type { AppTheme } from '../../../theme/theme.types';
 import {
@@ -68,10 +74,16 @@ import {
   showsFab,
   showsDateNav,
   dayDotCount,
+  headerCollapses,
   type AppointmentView,
 } from './appointment.view';
 
 const PAGE_SIZE = 20;
+
+/** Gap between the collapsing header and the first row. Lives on the header — see `gapBelow`. */
+const LIST_TOP_PAD = 10;
+/** FAB clearance, so the last card is never trapped under it. */
+const LIST_BOTTOM_PAD = 100;
 
 /**
  * Quick Actions rows. The appointment's CURRENT status is filtered out at render time — offering
@@ -404,12 +416,52 @@ export function AppointmentsScreen() {
   // ── Body ───────────────────────────────────────────────────────────────────
   const sections = useMemo(() => [{ title: '', data: rows }], [rows]);
 
+  // The header is an overlay now, so every body branch has to reserve its height or it renders
+  // underneath. The list gets it through contentContainerStyle; the hero/skeleton blocks need it
+  // as real padding.
+  const { headerProps, listProps, headerHeight } = useCollapsingHeader({
+    pinned: !headerCollapses(view),
+    refreshing,
+    contentBottomPadding: LIST_BOTTOM_PAD,
+  });
+  const bodyInset = useMemo(() => ({ paddingTop: headerHeight }), [headerHeight]);
+
+  // List footer: the spinner while a further page lands, otherwise the mockup's end-of-day marker.
+  //
+  // The marker is only honest on the DAY surface — "scheduled today" is nonsense against a search
+  // result set spanning every date. Completeness is judged against dayCounts rather than a page
+  // counter because that is already the authoritative total for the day (the list itself is
+  // page-capped, which is why the count line reads from the same place).
+  const dayFullyLoaded = rows.length > 0 && rows.length >= dayTotal;
+  const footer = useMemo(() => {
+    if (activeModule.loading && rows.length > 0) {
+      return (
+        <View style={styles.footer}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      );
+    }
+    if (surface === 'DAY' && mode === 'browse' && dayFullyLoaded) {
+      return (
+        <View style={styles.endOfDay}>
+          <CalendarCheck size={16} color={palette.muted} />
+          <Text style={styles.endOfDayText}>Nothing more scheduled today</Text>
+        </View>
+      );
+    }
+    return null;
+  }, [
+    activeModule.loading, rows.length, surface, mode, dayFullyLoaded,
+    styles, colors.primary, palette.muted,
+  ]);
+
   let body: React.ReactNode;
 
   if (view === 'ERROR') {
     body = (
       <HeroBlock
         styles={styles}
+        style={bodyInset}
         icon={<CircleX size={40} color={palette.muted} />}
         headline="Couldn't load appointments"
         sub="Something went wrong while loading. Check your connection and try again."
@@ -420,7 +472,7 @@ export function AppointmentsScreen() {
     );
   } else if (view === 'LOADING' || view === 'CALENDAR_LOADING' || view === 'SEARCHING') {
     body = (
-      <View style={styles.skeletonWrap}>
+      <View style={[styles.skeletonWrap, bodyInset]}>
         {[0, 1, 2, 3, 4, 5].map(i => (
           <SkeletonRow key={i} styles={styles} />
         ))}
@@ -432,6 +484,7 @@ export function AppointmentsScreen() {
     body = (
       <HeroBlock
         styles={styles}
+        style={bodyInset}
         icon={<Search size={40} color={palette.muted} />}
         headline="No appointments found"
         // Not "try a different name": customer-name search is deliberately unsupported by the
@@ -444,6 +497,7 @@ export function AppointmentsScreen() {
     body = (
       <HeroBlock
         styles={styles}
+        style={bodyInset}
         icon={<CalendarDays size={40} color={palette.muted} />}
         headline="No appointments"
         sub="Nothing scheduled for this day. Book one to get started."
@@ -456,29 +510,29 @@ export function AppointmentsScreen() {
     );
   } else {
     body = (
-      <SectionList
+      <AnimatedSectionList
+        {...listProps}
         sections={sections}
-        keyExtractor={item => String(item.id)}
-        contentContainerStyle={styles.list}
+        keyExtractor={(item: AppointmentRow) => String(item.id)}
         renderSectionHeader={() => null}
-        renderItem={({ item }) => renderRow(item)}
+        renderItem={({ item }: { item: AppointmentRow }) => renderRow(item)}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.3}
+        // Explicit, and load-bearing: the default is true on iOS, which would pin section headers
+        // at scroll-view y=0 — i.e. behind the overlay header — then pop them into view the moment
+        // it collapses. Headers render null here anyway, but the flag must not be left to chance.
+        stickySectionHeadersEnabled={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={colors.primary}
             colors={[colors.primary]}
+            // Or the spinner turns behind the opaque header instead of below it.
+            progressViewOffset={headerHeight}
           />
         }
-        ListFooterComponent={
-          activeModule.loading && rows.length > 0 ? (
-            <View style={styles.footer}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : null
-        }
+        ListFooterComponent={footer}
         showsVerticalScrollIndicator={false}
       />
     );
@@ -486,8 +540,11 @@ export function AppointmentsScreen() {
 
   const searching = mode === 'search';
 
-  return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+  // The header is rendered as an overlay AFTER the body so Android's paint order agrees with its
+  // zIndex. It translates off-screen on a downward scroll and back on an upward one; see
+  // CollapsingHeader for why it is absolute rather than laid out above the list.
+  const header = (
+    <CollapsingHeader {...headerProps} backgroundColor={palette.background} gapBelow={LIST_TOP_PAD}>
       {searching ? (
         <View style={styles.searchHeader}>
           <View style={styles.searchField}>
@@ -594,8 +651,14 @@ export function AppointmentsScreen() {
           {`${rows.length} result${rows.length === 1 ? '' : 's'} for '${debouncedSearch}'`}
         </Text>
       )}
+    </CollapsingHeader>
+  );
 
+  return (
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       {body}
+
+      {header}
 
       {showsFab(view) && (
         <FAB
@@ -817,9 +880,11 @@ function SkeletonRow({ styles }: { styles: any }) {
 }
 
 function HeroBlock({
-  styles, icon, headline, sub, ctaLabel, onCta, colors,
+  styles, style, icon, headline, sub, ctaLabel, onCta, colors,
 }: {
   styles: any;
+  /** Reserves the overlay header's height so the block centres in the visible region. */
+  style?: StyleProp<ViewStyle>;
   icon: React.ReactNode;
   headline: string;
   sub: string;
@@ -828,7 +893,7 @@ function HeroBlock({
   colors: any;
 }) {
   return (
-    <View style={styles.hero}>
+    <View style={[styles.hero, style]}>
       <View style={styles.heroIcon}>{icon}</View>
       <Text style={styles.heroHeadline}>{headline}</Text>
       <Text style={styles.heroSub}>{sub}</Text>
@@ -1179,7 +1244,9 @@ function createStyles(theme: AppTheme) {
     },
 
     // List
-    list: { paddingTop: 10, paddingBottom: 100 },
+    // No `list` style: paddingTop is the measured header height (from useCollapsingHeader) and
+    // paddingBottom is LIST_BOTTOM_PAD. The gap above the first row is LIST_TOP_PAD, held as the
+    // header's own paddingBottom so it cannot scroll away.
     card: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1246,6 +1313,15 @@ function createStyles(theme: AppTheme) {
     heroCtaLabel: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
 
     footer: { paddingVertical: 16 },
+    endOfDay: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingTop: 16,
+      paddingBottom: 6,
+    },
+    endOfDayText: { fontSize: 12.5, fontWeight: '500', color: dim },
 
     // Sheets
     sheetOverlay: { flex: 1, backgroundColor: theme.palette.overlay ?? '#00000088' },

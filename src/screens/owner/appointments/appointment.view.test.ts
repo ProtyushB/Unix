@@ -3,6 +3,7 @@ import {
   showsFab,
   showsDateNav,
   dayDotCount,
+  headerCollapses,
   type ViewInput,
 } from './appointment.view';
 
@@ -100,6 +101,31 @@ describe('chrome visibility', () => {
     expect(showsDateNav('CALENDAR_EMPTY')).toBe(true);
     expect(showsDateNav('SEARCH_IDLE')).toBe(false);
     expect(showsDateNav('ERROR')).toBe(false);
+  });
+});
+
+describe('headerCollapses', () => {
+  it('lets the header hide on the two browse surfaces', () => {
+    expect(headerCollapses('DAY')).toBe(true);
+    expect(headerCollapses('CALENDAR')).toBe(true);
+  });
+
+  // Search pins its field so the query stays editable; the hero states would strand the user with
+  // no search box and no date navigation.
+  it('pins the header everywhere else', () => {
+    for (const v of [
+      'ERROR',
+      'LOADING',
+      'DAY_EMPTY',
+      'CALENDAR_EMPTY',
+      'CALENDAR_LOADING',
+      'SEARCH_IDLE',
+      'SEARCHING',
+      'SEARCH_RESULTS',
+      'NO_RESULTS',
+    ] as const) {
+      expect(headerCollapses(v)).toBe(false);
+    }
   });
 });
 

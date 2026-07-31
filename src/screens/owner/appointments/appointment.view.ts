@@ -98,6 +98,18 @@ export function isSearchView(view: AppointmentView): boolean {
 }
 
 /**
+ * Whether the header may auto-hide on scroll.
+ *
+ * Only the two browse surfaces. Search pins its own field so the query stays editable without
+ * scrolling back to the top, and the hero states have nothing to scroll under the header anyway —
+ * hiding it there would strand the user with no search box and no date navigation, which is the
+ * same trap that shaped the empty-state design.
+ */
+export function headerCollapses(view: AppointmentView): boolean {
+  return view === 'DAY' || view === 'CALENDAR';
+}
+
+/**
  * How many density dots a calendar day renders, capped at three per the mockup.
  *
  * The cap earns its keep: the cell is 46px wide, so an unbounded row would render a busy day as a
