@@ -1,4 +1,4 @@
-import {PharmacyApiInterface, OrderListOptions, AppointmentListOptions} from '../api/pharmacy.api.interface';
+import {PharmacyApiInterface, OrderListOptions, AppointmentListOptions, BillListOptions} from '../api/pharmacy.api.interface';
 
 export class PharmacyService {
   constructor(private api: PharmacyApiInterface) {}
@@ -92,7 +92,32 @@ export class PharmacyService {
 
   async getAllBills(page = 1, limit = 10) { return this.api.getAllBills(page, limit); }
   async getBillById(id: number) { return this.api.getBillById(id); }
-  async getBillsByBusiness(businessId: number) { return this.api.getBillsByBusiness(businessId); }
+  async getBillsByBusiness(businessId: number, page = 1, limit = 20, options: BillListOptions = {}) {
+    if (!businessId) throw new Error('Business ID is required');
+    return this.api.getBillsByBusiness(businessId, page, limit, options);
+  }
+  async getBillSummary(businessId: number) {
+    if (!businessId) throw new Error('Business ID is required');
+    return this.api.getBillSummary(businessId);
+  }
+  async updateBillStatus(id: number, billStatus: string) {
+    if (!id) throw new Error('Bill ID is required');
+    if (!billStatus) throw new Error('Bill status is required');
+    return this.api.updateBillStatus(id, billStatus);
+  }
+  async updateBillPayment(id: number, paymentStatus: string, options: {paidAmount?: number; refundedAmount?: number} = {}) {
+    if (!id) throw new Error('Bill ID is required');
+    if (!paymentStatus) throw new Error('Payment status is required');
+    // Guard here as well as server-side: catching it before the round trip gives the sheet a
+    // synchronous error instead of a 400 the user waits for.
+    if (paymentStatus === 'PARTIALLY_PAID' && options.paidAmount == null) {
+      throw new Error('paidAmount is required when marking a bill partially paid');
+    }
+    if (paymentStatus === 'PARTIAL_REFUNDED' && options.refundedAmount == null) {
+      throw new Error('refundedAmount is required when marking a bill partially refunded');
+    }
+    return this.api.updateBillPayment(id, paymentStatus, options);
+  }
   async getBillsByCustomer(customerId: number) { return this.api.getBillsByCustomer(customerId); }
   async createBill(data: Record<string, unknown>) { return this.api.createBill(data); }
   async updateBill(billId: number, data: Record<string, unknown>) { return this.api.updateBill(billId, data); }

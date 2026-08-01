@@ -52,6 +52,47 @@ export interface AppointmentDayCounts {
   counts: Record<string, number>;
 }
 
+/**
+ * Bills list filters. Same shape as the order/appointment options minus the date window — the
+ * billing screens have no date filter, so the backend deliberately does not accept one.
+ *
+ * `billStatus` and `paymentStatus` are comma-separated enum-name lists and are INDEPENDENT: a bill
+ * can be FINALIZED and UNPAID at once, which is why they are two params rather than one.
+ *
+ * Note `search` does NOT match customer name — the backend matches bill number, phone, email and
+ * the numeric id only. The placeholder copy has to say so.
+ */
+export interface BillListOptions {
+  search?: string;
+  billStatus?: string;
+  paymentStatus?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/**
+ * All-time billing rollup: the header line, the status chips and the wallet card in one payload.
+ *
+ * All-time rather than windowed because outstanding is money owed and does not reset at a month
+ * boundary. `countsByPaymentStatus` is sparse — a status with no bills is absent, so the UI simply
+ * renders no chip for it, same contract as OrderSummary.byStatus.
+ *
+ * The server sends both the split and the total so the header figure and the wallet breakdown can
+ * never drift apart by a rounding step: outstandingFromPartial + outstandingFromUnpaid ===
+ * totalOutstanding, always.
+ */
+export interface BillSummary {
+  totalBills: number;
+  countsByPaymentStatus: Record<string, number>;
+  countsByBillStatus: Record<string, number>;
+  /** Money collected — sum of paidAmount over EVERY bill, so a partial's paid part counts. */
+  totalPaid: number;
+  outstandingFromPartial: number;
+  outstandingFromUnpaid: number;
+  totalOutstanding: number;
+  outstandingBillCount: number;
+}
+
 export abstract class ParlourApiInterface {
   // Products
   abstract getAllProducts(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>>;
@@ -91,7 +132,19 @@ export abstract class ParlourApiInterface {
   // Bills
   abstract getAllBills(page: number, limit: number): Promise<ApiResponse<unknown[]>>;
   abstract getBillById(id: number): Promise<ApiResponse<unknown>>;
-  abstract getBillsByBusiness(businessId: number): Promise<ApiResponse<unknown[]>>;
+  abstract getBillsByBusiness(
+    businessId: number,
+    page?: number,
+    limit?: number,
+    options?: BillListOptions,
+  ): Promise<ApiResponse<unknown[]>>;
+  abstract getBillSummary(businessId: number): Promise<ApiResponse<BillSummary>>;
+  abstract updateBillStatus(id: number, billStatus: string): Promise<ApiResponse<unknown>>;
+  abstract updateBillPayment(
+    id: number,
+    paymentStatus: string,
+    options?: {paidAmount?: number; refundedAmount?: number},
+  ): Promise<ApiResponse<unknown>>;
   abstract getBillsByCustomer(customerId: number): Promise<ApiResponse<unknown[]>>;
   abstract createBill(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateBill(billId: number, data: Record<string, unknown>): Promise<ApiResponse<unknown>>;

@@ -29,8 +29,11 @@ export const PHARMACY_ROUTES = {
   APPOINTMENTS_BY_CUSTOMER: '/pharmacyAppointment/customer',
 
   // Bills are the one exception to the shape above: update is PUT base/{billId}, not PUT base.
+  // BILLS_BASE also carries PATCH base/{id}/status and base/{id}/payment.
   BILLS_BASE: '/pharmacyBill',
   BILLS_VIEW_ALL: '/pharmacyBill/viewAll',
+  // All-time rollup for the billing header, chips and wallet card.
+  BILLS_SUMMARY: '/pharmacyBill/summary',
   BILLS_BY_BUSINESS: '/pharmacyBill/business',
   BILLS_BY_CUSTOMER: '/pharmacyBill/customer',
 

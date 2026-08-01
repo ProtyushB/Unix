@@ -1,4 +1,4 @@
-import {ParlourApiInterface, ApiResponse, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts} from './parlour.api.interface';
+import {ParlourApiInterface, ApiResponse, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts, BillListOptions, BillSummary} from './parlour.api.interface';
 import parlourApiClient from '../config/axios.instance';
 import {PARLOUR_ROUTES} from '../config/api.config';
 
@@ -130,8 +130,25 @@ export class ParlourApiImpl extends ParlourApiInterface {
     const res = await parlourApiClient.get(`${PARLOUR_ROUTES.BILLS_BASE}/${id}`);
     return res.data;
   }
-  async getBillsByBusiness(businessId: number): Promise<ApiResponse<unknown[]>> {
-    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.BILLS_BY_BUSINESS}/${businessId}`);
+  async getBillsByBusiness(businessId: number, page = 1, limit = 20, options: BillListOptions = {}): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.BILLS_BY_BUSINESS}/${businessId}`, {params: {page, limit, ...options}});
+    return res.data;
+  }
+  async getBillSummary(businessId: number): Promise<ApiResponse<BillSummary>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.BILLS_SUMMARY, {params: {businessId}});
+    return res.data;
+  }
+  // Status-only PATCH, never the full PUT: that rebuilds the bill from a complete request body and
+  // a partial one silently wipes its lines. Cancelling here also un-links the billed
+  // orders/appointments and restocks bill-owned bare lines, server-side.
+  async updateBillStatus(id: number, billStatus: string): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.patch(`${PARLOUR_ROUTES.BILLS_BASE}/${id}/status`, null, {params: {billStatus}});
+    return res.data;
+  }
+  // paidAmount is required for PARTIALLY_PAID, refundedAmount for PARTIAL_REFUNDED — the server
+  // 400s otherwise rather than silently settling to zero.
+  async updateBillPayment(id: number, paymentStatus: string, options: {paidAmount?: number; refundedAmount?: number} = {}): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.patch(`${PARLOUR_ROUTES.BILLS_BASE}/${id}/payment`, null, {params: {paymentStatus, ...options}});
     return res.data;
   }
   async getBillsByCustomer(customerId: number): Promise<ApiResponse<unknown[]>> {

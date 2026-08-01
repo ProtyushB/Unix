@@ -53,6 +53,9 @@ const THEMES: { id: string; label: string }[] = [
 const RAIL = 9;   // outer metal band
 const BEZEL = 6;  // black bezel between rail and glass
 const FRAME_PAD = RAIL + BEZEL;
+// Corner radius of the glass. Shared with the Modal-portal clamp below, which has to round its
+// own clip to match — a square clip would let sheets paint into the phone's rounded corners.
+const SCREEN_RADIUS = 40;
 
 const Stack = createNativeStackNavigator();
 
@@ -220,6 +223,64 @@ export function PreviewApp() {
       window.removeEventListener('resize', measure);
     };
   }, []);
+
+  // ─── Keep RN-web Modal portals inside the phone ───────────────────────────
+  //
+  // react-native-web renders <Modal> through a portal appended to document.body, so it lands
+  // OUTSIDE the scaled device frame and its `position: fixed; inset: 0` root resolves against the
+  // browser window. A bottom sheet then spans the whole harness — over the sidebar and all — while
+  // a non-Modal overlay like GroupSheetOverlay, which stays in the React tree, sits neatly inside
+  // the phone. That is purely a harness artifact: on a real device the Modal IS the screen, so the
+  // fix belongs here rather than in app code (11 screens/components use Modal).
+  //
+  // The trick: a transform on an ancestor becomes the containing block for `position: fixed`
+  // descendants. Giving the portal wrapper the screen's on-screen origin, the device's unscaled
+  // size, and the same scale makes the Modal lay out and clip exactly like the phone screen.
+  useLayoutEffect(() => {
+    const tag = document.createElement('style');
+    tag.dataset.previewModalClamp = '';
+    document.head.appendChild(tag);
+
+    const apply = () => {
+      const screen = document.querySelector('[data-device-screen]');
+      if (!screen) { tag.textContent = ''; return; }
+      const r = screen.getBoundingClientRect();
+      // pointer-events: none on the wrapper because RN-web leaves empty portal containers mounted
+      // even with no Modal open — a sized, transparent, fixed div would otherwise swallow every
+      // tap on the phone. Children re-enable it, so an actually-open Modal stays interactive.
+      tag.textContent =
+        `body > div:not(#root) {` +
+        `position: fixed;` +
+        `left: ${r.left}px; top: ${r.top}px;` +
+        `width: ${device.w}px; height: ${device.h}px;` +
+        `transform: scale(${scale}); transform-origin: top left;` +
+        // Rounded to match the glass. Without this the clip is a plain rectangle and a bottom
+        // sheet or full-bleed scrim paints square into the phone's rounded corners.
+        `border-radius: ${SCREEN_RADIUS}px;` +
+        `overflow: hidden; pointer-events: none;` +
+        `}` +
+        `body > div:not(#root) > * { pointer-events: auto; }`;
+    };
+
+    apply();
+    // The sidebar has a width transition, so the screen's left edge keeps moving after a toggle;
+    // the ResizeObserver on the canvas fires throughout it. The timeouts cover the first paint,
+    // where the frame may not have settled yet — same reason the fit measurement above has them.
+    const raf = requestAnimationFrame(apply);
+    const t1 = setTimeout(apply, 120);
+    const t2 = setTimeout(apply, 400);
+    const ro = new ResizeObserver(apply);
+    if (canvasRef.current) ro.observe(canvasRef.current);
+    window.addEventListener('resize', apply);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      ro.disconnect();
+      window.removeEventListener('resize', apply);
+      tag.remove();
+    };
+  });
 
   // Must equal the canvas padding on both sides (2 × 16) so the fitted device
   // exactly fills the padded content box — otherwise it overflows and scrolls.
@@ -546,7 +607,7 @@ const styles: Record<string, React.CSSProperties> = {
   deviceScreen: {
     position: 'relative',
     flexShrink: 0,
-    borderRadius: 40,
+    borderRadius: SCREEN_RADIUS,
     overflow: 'hidden',
     background: '#000',
     display: 'flex',

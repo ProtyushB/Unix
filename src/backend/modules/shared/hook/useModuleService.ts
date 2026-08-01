@@ -62,6 +62,40 @@ export interface AppointmentDayCounts {
   counts: Record<string, number>;
 }
 
+/**
+ * Bills list filters. No date window — the billing screens have no date filter and the backend
+ * accepts none. `billStatus` and `paymentStatus` are comma-separated enum-name lists and are
+ * independent axes: a bill can be FINALIZED and UNPAID at once.
+ *
+ * `search` does NOT match customer name — bill number, phone, email and numeric id only.
+ */
+export interface BillListOptions {
+  search?: string;
+  billStatus?: string;
+  paymentStatus?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/**
+ * All-time billing rollup behind the header line, the status chips and the wallet card.
+ *
+ * `countsByPaymentStatus` is sparse — an absent status simply has no chip. The split and the total
+ * both come from the server so the header figure and the wallet breakdown cannot drift:
+ * outstandingFromPartial + outstandingFromUnpaid === totalOutstanding.
+ */
+export interface BillSummary {
+  totalBills: number;
+  countsByPaymentStatus: Record<string, number>;
+  countsByBillStatus: Record<string, number>;
+  /** Collected across EVERY bill, so a partially-paid bill's paid portion is included. */
+  totalPaid: number;
+  outstandingFromPartial: number;
+  outstandingFromUnpaid: number;
+  totalOutstanding: number;
+  outstandingBillCount: number;
+}
+
 interface ModuleService {
   getAllProducts(businessId: number, page: number, limit: number): Promise<ServiceResult>;
   createProduct(data: Record<string, unknown>): Promise<ServiceResult>;
@@ -96,7 +130,21 @@ interface ModuleService {
   deleteAppointment(id: number): Promise<ServiceResult>;
   getAppointmentsByCustomer(customerId: number, options: Record<string, unknown>): Promise<ServiceResult>;
 
-  getBillsByBusiness(businessId: number): Promise<ServiceResult>;
+  getBillsByBusiness(
+    businessId: number,
+    page?: number,
+    limit?: number,
+    options?: BillListOptions,
+  ): Promise<ServiceResult>;
+  // Optional (`?`) like the appointment additions: Restaurant is a stub with no Modulex
+  // counterpart, so callers guard with `?.()`.
+  getBillSummary?(businessId: number): Promise<ServiceResult>;
+  updateBillStatus?(id: number, billStatus: string): Promise<ServiceResult>;
+  updateBillPayment?(
+    id: number,
+    paymentStatus: string,
+    options?: {paidAmount?: number; refundedAmount?: number},
+  ): Promise<ServiceResult>;
 
   getInventoryBatchesByBusiness(businessId: number): Promise<ServiceResult>;
   getInventoryBatchesByProduct(productId: number, businessId: number): Promise<ServiceResult>;
@@ -150,6 +198,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     const [appointmentsTotalPages, setAppointmentsTotalPages] = useState(1);
     const [appointmentDayCounts, setAppointmentDayCounts] = useState<Record<string, number>>({});
     const [bills, setBills] = useState<unknown[]>([]);
+    const [billsTotalPages, setBillsTotalPages] = useState(1);
+    const [billSummary, setBillSummary] = useState<BillSummary | null>(null);
     const [inventory, setInventory] = useState<unknown[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -819,32 +869,106 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     // Bills
     // ═══════════════════════════════════════════════════════════════
 
-    const loadBills = useCallback(async () => {
-      setLoading(true);
-      setError(null);
+    const loadBills = useCallback(
+      async (page = 1, limit = 20, options: BillListOptions = {}) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const businessId = await getSelectedBusinessId();
+          if (!businessId) {
+            setError('No business selected. Please select a business first.');
+            setBills([]);
+            setLoading(false);
+            return;
+          }
+          const response = await service.getBillsByBusiness(businessId, page, limit, options);
+          if (response.success) {
+            const data = response.data;
+            setBills(Array.isArray(data) ? data : []);
+            // Captured for infinite scroll — the previous signature dropped it entirely, so the
+            // list had no way to know whether another page existed.
+            setBillsTotalPages((response as {totalPages?: number}).totalPages || 1);
+          } else {
+            setError(response.error || response.message || null);
+            setBills([]);
+          }
+        } catch (err) {
+          setError((err as Error).message || 'Failed to load bills');
+          setBills([]);
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * The header line, the status chips and the wallet card.
+     *
+     * Same contract as loadOrderSummary: never toggles `loading`, never sets `error`, no-ops on
+     * failure. These are decoration on top of the list — a 500 here must not take the screen down
+     * or blank a list that loaded perfectly well.
+     */
+    const loadBillSummary = useCallback(async () => {
       try {
         const businessId = await getSelectedBusinessId();
-        if (!businessId) {
-          setError('No business selected. Please select a business first.');
-          setBills([]);
-          setLoading(false);
-          return;
+        if (!businessId || !service.getBillSummary) return;
+        const response = await service.getBillSummary(businessId);
+        if (response.success && response.data) {
+          setBillSummary(response.data as BillSummary);
         }
-        const response = await service.getBillsByBusiness(businessId);
-        if (response.success) {
-          const data = response.data;
-          setBills(Array.isArray(data) ? data : []);
-        } else {
-          setError(response.error || response.message || null);
-          setBills([]);
-        }
-      } catch (err) {
-        setError((err as Error).message || 'Failed to load bills');
-        setBills([]);
-      } finally {
-        setLoading(false);
+      } catch {
+        // Decoration only — leave the last-good summary in place.
       }
     }, [service]);
+
+    // No explicit return annotation, matching updateOrderStatus: the union has to carry `code`,
+    // which the strict ServiceResult shape does not declare.
+    const updateBillStatus = useCallback(
+      async (id: number, billStatus: string) => {
+        try {
+          if (!service.updateBillStatus) {
+            return {success: false, error: 'Not supported for this module'};
+          }
+          return await service.updateBillStatus(id, billStatus);
+        } catch (err) {
+          // Dig the server's `code` out of the axios error — the screen branches on it to tell a
+          // state conflict (409) apart from a generic failure.
+          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const body = e.response?.data;
+          return {
+            success: false,
+            code: body?.code,
+            error: body?.error || body?.message || e.message || 'Failed to update bill status',
+          };
+        }
+      },
+      [service],
+    );
+
+    const updateBillPayment = useCallback(
+      async (
+        id: number,
+        paymentStatus: string,
+        options: {paidAmount?: number; refundedAmount?: number} = {},
+      ) => {
+        try {
+          if (!service.updateBillPayment) {
+            return {success: false, error: 'Not supported for this module'};
+          }
+          return await service.updateBillPayment(id, paymentStatus, options);
+        } catch (err) {
+          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const body = e.response?.data;
+          return {
+            success: false,
+            code: body?.code,
+            error: body?.error || body?.message || e.message || 'Failed to update bill payment',
+          };
+        }
+      },
+      [service],
+    );
 
     // ═══════════════════════════════════════════════════════════════
     // Inventory CRUD
@@ -1019,6 +1143,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       appointmentsTotalPages,
       appointmentDayCounts,
       bills,
+      billsTotalPages,
+      billSummary,
       inventory,
       loading,
       error,
@@ -1058,6 +1184,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       loadCustomers,
       loadEmployees,
       loadBills,
+      loadBillSummary,
+      updateBillStatus,
+      updateBillPayment,
 
       // Inventory CRUD
       loadInventoryByBusiness,
