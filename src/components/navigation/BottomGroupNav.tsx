@@ -134,7 +134,14 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.barContent, styles.barScrollContent]}
+        // The horizontal insets matter in landscape: without them the first and last tab can slide
+        // under a display cutout. Added to the content padding rather than the bar itself so the
+        // bar's background still reaches the screen edges.
+        contentContainerStyle={[
+          styles.barContent,
+          styles.barScrollContent,
+          { paddingLeft: 14 + insets.left, paddingRight: 14 + insets.right },
+        ]}
       >
         {visibleGroups.map(group => {
           const GroupIcon  = group.groupIcon;

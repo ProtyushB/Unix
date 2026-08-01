@@ -8,7 +8,7 @@ configureReanimatedLogger({
 });
 import React from 'react';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {SafeAreaProvider} from 'react-native-safe-area-context';
+import {SafeAreaProvider, initialWindowMetrics} from 'react-native-safe-area-context';
 import {StyleSheet} from 'react-native';
 import {ThemeProvider} from './src/context/ThemeContext';
 import {AppProvider} from './src/context/AppContext';
@@ -18,7 +18,11 @@ import {RootNavigator} from './src/navigation/RootNavigator';
 const App: React.FC = () => {
   return (
     <GestureHandlerRootView style={styles.root}>
-      <SafeAreaProvider>
+      {/* initialMetrics is not an optimisation. Without it SafeAreaProvider renders NOTHING —
+          not the navigator, not the bootstrap — until the first native insets round-trip lands,
+          so cold start shows the bare Android window background and RootNavigator's token read,
+          portal derivation and biometric gate do not even begin until a frame later. */}
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <ThemeProvider>
           <AppProvider>
             {/* Inside ThemeProvider (the toast reads accent colours from it) and

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import {User, Building2} from 'lucide-react-native';
 import {BlurView} from 'expo-blur';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {PORTALS, PORTAL_ORDER, PortalKey} from '../../utils/portals';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
@@ -44,18 +45,43 @@ export function PortalSwitcherSheet({
   const portalsToShow = PORTAL_ORDER.filter(key => availableKeys.includes(key));
   const isDark = theme.mode === 'dark';
 
+  // A Modal renders in its own native window, outside the screen's SafeAreaView, so it gets no
+  // inset from above. Without this the last portal row sits under the gesture nav bar. Same
+  // reasoning and same shape as the Orders / Appointments sheets.
+  const insets = useSafeAreaInsets();
+
+  // Both call sites drive `slideAnim` between a hardcoded 300 (hidden) and 0 (shown). 300 was only
+  // ever a guess at the sheet's height, and adding the bottom inset above pushes the real height
+  // past it — which would leave a sliver of sheet stranded on screen after closing. Rather than
+  // grow the magic number, treat the parent's 300 as a progress scale and map it onto the height we
+  // actually measured. Self-contained, so neither caller changes, and a third portal can no longer
+  // outgrow it. Falls back to 300 for the first frame, before onLayout has fired.
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const translateY = slideAnim.interpolate({
+    inputRange: [0, 300],
+    outputRange: [0, sheetHeight || 300],
+    extrapolate: 'clamp',
+  });
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="none"
       onRequestClose={onClose}
-      statusBarTranslucent>
+      statusBarTranslucent
+      navigationBarTranslucent>
       <View style={styles.overlay}>
         <Animated.View style={[styles.overlayBg, {opacity: overlayAnim}]}>
           <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
-        <Animated.View style={[isDark ? styles.sheetGlass : styles.sheetFlat, {transform: [{translateY: slideAnim}]}]}>
+        <Animated.View
+          onLayout={e => setSheetHeight(e.nativeEvent.layout.height)}
+          style={[
+            isDark ? styles.sheetGlass : styles.sheetFlat,
+            {paddingBottom: 24 + insets.bottom},
+            {transform: [{translateY}]},
+          ]}>
           {isDark && (
             <>
               {/* Modal renders in a separate window, so expo-blur's

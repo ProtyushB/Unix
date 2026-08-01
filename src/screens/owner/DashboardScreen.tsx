@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   RefreshControl,
-  StatusBar,
   Linking,
   StyleSheet,
 } from 'react-native';
@@ -139,9 +138,9 @@ export default function DashboardScreen() {
 
   const dashboard = useDashboard();
 
-  const { colors, palette, mode } = useTheme();
+  const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const statusBarStyle = mode === 'dark' ? 'light-content' : 'dark-content';
+  // No <StatusBar> here — OwnerTabNavigator sets one theme-aware bar for the whole portal.
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [businessResolved, setBusinessResolved] = useState(false);
@@ -283,7 +282,6 @@ export default function DashboardScreen() {
   if (isLocked) {
     return (
       <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle={statusBarStyle} backgroundColor={palette.background} />
         <View style={styles.lockedTopBar}>
           <BusinessSwitcherChip
             businessName={selectedBusiness}
@@ -306,8 +304,6 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle={statusBarStyle} backgroundColor={palette.background} />
-
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}

@@ -10,10 +10,15 @@ export const DARK_STATUS: Record<string, StatusColorSet> = {
   PAID:           { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
   COMPLETED:      { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
   BILLED:         { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
+  APPROVED:       { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
+  RESOLVED:       { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
+  RECEIVED:       { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
   // Info — blue
   CONFIRMED:      { bg: '#3b82f620', text: '#60a5fa', border: '#3b82f640' },
   READY:          { bg: '#3b82f620', text: '#60a5fa', border: '#3b82f640' },
   IN_PROGRESS:    { bg: '#3b82f620', text: '#60a5fa', border: '#3b82f640' },
+  IN_TRANSIT:     { bg: '#3b82f620', text: '#60a5fa', border: '#3b82f640' },
+  RECORDED:       { bg: '#3b82f620', text: '#60a5fa', border: '#3b82f640' },
   // Warning — amber
   PENDING:        { bg: '#f59e0b20', text: '#f59e0b', border: '#f59e0b40' },
   PREPARING:      { bg: '#f59e0b20', text: '#f59e0b', border: '#f59e0b40' },
@@ -23,12 +28,15 @@ export const DARK_STATUS: Record<string, StatusColorSet> = {
   REJECTED:       { bg: '#ef444420', text: '#ef4444', border: '#ef444440' },
   EXPIRED:        { bg: '#ef444420', text: '#ef4444', border: '#ef444440' },
   DEPLETED:       { bg: '#ef444420', text: '#ef4444', border: '#ef444440' },
+  OVERDUE:        { bg: '#ef444420', text: '#ef4444', border: '#ef444440' },
   // Neutral — slate
   ON_HOLD:        { bg: '#64748b20', text: '#64748b', border: '#64748b40' },
   QUARANTINED:    { bg: '#64748b20', text: '#64748b', border: '#64748b40' },
   // Orange
   UNPAID:         { bg: '#f9731620', text: '#f97316', border: '#f9731640' },
   PARTIALLY_PAID: { bg: '#f9731620', text: '#f97316', border: '#f9731640' },
+  // Screens send the short form as well as PARTIALLY_PAID; both must resolve or the pill vanishes.
+  PARTIAL:        { bg: '#f9731620', text: '#f97316', border: '#f9731640' },
 };
 
 export const LIGHT_STATUS: Record<string, StatusColorSet> = {
@@ -37,10 +45,15 @@ export const LIGHT_STATUS: Record<string, StatusColorSet> = {
   PAID:           { bg: '#10b98119', text: '#047857', border: '#10b98133' },
   COMPLETED:      { bg: '#10b98119', text: '#047857', border: '#10b98133' },
   BILLED:         { bg: '#10b98119', text: '#047857', border: '#10b98133' },
+  APPROVED:       { bg: '#10b98119', text: '#047857', border: '#10b98133' },
+  RESOLVED:       { bg: '#10b98119', text: '#047857', border: '#10b98133' },
+  RECEIVED:       { bg: '#10b98119', text: '#047857', border: '#10b98133' },
   // Info — blue
   CONFIRMED:      { bg: '#3b82f614', text: '#1e40af', border: '#3b82f633' },
   READY:          { bg: '#3b82f614', text: '#1e40af', border: '#3b82f633' },
   IN_PROGRESS:    { bg: '#3b82f614', text: '#1e40af', border: '#3b82f633' },
+  IN_TRANSIT:     { bg: '#3b82f614', text: '#1e40af', border: '#3b82f633' },
+  RECORDED:       { bg: '#3b82f614', text: '#1e40af', border: '#3b82f633' },
   // Warning — amber
   PENDING:        { bg: '#f59e0b1a', text: '#b45309', border: '#f59e0b33' },
   PREPARING:      { bg: '#f59e0b1a', text: '#b45309', border: '#f59e0b33' },
@@ -50,12 +63,15 @@ export const LIGHT_STATUS: Record<string, StatusColorSet> = {
   REJECTED:       { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
   EXPIRED:        { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
   DEPLETED:       { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
+  OVERDUE:        { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
   // Neutral — slate
   ON_HOLD:        { bg: '#64748b14', text: '#334155', border: '#64748b33' },
   QUARANTINED:    { bg: '#64748b14', text: '#334155', border: '#64748b33' },
   // Orange
   UNPAID:         { bg: '#f9731614', text: '#c2410c', border: '#f9731633' },
   PARTIALLY_PAID: { bg: '#f9731614', text: '#c2410c', border: '#f9731633' },
+  // Screens send the short form as well as PARTIALLY_PAID; both must resolve or the pill vanishes.
+  PARTIAL:        { bg: '#f9731614', text: '#c2410c', border: '#f9731633' },
 };
 
 export const FALLBACK_STATUS: StatusColorSet = {

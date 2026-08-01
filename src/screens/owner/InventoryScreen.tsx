@@ -96,7 +96,7 @@ export const InventoryScreen: React.FC = () => {
       const moduleType = selectedModule;
       const businessList = bizMap[moduleType] || [];
       const biz = businessList.find((b: any) => b.businessName === selectedBusiness);
-      setSelectedBusinessId(biz?.id || biz?.businessId || null);
+      setSelectedBusinessId((biz?.id ?? biz?.businessId ?? null) as number | null);
     };
     resolve();
   }, [selectedBusiness, selectedModule]);
@@ -208,7 +208,9 @@ export const InventoryScreen: React.FC = () => {
   if (viewState === 'detail' && selectedBatch) {
     const used = (selectedBatch.purchasedQuantity - selectedBatch.remainingQuantity) / selectedBatch.purchasedQuantity;
     return (
-      <ScreenWrapper>
+      // scrollable={false}: ScreenWrapper renders its own ScrollView by default, and nesting a
+      // second vertical scroller inside it makes neither one fully own the gesture.
+      <ScreenWrapper scrollable={false}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.detailHeader}>
             <TouchableOpacity onPress={() => setViewState('list')} style={styles.backBtn}>
@@ -244,7 +246,8 @@ export const InventoryScreen: React.FC = () => {
 
   if (viewState === 'add' || viewState === 'edit') {
     return (
-      <ScreenWrapper>
+      // scrollable={false} — see the detail branch above.
+      <ScreenWrapper scrollable={false}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.detailHeader}>
             <TouchableOpacity onPress={() => setViewState('list')} style={styles.backBtn}>

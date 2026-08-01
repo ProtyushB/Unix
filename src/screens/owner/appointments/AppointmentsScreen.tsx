@@ -928,7 +928,7 @@ function ActionsSheet({
   const canReschedule = !TERMINAL_STATUSES.includes(appt.status);
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+    <Modal visible transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.sheetOverlay} onPress={onClose} />
       <View style={[styles.sheetTight, { paddingBottom: 24 + insets.bottom }]}>
         <View style={styles.grabberWrap}>
@@ -1034,7 +1034,7 @@ function RescheduleSheet({
   const [picking, setPicking] = useState(true);
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={onCancel}>
+    <Modal visible transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onCancel}>
       <Pressable style={styles.sheetOverlay} onPress={onCancel} />
       <View style={[styles.sheetTight, { paddingBottom: 24 + insets.bottom }]}>
         <View style={styles.grabberWrap}>
@@ -1281,7 +1281,12 @@ function createStyles(theme: AppTheme) {
     pillText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
 
     // Skeleton
-    skeletonWrap: { paddingTop: 10 },
+    //
+    // No paddingTop here. `bodyInset` is paddingTop: headerHeight, and headerHeight is measured on
+    // the header's inner view which already carries LIST_TOP_PAD as its paddingBottom — so the gap
+    // above the first skeleton row is already there. A paddingTop on this style was dead (bodyInset
+    // is spread after it) and would have doubled the gap if it had won.
+    skeletonWrap: {},
     skelTime: { width: 34, height: 12, borderRadius: 6, backgroundColor: theme.palette.divider },
     skelTile: { width: 38, height: 38, borderRadius: 12, backgroundColor: theme.palette.divider },
     skelLineWide: { width: '55%', height: 11, borderRadius: 6, backgroundColor: theme.palette.divider },

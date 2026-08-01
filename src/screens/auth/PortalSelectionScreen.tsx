@@ -255,11 +255,16 @@ function createStyles(theme: AppTheme) {
     scrollContent: {
       flexGrow: 1,
       paddingHorizontal: 24,
-      paddingTop: 80,
-      paddingBottom: 40,
+      // No paddingTop/paddingBottom here: `scrollInsets` is spread after this style, so anything
+      // set here is silently discarded. The hero gap now lives on `content` as marginTop, which
+      // stacks on top of the inset instead of being overwritten by it.
     },
+    // flexGrow, NOT flex. `flex: 1` also sets flexBasis to 0, which clamps this — the sole child of
+    // a flexGrow:1 scroll container — to exactly the viewport height, so content taller than the
+    // screen was compressed rather than becoming scrollable, and the bottom of it was unreachable.
     content: {
-      flex: 1,
+      flexGrow: 1,
+      marginTop: 60,
     },
 
     // Success icon

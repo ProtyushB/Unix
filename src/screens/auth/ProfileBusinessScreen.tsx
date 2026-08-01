@@ -405,16 +405,13 @@ function createStyles(theme: AppTheme) {
     scrollContent: {
       flexGrow: 1,
       paddingHorizontal: 24,
-      paddingTop: 20,
-      paddingBottom: 32,
-    },
-
-    // Title
-    title: {
-      fontFamily: 'Inter-Bold',
-      fontSize: 28,
-      color: theme.palette.onBackground,
-      marginBottom: 8,
+      // gap:26 to match every other auth screen. Neither AuthHeader nor SignupStepper carries an
+      // outer margin, so without it the header, the stepper and the body rendered flush against
+      // each other — visibly different from ProfilePersonalScreen, the previous step of the same
+      // wizard.
+      gap: 26,
+      // No paddingTop/paddingBottom: `scrollInsets` is spread after this style, so anything set
+      // here is silently discarded.
     },
     subtitle: {
       fontFamily: 'Inter-Regular',

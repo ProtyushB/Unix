@@ -75,9 +75,13 @@ export function StockTransfersScreen() {
           keyExtractor={t => String(t.id)}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
+            // The route lives in the subtitle, not the title. In the title it shares a
+            // single line with the status pill and truncated mid-destination — "#501  Mumbai ·
+            // Andh…" — hiding the one thing a transfer row exists to show. The subtitle has the
+            // full card width to itself.
             <ListCard
-              title={`#${item.id}  ${item.from} → ${item.to}`}
-              subtitle={`${item.itemCount} items`}
+              title={`#${item.id} · ${item.itemCount} items`}
+              subtitle={`${item.from} → ${item.to}`}
               meta={formatDate(item.date)}
               status={item.status.replace('_', ' ')}
               statusKey={item.status}

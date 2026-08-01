@@ -95,7 +95,7 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
     <View style={styles.kv} key={label}>
       <Text style={styles.kvLabel}>{label}</Text>
       <View style={styles.kvValueRow}>
-        <Text style={styles.kvValue}>{value}</Text>
+        <Text style={styles.kvValue} numberOfLines={1}>{value}</Text>
         {verified && <CircleCheck size={15} color={palette.success} />}
       </View>
     </View>
@@ -289,6 +289,8 @@ function createStyles(theme: AppTheme) {
       gap: 6,
     },
     kvValue: {
+      // See numberOfLines={1} at the call site — a long email or business name used to wrap and
+      // push the two columns of the row out of vertical alignment with each other.
       flexShrink: 1,
       fontFamily: 'Inter-SemiBold',
       fontSize: 14.5,

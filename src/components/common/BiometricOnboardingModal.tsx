@@ -44,6 +44,7 @@ export function BiometricOnboardingModal() {
       transparent
       animationType="fade"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={handleSkip}>
       <View style={styles.backdrop}>
         <View style={styles.card}>

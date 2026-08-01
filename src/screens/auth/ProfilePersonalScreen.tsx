@@ -245,9 +245,10 @@ function createStyles(theme: AppTheme) {
     block: {
       gap: 16,
     },
-    fields: {
-      gap: 18,
-    },
+    // No `gap` here: AppInput already carries its own marginBottom: 16, and a gap on top of it
+    // made 34px between every field. SignupScreen zeroes AppInput's margin instead; this screen
+    // just relies on it.
+    fields: {},
     carriedHint: {
       fontFamily: 'Inter-Regular',
       fontSize: 11.5,

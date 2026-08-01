@@ -86,6 +86,7 @@ export function OtpSheet({
       animationType="fade"
       onRequestClose={onDismiss}
       statusBarTranslucent
+      navigationBarTranslucent
     >
       <View style={styles.root}>
         <TouchableWithoutFeedback onPress={onDismiss}>

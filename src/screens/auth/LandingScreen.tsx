@@ -14,6 +14,7 @@ import AppButton from '../../components/common/AppButton';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import AuthBarMask from '../../components/auth/AuthBarMask';
+import AuthBackground from '../../components/auth/AuthBackground';
 import { useAuthScrollInsets } from '../../hooks/useAuthScrollInsets';
 import type { AppTheme } from '../../theme/theme.types';
 
@@ -66,6 +67,9 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      {/* Every other auth screen renders this; Landing was the one entry screen without it, so the
+          background glows visibly popped in on the transition to Login or Signup. */}
+      <AuthBackground />
       <AuthBarMask />
       <ScrollView removeClippedSubviews={false}
         style={styles.scrollView}
@@ -148,13 +152,18 @@ function createStyles(theme: AppTheme) {
       flex: 1,
     },
     scrollContent: {
+      // flexGrow so short content still fills the viewport — otherwise AuthBarMask's bottom strip
+      // floats over dead space. Every other auth screen sets this.
+      flexGrow: 1,
       paddingHorizontal: 24,
     },
 
     // Hero
     heroSection: {
       alignItems: 'center',
-      paddingTop: 80,
+      // 80 stacked on top of the hook's paddingTop (inset + 20), which put the logo far lower than
+      // any other auth screen. This is a child's own padding, so it is additive, not an override.
+      paddingTop: 32,
       paddingBottom: 32,
     },
     logoRow: {

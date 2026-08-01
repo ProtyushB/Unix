@@ -952,7 +952,7 @@ function FilterSheet({
     }));
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+    <Modal visible transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.sheetOverlay} onPress={onClose} />
       <View style={[styles.sheet, { paddingBottom: 28 + insets.bottom }]}>
         <View style={styles.grabberWrap}><View style={styles.grabber} /></View>
@@ -1060,7 +1060,7 @@ function ActionsSheet({
   const actions = QUICK_STATUSES.filter(a => a.status !== order.status);
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+    <Modal visible transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.sheetOverlay} onPress={onClose} />
       <View style={[styles.sheetTight, { paddingBottom: 24 + insets.bottom }]}>
         <View style={styles.grabberWrap}><View style={styles.grabber} /></View>
