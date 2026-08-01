@@ -37,8 +37,11 @@ export const PARLOUR_ROUTES = {
   APPOINTMENTS_BY_CUSTOMER: '/parlourAppointment/customer',
 
   // Bills are the one exception to the shape above: update is PUT base/{billId}, not PUT base.
+  // BILLS_BASE also carries PATCH base/{id}/status and base/{id}/payment.
   BILLS_BASE: '/parlourBill',
   BILLS_VIEW_ALL: '/parlourBill/viewAll',
+  // All-time rollup for the billing header, chips and wallet card.
+  BILLS_SUMMARY: '/parlourBill/summary',
   BILLS_BY_BUSINESS: '/parlourBill/business',
   BILLS_BY_CUSTOMER: '/parlourBill/customer',
 
