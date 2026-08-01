@@ -25,7 +25,7 @@ import { InventoryScreen } from '../screens/owner/InventoryScreen';
 import { AccountScreen } from '../screens/owner/AccountScreen';
 import { OrdersScreen } from '../screens/owner/OrdersScreen';
 import { AppointmentsScreen } from '../screens/owner/appointments/AppointmentsScreen';
-import { BillingScreen } from '../screens/owner/BillingScreen';
+import { BillingScreen } from '../screens/owner/billing/BillingScreen';
 import { ProductsScreen } from '../screens/owner/ProductsScreen';
 import { ServicesScreen } from '../screens/owner/ServicesScreen';
 import { PackagesScreen } from '../screens/owner/PackagesScreen';

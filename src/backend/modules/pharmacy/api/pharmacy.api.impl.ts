@@ -1,4 +1,4 @@
-import {PharmacyApiInterface, ApiResponse, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts} from './pharmacy.api.interface';
+import {PharmacyApiInterface, ApiResponse, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts, BillListOptions, BillSummary} from './pharmacy.api.interface';
 import pharmacyApiClient from '../config/axios.instance';
 import {PHARMACY_ROUTES} from '../config/api.config';
 
@@ -120,8 +120,25 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.BILLS_BASE}/${id}`);
     return res.data;
   }
-  async getBillsByBusiness(businessId: number): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.BILLS_BY_BUSINESS}/${businessId}`);
+  async getBillsByBusiness(businessId: number, page = 1, limit = 20, options: BillListOptions = {}): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.BILLS_BY_BUSINESS}/${businessId}`, {params: {page, limit, ...options}});
+    return res.data;
+  }
+  async getBillSummary(businessId: number): Promise<ApiResponse<BillSummary>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.BILLS_SUMMARY, {params: {businessId}});
+    return res.data;
+  }
+  // Status-only PATCH, never the full PUT: that rebuilds the bill from a complete request body and
+  // a partial one silently wipes its lines. Cancelling here also un-links the billed
+  // orders/appointments and restocks bill-owned bare lines, server-side.
+  async updateBillStatus(id: number, billStatus: string): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.BILLS_BASE}/${id}/status`, null, {params: {billStatus}});
+    return res.data;
+  }
+  // paidAmount is required for PARTIALLY_PAID, refundedAmount for PARTIAL_REFUNDED — the server
+  // 400s otherwise rather than silently settling to zero.
+  async updateBillPayment(id: number, paymentStatus: string, options: {paidAmount?: number; refundedAmount?: number} = {}): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.BILLS_BASE}/${id}/payment`, null, {params: {paymentStatus, ...options}});
     return res.data;
   }
   async getBillsByCustomer(customerId: number): Promise<ApiResponse<unknown[]>> {

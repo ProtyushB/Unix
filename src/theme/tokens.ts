@@ -10,6 +10,8 @@ export const DARK_STATUS: Record<string, StatusColorSet> = {
   PAID:           { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
   COMPLETED:      { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
   BILLED:         { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
+  // A finalized bill is the settled, committed document — the same "done" green as COMPLETED.
+  FINALIZED:      { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
   APPROVED:       { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
   RESOLVED:       { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
   RECEIVED:       { bg: '#10b98120', text: '#10b981', border: '#10b98140' },
@@ -26,12 +28,18 @@ export const DARK_STATUS: Record<string, StatusColorSet> = {
   // Error — red
   CANCELLED:      { bg: '#ef444420', text: '#ef4444', border: '#ef444440' },
   REJECTED:       { bg: '#ef444420', text: '#ef4444', border: '#ef444440' },
+  FAILED:         { bg: '#ef444420', text: '#ef4444', border: '#ef444440' },
   EXPIRED:        { bg: '#ef444420', text: '#ef4444', border: '#ef444440' },
   DEPLETED:       { bg: '#ef444420', text: '#ef4444', border: '#ef444440' },
   OVERDUE:        { bg: '#ef444420', text: '#ef4444', border: '#ef444440' },
   // Neutral — slate
   ON_HOLD:        { bg: '#64748b20', text: '#64748b', border: '#64748b40' },
   QUARANTINED:    { bg: '#64748b20', text: '#64748b', border: '#64748b40' },
+  // A draft is not yet a document and a refund is money already returned — neither is a state to
+  // act on, so both read as neutral rather than competing with the pill beside them.
+  DRAFT:          { bg: '#64748b20', text: '#64748b', border: '#64748b40' },
+  REFUNDED:       { bg: '#64748b20', text: '#64748b', border: '#64748b40' },
+  PARTIAL_REFUNDED: { bg: '#64748b20', text: '#64748b', border: '#64748b40' },
   // Orange
   UNPAID:         { bg: '#f9731620', text: '#f97316', border: '#f9731640' },
   PARTIALLY_PAID: { bg: '#f9731620', text: '#f97316', border: '#f9731640' },
@@ -45,6 +53,7 @@ export const LIGHT_STATUS: Record<string, StatusColorSet> = {
   PAID:           { bg: '#10b98119', text: '#047857', border: '#10b98133' },
   COMPLETED:      { bg: '#10b98119', text: '#047857', border: '#10b98133' },
   BILLED:         { bg: '#10b98119', text: '#047857', border: '#10b98133' },
+  FINALIZED:      { bg: '#10b98119', text: '#047857', border: '#10b98133' },
   APPROVED:       { bg: '#10b98119', text: '#047857', border: '#10b98133' },
   RESOLVED:       { bg: '#10b98119', text: '#047857', border: '#10b98133' },
   RECEIVED:       { bg: '#10b98119', text: '#047857', border: '#10b98133' },
@@ -61,12 +70,16 @@ export const LIGHT_STATUS: Record<string, StatusColorSet> = {
   // Error — red
   CANCELLED:      { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
   REJECTED:       { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
+  FAILED:         { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
   EXPIRED:        { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
   DEPLETED:       { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
   OVERDUE:        { bg: '#ef444414', text: '#b91c1c', border: '#ef444433' },
   // Neutral — slate
   ON_HOLD:        { bg: '#64748b14', text: '#334155', border: '#64748b33' },
   QUARANTINED:    { bg: '#64748b14', text: '#334155', border: '#64748b33' },
+  DRAFT:          { bg: '#64748b14', text: '#334155', border: '#64748b33' },
+  REFUNDED:       { bg: '#64748b14', text: '#334155', border: '#64748b33' },
+  PARTIAL_REFUNDED: { bg: '#64748b14', text: '#334155', border: '#64748b33' },
   // Orange
   UNPAID:         { bg: '#f9731614', text: '#c2410c', border: '#f9731633' },
   PARTIALLY_PAID: { bg: '#f9731614', text: '#c2410c', border: '#f9731633' },
