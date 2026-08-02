@@ -26,7 +26,6 @@ import {
   CircleDot,
   CircleCheck,
   CircleX,
-  CircleAlert,
   Ban,
   Phone,
   Scissors,
@@ -94,20 +93,33 @@ const LIST_BOTTOM_PAD = 100;
  * reserved for a customer-booking flow that does not exist yet, so moving an appointment backwards
  * into Pending has no meaning today.
  */
+/**
+ * `tint` is the palette role for the ICON, taken from the mockup. Deliberately independent of
+ * `danger`, which tints the LABEL: the mockup draws "Rejected" with a red icon but primary-coloured
+ * text, and only "Cancel appointment" turns its text red.
+ */
 const QUICK_STATUSES = [
-  { status: 'CONFIRMED', label: 'Confirm appointment', icon: BadgeCheck },
-  { status: 'IN_PROGRESS', label: 'In-Progress', icon: CircleDot },
+  { status: 'CONFIRMED', label: 'Confirm appointment', icon: BadgeCheck, tint: 'success' },
+  { status: 'IN_PROGRESS', label: 'In-Progress', icon: CircleDot, tint: 'info' },
   {
     status: 'COMPLETED',
     label: 'Mark as completed',
     icon: CircleCheck,
+    tint: 'success',
     // True as of the status-cascade fix in GenericAppointmentService — do not ship this label
     // against a backend that only sets the status.
     sub: 'Also marks all items completed',
   },
-  { status: 'REJECTED', label: 'Rejected', icon: CircleAlert },
-  { status: 'CANCELLED', label: 'Cancel appointment', icon: Ban, danger: true },
-] as const;
+  { status: 'REJECTED', label: 'Rejected', icon: Ban, tint: 'error' },
+  { status: 'CANCELLED', label: 'Cancel appointment', icon: CircleX, tint: 'error', danger: true },
+] as const satisfies readonly {
+  status: string;
+  label: string;
+  icon: React.ComponentType<{ size: number; color: string }>;
+  tint: 'success' | 'warning' | 'info' | 'error' | 'muted';
+  sub?: string;
+  danger?: boolean;
+}[];
 
 /** Rescheduling something already finished or called off is meaningless — hide the row. */
 const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED'];
@@ -966,7 +978,7 @@ function ActionsSheet({
               onPress={() => onPickStatus(a.status)}
               android_ripple={{ color: theme.palette.divider }}
             >
-              <Icon size={19} color={(a as any).danger ? theme.palette.error : theme.palette.muted} />
+              <Icon size={19} color={theme.palette[a.tint]} />
               <View style={styles.actionLabels}>
                 <Text
                   style={[styles.actionLabel, (a as any).danger && { color: theme.palette.error }]}
