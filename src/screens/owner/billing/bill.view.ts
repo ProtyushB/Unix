@@ -101,19 +101,26 @@ export interface QuickAction {
   confirm?: 'cancel' | 'finalize';
   /** Needs an amount typed in before it can be sent. */
   needsAmount?: boolean;
+  /**
+   * Palette role for the ICON, taken from the mockup. Deliberately independent of `danger`, which
+   * tints the LABEL — the two coincide on the cancel/fail rows but are separate concerns.
+   */
+  tint: 'success' | 'warning' | 'info' | 'error' | 'muted';
   danger?: boolean;
 }
 
 const BILL_ACTIONS: QuickAction[] = [
-  {key: 'DRAFT', label: 'Mark as Draft', axis: 'bill'},
-  {key: 'FINALIZED', label: 'Mark as Finalized', axis: 'bill', confirm: 'finalize'},
-  {key: 'CANCELLED', label: 'Mark as Cancelled', axis: 'bill', confirm: 'cancel', danger: true},
+  {key: 'DRAFT', label: 'Mark as Draft', axis: 'bill', tint: 'muted'},
+  // The mockup set never draws this row — every sheet in it shows an already-finalized bill — so
+  // amber is inherited from the lock badge on the Finalize Confirm dialog rather than specified.
+  {key: 'FINALIZED', label: 'Mark as Finalized', axis: 'bill', confirm: 'finalize', tint: 'warning'},
+  {key: 'CANCELLED', label: 'Mark as Cancelled', axis: 'bill', confirm: 'cancel', tint: 'error', danger: true},
 ];
 
 const PAYMENT_ACTIONS: QuickAction[] = [
-  {key: 'PAID', label: 'Mark as Paid', axis: 'payment'},
-  {key: 'PARTIALLY_PAID', label: 'Mark as Partially Paid', axis: 'payment', needsAmount: true},
-  {key: 'FAILED', label: 'Mark as Failed', axis: 'payment', danger: true},
+  {key: 'PAID', label: 'Mark as Paid', axis: 'payment', tint: 'success'},
+  {key: 'PARTIALLY_PAID', label: 'Mark as Partially Paid', axis: 'payment', needsAmount: true, tint: 'warning'},
+  {key: 'FAILED', label: 'Mark as Failed', axis: 'payment', tint: 'error', danger: true},
 ];
 
 /**
