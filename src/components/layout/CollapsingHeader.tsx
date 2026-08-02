@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, SectionList, StyleSheet } from 'react-native';
-import type { LayoutChangeEvent, ViewProps, SectionListProps } from 'react-native';
+import { View, SectionList, FlatList, StyleSheet } from 'react-native';
+import type { LayoutChangeEvent, ViewProps, SectionListProps, FlatListProps } from 'react-native';
 import Animated from 'react-native-reanimated';
 import type { AnimatedProps } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +24,26 @@ const AnimatedSectionListBase = Animated.createAnimatedComponent(SectionList);
  */
 export const AnimatedSectionList = AnimatedSectionListBase as unknown as <ItemT, SectionT>(
   props: SectionListProps<ItemT, SectionT> & {
+    onScroll?: unknown;
+    scrollEventThrottle?: number;
+  },
+) => React.ReactElement;
+
+// ─── Animated FlatList ───────────────────────────────────────────────────────
+//
+// Same module-scope rule as above, and the same reason. Products is a flat list rather than a
+// day-grouped one — and in grid mode a two-column one — so it cannot reuse the SectionList above
+// without inventing a single fake section.
+//
+// Reanimated 4 does ship `Animated.FlatList`, but going through `createAnimatedComponent` here
+// keeps both lists on one mechanism, so a future change to how scroll is wired has one place to
+// touch rather than two.
+
+const AnimatedFlatListBase = Animated.createAnimatedComponent(FlatList);
+
+/** Generic erased by `createAnimatedComponent`, restored here so call sites stay honest. */
+export const AnimatedFlatList = AnimatedFlatListBase as unknown as <ItemT>(
+  props: FlatListProps<ItemT> & {
     onScroll?: unknown;
     scrollEventThrottle?: number;
   },

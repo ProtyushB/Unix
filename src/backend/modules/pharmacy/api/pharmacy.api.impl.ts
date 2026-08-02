@@ -1,10 +1,16 @@
-import {PharmacyApiInterface, ApiResponse, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts, BillListOptions, BillSummary} from './pharmacy.api.interface';
+import {PharmacyApiInterface, ApiResponse, ProductListOptions, ProductListResponse, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts, BillListOptions, BillSummary} from './pharmacy.api.interface';
 import pharmacyApiClient from '../config/axios.instance';
 import {PHARMACY_ROUTES} from '../config/api.config';
 
 export class PharmacyApiImpl extends PharmacyApiInterface {
-  async getAllProducts(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.PRODUCTS_VIEW_ALL, {params: {businessId, page, limit}});
+  async getAllProducts(businessId: number, page: number, limit: number, options: ProductListOptions = {}): Promise<ProductListResponse> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.PRODUCTS_VIEW_ALL, {params: {businessId, page, limit, ...options}});
+    return res.data;
+  }
+  // Tracking-only PATCH, never the full PUT: that copies the whole request body over the record and
+  // rebuilds the sale-unit ladder, so a partial body would silently destroy it.
+  async updateProductTracking(id: number, trackInventory: boolean): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.PRODUCTS_BASE}/${id}/tracking`, null, {params: {trackInventory}});
     return res.data;
   }
   async getProductById(id: number): Promise<ApiResponse<unknown>> {
