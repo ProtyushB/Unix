@@ -53,7 +53,7 @@ export const REGISTRY: ScreenEntry[] = [
   // Owner
   { id: 'owner/dashboard', title: 'Dashboard', group: 'Owner', load: () => import('../src/screens/owner/DashboardScreen') },
   { id: 'owner/catalog', title: 'Catalog', group: 'Owner', load: () => import('../src/screens/owner/CatalogScreen') },
-  { id: 'owner/products', title: 'Products', group: 'Owner', load: () => import('../src/screens/owner/ProductsScreen') },
+  { id: 'owner/products', title: 'Products', group: 'Owner', load: () => import('../src/screens/owner/products/ProductsScreen') },
   { id: 'owner/services', title: 'Services', group: 'Owner', load: () => import('../src/screens/owner/ServicesScreen') },
   { id: 'owner/product-detail', title: 'Product Detail', group: 'Owner', params: { productId: 0, mode: 'add' }, load: () => import('../src/screens/owner/ProductDetailScreen') },
   { id: 'owner/customers', title: 'Customers', group: 'Owner', load: () => import('../src/screens/owner/CustomersScreen') },

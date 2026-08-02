@@ -24,6 +24,25 @@ interface ServiceResult<T = unknown> {
   totalPages?: number;
 }
 
+/** Products list filters. `search` matches product name and brand, server-side. */
+export interface ProductListOptions {
+  search?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/**
+ * Catalog-wide figures that ride on the product list response — the "142 items · 6 low on stock"
+ * header. Business-scoped, so they do not shrink when a search narrows the rows.
+ */
+export interface ProductListMeta {
+  totalItems: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  /** Use this for row badges rather than a hardcoded copy, so badges and counts cannot disagree. */
+  lowStockThreshold: number;
+}
+
 /** Orders V2 list filters (status = comma-separated OrderStatus; dates = YYYY-MM-DD, IST). */
 export interface OrderListOptions {
   search?: string;
@@ -97,7 +116,13 @@ export interface BillSummary {
 }
 
 interface ModuleService {
-  getAllProducts(businessId: number, page: number, limit: number): Promise<ServiceResult>;
+  getAllProducts(
+    businessId: number,
+    page: number,
+    limit: number,
+    options?: ProductListOptions,
+  ): Promise<ServiceResult & {meta?: ProductListMeta}>;
+  updateProductTracking?(id: number, trackInventory: boolean): Promise<ServiceResult>;
   createProduct(data: Record<string, unknown>): Promise<ServiceResult>;
   updateProduct(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteProduct(id: number): Promise<ServiceResult>;
@@ -187,6 +212,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
   return () => {
     const [products, setProducts] = useState<unknown[]>([]);
     const [productsTotalPages, setProductsTotalPages] = useState(1);
+    const [productMeta, setProductMeta] = useState<ProductListMeta | null>(null);
     const [services, setServices] = useState<unknown[]>([]);
     const [servicesTotalPages, setServicesTotalPages] = useState(1);
     const [customers, setCustomers] = useState<unknown[]>([]);
@@ -212,7 +238,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     // ═══════════════════════════════════════════════════════════════
 
     const loadProducts = useCallback(
-      async (page = 1, limit = 10) => {
+      async (page = 1, limit = 10, options: ProductListOptions = {}) => {
         setLoading(true);
         setError(null);
         try {
@@ -223,11 +249,15 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
             setLoading(false);
             return;
           }
-          const response = await service.getAllProducts(businessId, page, limit);
+          const response = await service.getAllProducts(businessId, page, limit, options);
           if (response.success) {
             const data = response.data;
             setProducts(Array.isArray(data) ? data : []);
             setProductsTotalPages(response.totalPages ?? 1);
+            // The catalog totals ride on the list response. Only refresh them when the server
+            // actually sent them — an older backend omits the field, and blanking the header on
+            // every page-2 fetch would make it flicker.
+            if (response.meta) setProductMeta(response.meta);
           } else {
             setError(response.error || response.message || null);
             setProducts([]);
@@ -238,6 +268,28 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           setProducts([]);
         } finally {
           setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    // Un-annotated on purpose: a `Promise<ServiceResult>` return type erases the `code` this adds
+    // on the error path, and the screen branches on it. Same reason as updateBillStatus.
+    const updateProductTracking = useCallback(
+      async (id: number, trackInventory: boolean) => {
+        try {
+          if (!service.updateProductTracking) {
+            return {success: false, error: 'Not supported for this module'};
+          }
+          return await service.updateProductTracking(id, trackInventory);
+        } catch (err) {
+          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const body = e.response?.data;
+          return {
+            success: false,
+            code: body?.code,
+            error: body?.error || body?.message || e.message || 'Failed to update tracking',
+          };
         }
       },
       [service],
@@ -1132,6 +1184,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       // State
       products,
       productsTotalPages,
+      productMeta,
       services,
       servicesTotalPages,
       customers,
@@ -1153,6 +1206,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       loadProducts,
       createProduct,
       updateProduct,
+      updateProductTracking,
       deleteProduct,
 
       // Service CRUD

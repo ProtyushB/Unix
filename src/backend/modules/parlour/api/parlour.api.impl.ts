@@ -1,11 +1,17 @@
-import {ParlourApiInterface, ApiResponse, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts, BillListOptions, BillSummary} from './parlour.api.interface';
+import {ParlourApiInterface, ApiResponse, ProductListOptions, ProductListResponse, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts, BillListOptions, BillSummary} from './parlour.api.interface';
 import parlourApiClient from '../config/axios.instance';
 import {PARLOUR_ROUTES} from '../config/api.config';
 
 export class ParlourApiImpl extends ParlourApiInterface {
   // ── Products ───────────────────────────────────────────────────────────────
-  async getAllProducts(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>> {
-    const res = await parlourApiClient.get(PARLOUR_ROUTES.PRODUCTS_VIEW_ALL, {params: {businessId, page, limit}});
+  async getAllProducts(businessId: number, page: number, limit: number, options: ProductListOptions = {}): Promise<ProductListResponse> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.PRODUCTS_VIEW_ALL, {params: {businessId, page, limit, ...options}});
+    return res.data;
+  }
+  // Tracking-only PATCH, never the full PUT: that copies the whole request body over the record and
+  // rebuilds the sale-unit ladder, so a partial body would silently destroy it.
+  async updateProductTracking(id: number, trackInventory: boolean): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.patch(`${PARLOUR_ROUTES.PRODUCTS_BASE}/${id}/tracking`, null, {params: {trackInventory}});
     return res.data;
   }
   async getProductById(id: number): Promise<ApiResponse<unknown>> {
