@@ -1,12 +1,16 @@
-import {ParlourApiInterface, OrderListOptions, AppointmentListOptions, BillListOptions} from '../api/parlour.api.interface';
+import {ParlourApiInterface, ProductListOptions, OrderListOptions, AppointmentListOptions, BillListOptions} from '../api/parlour.api.interface';
 
 export class ParlourService {
   constructor(private api: ParlourApiInterface) {}
 
   // Products
-  async getAllProducts(businessId: number, page = 1, limit = 10) {
+  async getAllProducts(businessId: number, page = 1, limit = 10, options: ProductListOptions = {}) {
     if (!businessId) throw new Error('Business ID is required');
-    return this.api.getAllProducts(businessId, page, limit);
+    return this.api.getAllProducts(businessId, page, limit, options);
+  }
+  async updateProductTracking(id: number, trackInventory: boolean) {
+    if (!id) throw new Error('Product ID is required');
+    return this.api.updateProductTracking(id, trackInventory);
   }
   async getProductById(id: number) { return this.api.getProductById(id); }
   async createProduct(data: Record<string, unknown>) {

@@ -62,6 +62,44 @@ export interface AppointmentDayCounts {
  * Note `search` does NOT match customer name — the backend matches bill number, phone, email and
  * the numeric id only. The placeholder copy has to say so.
  */
+/**
+ * Server-side narrowing for the product list. `search` matches name and brand only — which is
+ * exactly what the Products screen's "Try a different name or brand" copy promises.
+ *
+ * `sortBy` is whitelisted server-side and silently falls back to `id` on anything else. Note the
+ * server's own default is `id` ascending, i.e. oldest first — the screen passes an explicit sort
+ * rather than inheriting it.
+ */
+export interface ProductListOptions {
+  search?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/**
+ * Catalog-wide figures behind the "142 items · 6 low on stock" header.
+ *
+ * Business-scoped, NOT scoped to the active search: these describe the catalog being managed, and a
+ * stock warning that shrank because someone typed in the search box would be misleading. The screen
+ * only renders this line in browse mode.
+ */
+export interface ProductListMeta {
+  totalItems: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  /** The boundary the counts were computed with — use it for row badges so the two can't drift. */
+  lowStockThreshold: number;
+}
+
+/**
+ * The product list carries its summary on the envelope rather than in a second `/summary` call, so
+ * the header can never describe a different fetch than the rows under it. Absent on every other
+ * endpoint (the server omits the field when null).
+ */
+export interface ProductListResponse extends ApiResponse<unknown[]> {
+  meta?: ProductListMeta;
+}
+
 export interface BillListOptions {
   search?: string;
   billStatus?: string;
@@ -87,7 +125,14 @@ export interface BillSummary {
 }
 
 export abstract class PharmacyApiInterface {
-  abstract getAllProducts(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>>;
+  abstract getAllProducts(
+    businessId: number,
+    page: number,
+    limit: number,
+    options?: ProductListOptions,
+  ): Promise<ProductListResponse>;
+  /** Flips only `trackInventory` — see the impl for why the full PUT is not an option. */
+  abstract updateProductTracking(id: number, trackInventory: boolean): Promise<ApiResponse<unknown>>;
   abstract getProductById(id: number): Promise<ApiResponse<unknown>>;
   abstract createProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
