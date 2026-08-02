@@ -95,13 +95,19 @@ const QUICK_STATUSES: {
   label: string;
   sub?: string;
   icon: React.ComponentType<{ size: number; color: string }>;
+  /**
+   * Palette role for the ICON, taken from the mockup. Deliberately independent of `danger`, which
+   * tints the LABEL: the mockup draws "Rejected" with a red icon but primary-coloured text, and
+   * only "Cancel order" turns its text red.
+   */
+  tint: 'success' | 'warning' | 'info' | 'error' | 'muted';
   danger?: boolean;
 }[] = [
-  { status: 'CONFIRMED',  label: 'Confirmed',         icon: BadgeCheck },
-  { status: 'PROCESSING', label: 'Processing',        icon: CircleDot },
-  { status: 'COMPLETED',  label: 'Mark as completed', icon: CircleCheck, sub: 'Also marks all items delivered' },
-  { status: 'REJECTED',   label: 'Rejected',          icon: CircleX },
-  { status: 'CANCELLED',  label: 'Cancel order',      icon: Ban, danger: true },
+  { status: 'CONFIRMED',  label: 'Confirmed',         icon: BadgeCheck,  tint: 'warning' },
+  { status: 'PROCESSING', label: 'Processing',        icon: CircleDot,   tint: 'info' },
+  { status: 'COMPLETED',  label: 'Mark as completed', icon: CircleCheck, tint: 'success', sub: 'Also marks all items delivered' },
+  { status: 'REJECTED',   label: 'Rejected',          icon: Ban,         tint: 'error' },
+  { status: 'CANCELLED',  label: 'Cancel order',      icon: CircleX,     tint: 'error', danger: true },
 ];
 
 // ─── Row mapping ─────────────────────────────────────────────────────────────
@@ -1087,7 +1093,6 @@ function ActionsSheet({
 
         {actions.map(a => {
           const Icon = a.icon;
-          const tint = a.danger ? theme.status.CANCELLED.text : theme.palette.onBackground;
           return (
             <Pressable
               key={a.status}
@@ -1095,9 +1100,13 @@ function ActionsSheet({
               onPress={() => onPickStatus(a.status)}
               android_ripple={{ color: theme.palette.divider }}
             >
-              <Icon size={19} color={tint} />
+              <Icon size={19} color={theme.palette[a.tint]} />
               <View style={styles.actionMid}>
-                <Text style={[styles.actionLabel, { color: tint }]}>{a.label}</Text>
+                <Text
+                  style={[styles.actionLabel, a.danger && { color: theme.palette.error }]}
+                >
+                  {a.label}
+                </Text>
                 {a.sub && <Text style={styles.actionSub}>{a.sub}</Text>}
               </View>
             </Pressable>
@@ -1107,7 +1116,7 @@ function ActionsSheet({
         <View style={styles.sheetDivider} />
 
         <Pressable style={styles.actionRow} onPress={onContact} android_ripple={{ color: theme.palette.divider }}>
-          <Phone size={19} color={theme.palette.onBackground} />
+          <Phone size={19} color={theme.palette.muted} />
           <View style={styles.actionMid}>
             <Text style={styles.actionLabel}>Contact customer</Text>
             <Text style={styles.actionSub}>Call or email</Text>

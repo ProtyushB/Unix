@@ -21,10 +21,10 @@ import {
   Receipt,
   CircleX,
   CircleCheck,
-  CircleDot,
-  CircleAlert,
+  CircleDashed,
   Ban,
-  FileText,
+  FilePen,
+  Download,
   Share2,
   Lock,
 } from 'lucide-react-native';
@@ -829,13 +829,20 @@ function HeroBlock({
 
 // ─── Quick actions ───────────────────────────────────────────────────────────
 
+/**
+ * The mockup's `$text-tertiary` — the dim tone used for the unavailable rows. Same alpha the
+ * screen's styles already use for de-emphasised text, so it tracks the theme instead of pinning
+ * the mockup's dark-mode hex.
+ */
+const DISABLED_TINT = (theme: AppTheme) => theme.palette.muted + '8A';
+
 const ACTION_ICON: Record<string, React.ComponentType<any>> = {
-  DRAFT: FileText,
+  DRAFT: FilePen,
   FINALIZED: Lock,
   CANCELLED: Ban,
   PAID: CircleCheck,
-  PARTIALLY_PAID: CircleDot,
-  FAILED: CircleAlert,
+  PARTIALLY_PAID: CircleDashed,
+  FAILED: CircleX,
 };
 
 function ActionsSheet({
@@ -860,10 +867,10 @@ function ActionsSheet({
   const ps = theme.status[bill.paymentStatus] ?? theme.status.FALLBACK;
 
   const row = (a: QuickAction) => {
-    const Icon = ACTION_ICON[a.key] ?? CircleDot;
+    const Icon = ACTION_ICON[a.key] ?? CircleDashed;
     return (
       <Pressable key={a.key} style={styles.actionRow} onPress={() => onPick(a)}>
-        <Icon size={19} color={a.danger ? theme.palette.error : theme.palette.muted} />
+        <Icon size={19} color={theme.palette[a.tint]} />
         <Text style={[styles.actionLabel, a.danger && { color: theme.palette.error }]}>
           {a.label}
         </Text>
@@ -907,14 +914,16 @@ function ActionsSheet({
         {payActions.map(row)}
 
         {/* Drawn in the mockup as explicitly unavailable. Rendered disabled rather than omitted so
-            the sheet matches the design and the capability is visibly planned, not missing. */}
+            the sheet matches the design and the capability is visibly planned, not missing.
+            Their icons take the mockup's $text-tertiary — a step dimmer than the muted used by the
+            live rows above, which is what reads as "not available" rather than merely secondary. */}
         <View style={styles.actionRowDisabled}>
-          <FileText size={19} color={theme.palette.muted} />
+          <Download size={19} color={DISABLED_TINT(theme)} />
           <Text style={styles.actionLabelDisabled}>Download PDF</Text>
           <Text style={styles.soonBadge}>Coming soon</Text>
         </View>
         <View style={styles.actionRowDisabled}>
-          <Share2 size={19} color={theme.palette.muted} />
+          <Share2 size={19} color={DISABLED_TINT(theme)} />
           <Text style={styles.actionLabelDisabled}>Share bill</Text>
           <Text style={styles.soonBadge}>Coming soon</Text>
         </View>
