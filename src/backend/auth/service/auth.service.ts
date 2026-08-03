@@ -53,7 +53,7 @@ export class AuthService {
 
   isStrongPassword(password: string): boolean {
     const strongRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$!%*?&#_\-])[A-Za-z\d@#$!%*?&#_\-]{8,}$/;
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$!%*?&#_-])[A-Za-z\d@#$!%*?&#_-]{8,}$/;
     return strongRegex.test(password);
   }
 

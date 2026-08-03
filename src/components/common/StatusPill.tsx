@@ -28,12 +28,7 @@ export function StatusPill({ status }: StatusPillProps) {
     .join(' ');
 
   return (
-    <View
-      style={[
-        styles.pill,
-        { backgroundColor: colors.bg, borderColor: colors.border, borderWidth: 1 },
-      ]}
-    >
+    <View style={[styles.pill, { backgroundColor: colors.bg, borderColor: colors.border }]}>
       <Text style={[styles.text, { color: colors.text }]}>{label}</Text>
     </View>
   );
@@ -48,6 +43,8 @@ function createStyles(_theme: AppTheme) {
       paddingVertical: 4,
       borderRadius: 9999,
       alignSelf: 'flex-start',
+      // The width is fixed; only borderColor varies by status, and that stays at the call site.
+      borderWidth: 1,
     },
     text: {
       fontSize: 11,

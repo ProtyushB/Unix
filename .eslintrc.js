@@ -32,6 +32,12 @@ module.exports = {
     // worked through; they are all fixed, so the gate goes back up rather than leaving a rule
     // permanently relaxed for problems that no longer exist.
     'react-hooks/exhaustive-deps': 'error',
+
+    // `void somePromise();` as a STATEMENT is how the updater marks a promise it intentionally does
+    // not await — see useAppUpdate, where every failure path is deliberately silent. Deleting the
+    // keyword would not change behaviour, it would just remove the marker saying the omission was
+    // on purpose. `void` used as an expression is still rejected.
+    'no-void': ['error', { allowAsStatement: true }],
   },
   overrides: [
     {

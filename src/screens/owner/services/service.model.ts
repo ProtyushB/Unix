@@ -118,6 +118,9 @@ export function serviceTintIndex(name: string, poolSize: number): number {
   if (poolSize <= 0) return 0;
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
+    // `| 0` is the point, not an accident: it coerces to a signed 32-bit int so the hash wraps
+    // instead of drifting into float territory, which is what keeps a given name on the same tint.
+    // eslint-disable-next-line no-bitwise
     hash = (hash * 31 + name.charCodeAt(i)) | 0;
   }
   return Math.abs(hash) % poolSize;

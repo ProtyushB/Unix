@@ -579,7 +579,7 @@ export function ProductsScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      <View style={{ flex: 1, paddingTop: bandHeight }}>{body}</View>
+      <View style={[styles.bodyFill, { paddingTop: bandHeight }]}>{body}</View>
 
       {header}
       {panel}
@@ -657,6 +657,18 @@ function StockBadge({
   );
 }
 
+/**
+ * Not themed — the tile's colour comes from the per-row hue, so only the layout is static. Kept
+ * outside createStyles because Thumb takes the theme as a prop rather than through the hook.
+ */
+const thumbStyles = StyleSheet.create({
+  box: { alignItems: 'center', justifyContent: 'center' },
+  /** Grid card — fills the column, so the width is a percentage rather than the square's side. */
+  lg: { width: '100%', height: 72, borderRadius: 10 },
+  /** List row — a fixed square. */
+  sm: { width: 44, height: 44, borderRadius: 12 },
+});
+
 function Thumb({ row, theme, size }: { row: ProductRow; theme: AppTheme; size: 'sm' | 'lg' }) {
   // The avatar pool gives a vivid hue in `bg` and a contrast colour in `text` — right for a filled
   // initials circle, wrong here. The mockup tints the tile with the hue at ~13% and draws the glyph
@@ -665,17 +677,14 @@ function Thumb({ row, theme, size }: { row: ProductRow; theme: AppTheme; size: '
   // Hashed separately from the hue so colour and glyph vary independently down the list, the way
   // the mockup's do — a shared index would pin every orange tile to the same icon.
   const Icon = THUMB_ICONS[productTintIndex(row.name, THUMB_ICONS.length)];
-  const box = size === 'lg' ? 72 : 44;
   return (
     <View
-      style={{
-        width: size === 'lg' ? '100%' : box,
-        height: box,
-        borderRadius: size === 'lg' ? 10 : 12,
-        backgroundColor: hue + '22',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      style={[
+        thumbStyles.box,
+        size === 'lg' ? thumbStyles.lg : thumbStyles.sm,
+        // The only genuinely dynamic part: the row's own hue at ~13% opacity.
+        { backgroundColor: hue + '22' },
+      ]}
     >
       <Icon size={size === 'lg' ? 26 : 20} color={hue} />
     </View>
@@ -911,6 +920,8 @@ const createStyles = (theme: AppTheme) => {
     // through the gaps between rows.
     screen: { flex: 1, backgroundColor: theme.palette.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    /** Fills the screen under the collapsing header; the top pad varies with the band's height. */
+    bodyFill: { flex: 1 },
 
     // Header
     headerRow: {

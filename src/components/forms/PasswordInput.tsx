@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { AppInput } from '../common/AppInput';
 
@@ -42,11 +42,16 @@ export function PasswordInput({
           onPress={toggleVisibility}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={{ fontSize: 18, color: palette.muted }}>{visible ? '🙈' : '👁'}</Text>
+          <Text style={[styles.eye, { color: palette.muted }]}>{visible ? '🙈' : '👁'}</Text>
         </TouchableOpacity>
       }
     />
   );
 }
+
+// Not themed — the only theme-dependent part is the colour, which stays at the call site.
+const styles = StyleSheet.create({
+  eye: { fontSize: 18 },
+});
 
 export default PasswordInput;

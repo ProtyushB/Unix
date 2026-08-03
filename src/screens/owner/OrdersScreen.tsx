@@ -960,12 +960,12 @@ function SkeletonRow({ styles }: { styles: any }) {
     <View style={styles.card}>
       <View style={styles.skelAvatar} />
       <View style={styles.cardMid}>
-        <View style={[styles.skelBar, { width: 120, height: 13 }]} />
-        <View style={[styles.skelBar, { width: 100, height: 11 }]} />
+        <View style={[styles.skelBar, styles.skelName]} />
+        <View style={[styles.skelBar, styles.skelSub]} />
       </View>
       <View style={styles.cardRight}>
-        <View style={[styles.skelBar, { width: 54, height: 13 }]} />
-        <View style={[styles.skelBar, { width: 62, height: 16, borderRadius: 999 }]} />
+        <View style={[styles.skelBar, styles.skelAmount]} />
+        <View style={[styles.skelBar, styles.skelPill]} />
       </View>
     </View>
   );
@@ -1084,7 +1084,8 @@ function FilterSheet({
                   <Text
                     style={[
                       styles.pillLabel,
-                      on && { color: theme.colors.primary, fontWeight: '600' },
+                      on && styles.filterLabelActive,
+                      on && { color: theme.colors.primary },
                     ]}
                   >
                     {STATUS_LABEL[s] ?? s}
@@ -1117,7 +1118,8 @@ function FilterSheet({
                   <Text
                     style={[
                       styles.presetLabel,
-                      on && { color: theme.colors.primary, fontWeight: '600' },
+                      on && styles.filterLabelActive,
+                      on && { color: theme.colors.primary },
                     ]}
                   >
                     {p.label}
@@ -1128,16 +1130,16 @@ function FilterSheet({
           </View>
 
           <View style={styles.customRow}>
-            {(['from', 'to'] as const).map((which) => (
-              <Pressable key={which} style={styles.dateField} onPress={() => setPicking(which)}>
+            {(['from', 'to'] as const).map((bound) => (
+              <Pressable key={bound} style={styles.dateField} onPress={() => setPicking(bound)}>
                 <Calendar size={16} color={theme.palette.muted} />
                 <Text
                   style={[
                     styles.dateFieldText,
-                    draft[which] && { color: theme.palette.onBackground },
+                    draft[bound] && { color: theme.palette.onBackground },
                   ]}
                 >
-                  {draft[which] ?? (which === 'from' ? 'From' : 'To')}
+                  {draft[bound] ?? (bound === 'from' ? 'From' : 'To')}
                 </Text>
               </Pressable>
             ))}
@@ -1479,6 +1481,12 @@ function createStyles(theme: AppTheme) {
     skelChip: { width: 50, height: 32, borderRadius: 999, backgroundColor: theme.palette.divider },
     skelAvatar: { width: 44, height: 44, borderRadius: 12, backgroundColor: theme.palette.divider },
     skelBar: { borderRadius: 8, backgroundColor: theme.palette.divider },
+    // One entry per placeholder slot. The sizes are chosen to sit roughly where the real customer
+    // name, subtitle, amount and status pill land, so the skeleton does not jump on load.
+    skelName: { width: 120, height: 13 },
+    skelSub: { width: 100, height: 11 },
+    skelAmount: { width: 54, height: 13 },
+    skelPill: { width: 62, height: 16, borderRadius: 999 },
 
     // Hero (empty / error / no results)
     hero: {
@@ -1563,6 +1571,8 @@ function createStyles(theme: AppTheme) {
       borderColor: theme.palette.divider,
     },
     pillLabel: { fontSize: 13, fontWeight: '500', color: theme.palette.muted },
+    /** Shared by the status pills and the date presets — both bold when selected. */
+    filterLabelActive: { fontWeight: '600' },
 
     presetWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     preset: {

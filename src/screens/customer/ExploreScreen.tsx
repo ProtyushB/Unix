@@ -61,7 +61,7 @@ export const ExploreScreen: React.FC = () => {
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search businesses..."
-          leftIcon={<Text style={{ fontSize: 16, color: palette.muted }}>🔍</Text>}
+          leftIcon={<Text style={[styles.searchIcon, { color: palette.muted }]}>🔍</Text>}
         />
 
         <ScrollView
@@ -92,7 +92,7 @@ export const ExploreScreen: React.FC = () => {
           <LoadingSpinner />
         ) : filteredBusinesses.length === 0 ? (
           <EmptyState
-            icon={<Text style={{ fontSize: 44 }}>🧭</Text>}
+            icon={<Text style={styles.emptyIcon}>🧭</Text>}
             title="No businesses found"
             message="Try adjusting your search or category filter"
           />
@@ -125,6 +125,9 @@ function createStyles(theme: AppTheme) {
       flex: 1,
       paddingHorizontal: 16,
     },
+    /** Emoji glyphs — size only; the search icon takes its colour at the call site. */
+    searchIcon: { fontSize: 16 },
+    emptyIcon: { fontSize: 44 },
     title: {
       fontSize: 28,
       fontWeight: '700',

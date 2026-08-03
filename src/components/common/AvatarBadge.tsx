@@ -72,7 +72,6 @@ export function AvatarBadge({
               height: badgeSize,
               borderRadius: badgeSize / 2,
               backgroundColor: resolvedBadgeColor,
-              borderWidth: 2,
               borderColor: palette.background,
             },
           ]}
@@ -100,6 +99,9 @@ function createStyles(_theme: AppTheme) {
       position: 'absolute',
       bottom: 0,
       right: 0,
+      // Fixed ring width — it does not scale with badgeSize, so it is static. Only borderColor
+      // varies (it matches the page behind the avatar) and stays at the call site.
+      borderWidth: 2,
     },
   });
 }

@@ -173,7 +173,8 @@ export function GroupSheetOverlay() {
                   <Text
                     style={[
                       styles.sheetItemLabel,
-                      isActiveItem && { color: colors.primary, fontWeight: '600' },
+                      isActiveItem && styles.sheetItemLabelActive,
+                      isActiveItem && { color: colors.primary },
                     ]}
                   >
                     {item.label}
@@ -300,6 +301,8 @@ function createStyles(theme: AppTheme) {
       fontWeight: '500',
       color: theme.palette.onBackground,
     },
+    /** Weight only — the active tint is themed and stays at the call site. */
+    sheetItemLabelActive: { fontWeight: '600' },
     badge: {
       paddingHorizontal: 10,
       paddingVertical: 3,

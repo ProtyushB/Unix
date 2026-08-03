@@ -59,7 +59,7 @@ export const PASSWORD_RULES: PasswordRule[] = [
   },
   {
     label: 'At least one special character (@$!%*?&#_-)',
-    test: (pw: string) => /[@$!%*?&#_\-]/.test(pw),
+    test: (pw: string) => /[@$!%*?&#_-]/.test(pw),
   },
 ];
 
@@ -70,4 +70,4 @@ export function validatePassword(password: string): boolean {
 // ─── Backend Regex (single-check equivalent) ────────────────────────────────
 
 export const BACKEND_PASSWORD_REGEX =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$!%*?&#_\-])[A-Za-z\d@#$!%*?&#_\-]{8,}$/;
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$!%*?&#_-])[A-Za-z\d@#$!%*?&#_-]{8,}$/;
