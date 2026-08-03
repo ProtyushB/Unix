@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -59,6 +59,40 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
     loadUser();
   }, []);
 
+  // Both navigators are defined ABOVE the effect that lists them, and are useCallback rather than
+  // plain functions, for the same reason: a dependency array is evaluated during render, so a
+  // `const` declared further down would be in the temporal dead zone, and a function rebuilt every
+  // render would re-run the effect every render — restarting the fade and re-arming the 1.5s
+  // auto-navigate timer indefinitely. `navigation` is stable across renders.
+  const navigateToOwner = useCallback(() => {
+    if (autoNavRef.current) {
+      clearTimeout(autoNavRef.current);
+    }
+    const parent = navigation.getParent();
+    (parent ?? navigation).reset({
+      index: 0,
+      routes: [{ name: 'OwnerTabs' as any }],
+    });
+  }, [navigation]);
+
+  const navigateToCustomer = useCallback(() => {
+    // Kill switch — see CUSTOMER_PORTAL_ENABLED. Guarded here rather than at the
+    // call sites because this covers both the 1.5s auto-navigate for single-role
+    // users and a manual tap on the customer card.
+    if (!CUSTOMER_PORTAL_ENABLED) {
+      navigateToOwner();
+      return;
+    }
+    if (autoNavRef.current) {
+      clearTimeout(autoNavRef.current);
+    }
+    const parent = navigation.getParent();
+    (parent ?? navigation).reset({
+      index: 0,
+      routes: [{ name: 'CustomerTabs' as any }],
+    });
+  }, [navigation, navigateToOwner]);
+
   // Animate in after data loads
   useEffect(() => {
     if (!loading) {
@@ -92,36 +126,16 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
         clearTimeout(autoNavRef.current);
       }
     };
-  }, [loading, hasOnlyOneRole, user]);
-
-  const navigateToOwner = () => {
-    if (autoNavRef.current) {
-      clearTimeout(autoNavRef.current);
-    }
-    const parent = navigation.getParent();
-    (parent ?? navigation).reset({
-      index: 0,
-      routes: [{ name: 'OwnerTabs' as any }],
-    });
-  };
-
-  const navigateToCustomer = () => {
-    // Kill switch — see CUSTOMER_PORTAL_ENABLED. Guarded here rather than at the
-    // call sites because this covers both the 1.5s auto-navigate for single-role
-    // users and a manual tap on the customer card.
-    if (!CUSTOMER_PORTAL_ENABLED) {
-      navigateToOwner();
-      return;
-    }
-    if (autoNavRef.current) {
-      clearTimeout(autoNavRef.current);
-    }
-    const parent = navigation.getParent();
-    (parent ?? navigation).reset({
-      index: 0,
-      routes: [{ name: 'CustomerTabs' as any }],
-    });
-  };
+  }, [
+    loading,
+    hasOnlyOneRole,
+    user,
+    isBusinessOwner,
+    fadeAnim,
+    slideAnim,
+    navigateToOwner,
+    navigateToCustomer,
+  ]);
 
   const firstName = user?.username ? userProfile?.firstName || user.username : 'User';
 

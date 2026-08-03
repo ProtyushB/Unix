@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Pressable, Easing } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,7 +38,20 @@ export function GroupSheetOverlay() {
   const slideAnim = useRef(new Animated.Value(400)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
-  const [renderedGroupId, setRenderedGroupId] = useState<string | null>(null);
+  const [renderedGroupId, setRenderedGroupIdState] = useState<string | null>(null);
+  /**
+   * Mirror of `renderedGroupId` for the open/close effect, which must NOT re-run when it changes.
+   *
+   * That effect only reads it to answer "is a sheet currently on screen?", so a first render with
+   * no open group does not play an exit animation over nothing. As a dependency it would re-enter
+   * the effect the moment the id is set on open, call slideAnim.setValue(400) again and replay the
+   * entrance from the bottom.
+   */
+  const renderedGroupIdRef = useRef<string | null>(null);
+  const setRenderedGroupId = useCallback((next: string | null) => {
+    renderedGroupIdRef.current = next;
+    setRenderedGroupIdState(next);
+  }, []);
 
   useEffect(() => {
     if (openGroupId) {
@@ -60,7 +73,7 @@ export function GroupSheetOverlay() {
           }),
         ]).start();
       });
-    } else if (renderedGroupId !== null) {
+    } else if (renderedGroupIdRef.current !== null) {
       Animated.parallel([
         Animated.timing(slideAnim, { toValue: 400, duration: 200, useNativeDriver: true }),
         Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
@@ -68,7 +81,7 @@ export function GroupSheetOverlay() {
         if (finished) setRenderedGroupId(null);
       });
     }
-  }, [openGroupId]);
+  }, [openGroupId, slideAnim, overlayAnim, setRenderedGroupId]);
 
   // The open group can vanish mid-session — a refetch or a business switch turns
   // off its last item. Hard-cut rather than animate out: the render below already
@@ -81,7 +94,7 @@ export function GroupSheetOverlay() {
     setRenderedGroupId(null);
     slideAnim.setValue(400);
     overlayAnim.setValue(0);
-  }, [openGroupId, visibleGroups, slideAnim, overlayAnim]);
+  }, [openGroupId, visibleGroups, slideAnim, overlayAnim, setRenderedGroupId]);
 
   const group = renderedGroupId ? visibleGroups.find((g) => g.id === renderedGroupId) : null;
   if (!group) return null;

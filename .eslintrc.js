@@ -28,14 +28,10 @@ module.exports = {
       },
     ],
 
-    // Downgraded from the preset's `error` DELIBERATELY, and only until someone works through them.
-    // There are 10 real sites. Every one is a judgement call rather than a mechanical fix: adding
-    // the missing dependency to an effect that also sets that value is how you get a render loop,
-    // and several of these are animation refs where the current omission is probably correct and
-    // the honest fix is a useRef, not a longer array. Silencing them per-line with disable comments
-    // would hide the list; leaving them as errors would mean `npm run lint` never goes green and
-    // stops being read. A warning keeps all 10 visible and countable.
-    'react-hooks/exhaustive-deps': 'warn',
+    // Left at the preset's `error`. It was briefly a warning while the 10 pre-existing sites were
+    // worked through; they are all fixed, so the gate goes back up rather than leaving a rule
+    // permanently relaxed for problems that no longer exist.
+    'react-hooks/exhaustive-deps': 'error',
   },
   overrides: [
     {

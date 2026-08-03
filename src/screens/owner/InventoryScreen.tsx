@@ -134,13 +134,25 @@ export const InventoryScreen: React.FC = () => {
     return matchStatus && matchSearch;
   });
 
+  /**
+   * Bound to its own const so onRefresh can depend on the METHOD rather than on `activeModule`.
+   *
+   * `activeModule` is a ternary evaluated every render, so depending on it would hand onRefresh a
+   * new identity every time and make the useCallback pointless. exhaustive-deps will not accept
+   * `activeModule.loadInventoryByBusiness` directly — the base of the member expression is a local,
+   * so it asks for the local. Pulling the method out satisfies the rule with the value that is
+   * actually stable: useModuleService wraps it in useCallback over `service`, and the providers
+   * return a module-level singleton, so it only changes when the user switches module.
+   */
+  const loadInventoryByBusiness = activeModule.loadInventoryByBusiness;
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     if (selectedBusinessId) {
-      activeModule.loadInventoryByBusiness(selectedBusinessId);
+      loadInventoryByBusiness(selectedBusinessId);
     }
     setRefreshing(false);
-  }, [selectedBusinessId]);
+  }, [selectedBusinessId, loadInventoryByBusiness]);
 
   const handleSave = async () => {
     if (!form.productId || !form.purchasedQuantity) {

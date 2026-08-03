@@ -44,8 +44,9 @@ export function useBiometric() {
   }, []);
 
   useEffect(() => {
+    // `refresh` is useCallback([]) — a stable identity, so this still runs exactly once on mount.
     refresh();
-  }, []);
+  }, [refresh]);
 
   const prompt = useCallback(async (message = 'Verify your identity'): Promise<boolean> => {
     try {
