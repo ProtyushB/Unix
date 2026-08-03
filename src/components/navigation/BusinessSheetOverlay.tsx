@@ -51,7 +51,20 @@ export function BusinessSheetOverlay() {
   const slideAnim = useRef(new Animated.Value(600)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
-  const [rendered, setRendered] = useState(false);
+  const [rendered, setRenderedState] = useState(false);
+  /**
+   * Mirror of `rendered` for the effect below, which must NOT re-run when it flips.
+   *
+   * The effect only reads the flag to answer "has this sheet ever been shown?", so that a first
+   * render with visible=false does not play an exit animation over nothing. If `rendered` were a
+   * dependency, setting it true on open would re-enter the effect mid-animation, call
+   * slideAnim.setValue(600) again and replay the entrance from the bottom.
+   */
+  const renderedRef = useRef(false);
+  const setRendered = useCallback((next: boolean) => {
+    renderedRef.current = next;
+    setRenderedState(next);
+  }, []);
   const [businessTypeMap, setBusinessTypeMap] = useState<BusinessTypeMap | null>(null);
 
   useEffect(() => {
@@ -80,7 +93,7 @@ export function BusinessSheetOverlay() {
           }),
         ]).start();
       });
-    } else if (rendered) {
+    } else if (renderedRef.current) {
       Animated.parallel([
         Animated.timing(slideAnim, { toValue: 600, duration: 200, useNativeDriver: true }),
         Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
@@ -88,7 +101,7 @@ export function BusinessSheetOverlay() {
         if (finished) setRendered(false);
       });
     }
-  }, [visible]);
+  }, [visible, slideAnim, overlayAnim, setRendered]);
 
   const handleSelect = useCallback(
     (biz: Business, type: string) => {

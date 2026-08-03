@@ -49,7 +49,10 @@ export const BookingsScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [personId, activeTab]);
+    // No `activeTab` here on purpose: nothing in the body reads it yet, so listing it only made a
+    // tab switch re-run this and flash the spinner over a list filtered purely client-side. Put it
+    // back when the TODO above becomes a real per-status fetch — lint will ask for it then.
+  }, [personId]);
 
   useEffect(() => {
     loadAppointments();
