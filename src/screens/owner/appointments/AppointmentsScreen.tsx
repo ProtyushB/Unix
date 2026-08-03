@@ -56,7 +56,6 @@ import {
 import { useAppContext } from '../../../context/AppContext';
 import { useParlour } from '../../../backend/modules/parlour/hook/useParlour';
 import { usePharmacy } from '../../../backend/modules/pharmacy/hook/usePharmacy';
-import { useRestaurant } from '../../../backend/modules/restaurant/hook/useRestaurant';
 import type { AppointmentListOptions } from '../../../backend/modules/shared/hook/useModuleService';
 import {
   toAppointmentRow,
@@ -138,11 +137,10 @@ export function AppointmentsScreen() {
   const { selectedModule } = useAppContext();
   const parlour = useParlour();
   const pharmacy = usePharmacy();
-  const restaurant = useRestaurant();
 
   const moduleKey = (selectedModule || '').toUpperCase();
   const activeModule =
-    moduleKey === 'RESTAURANT' ? restaurant : moduleKey === 'PHARMACY' ? pharmacy : parlour;
+    moduleKey === 'PHARMACY' ? pharmacy : parlour;
 
   // ── Drivers ────────────────────────────────────────────────────────────────
   const [surface, setSurface] = useState<'DAY' | 'CALENDAR'>('DAY');

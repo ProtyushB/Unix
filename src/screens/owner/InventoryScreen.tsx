@@ -28,7 +28,6 @@ import {formatDate, formatCurrency} from '../../utils/formatters';
 import {useAppContext} from '../../context/AppContext';
 import {useParlour} from '../../backend/modules/parlour/hook/useParlour';
 import {usePharmacy} from '../../backend/modules/pharmacy/hook/usePharmacy';
-import {useRestaurant} from '../../backend/modules/restaurant/hook/useRestaurant';
 import {useToast} from '../../hooks/useToast';
 import {getBusinessTypeMap} from '../../storage/session.storage';
 import { useTheme } from '../../hooks/useTheme';
@@ -56,13 +55,10 @@ export const InventoryScreen: React.FC = () => {
   const {selectedModule, selectedBusiness} = useAppContext();
   const parlour = useParlour();
   const pharmacy = usePharmacy();
-  const restaurant = useRestaurant();
   const {showToast} = useToast();
 
   const activeModule =
-    selectedModule?.toLowerCase().includes('restaurant') ? restaurant
-    : selectedModule?.toLowerCase().includes('pharmacy') ? pharmacy
-    : parlour;
+    selectedModule?.toLowerCase().includes('pharmacy') ? pharmacy : parlour;
 
   const [viewState, setViewState] = useState<ViewState>('list');
   const [selectedBatch, setSelectedBatch] = useState<any>(null);

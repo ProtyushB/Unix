@@ -1,4 +1,4 @@
-import {PharmacyApiInterface, ProductListOptions, OrderListOptions, AppointmentListOptions, BillListOptions} from '../api/pharmacy.api.interface';
+import {PharmacyApiInterface, ProductListOptions, ServiceListOptions, OrderListOptions, AppointmentListOptions, BillListOptions} from '../api/pharmacy.api.interface';
 
 export class PharmacyService {
   constructor(private api: PharmacyApiInterface) {}
@@ -22,9 +22,13 @@ export class PharmacyService {
   }
   async deleteProduct(id: number) { return this.api.deleteProduct(id); }
 
-  async getAllServices(businessId: number, page = 1, limit = 10) {
+  async getAllServices(businessId: number, page = 1, limit = 10, options: ServiceListOptions = {}) {
     if (!businessId) throw new Error('Business ID is required');
-    return this.api.getAllServices(businessId, page, limit);
+    return this.api.getAllServices(businessId, page, limit, options);
+  }
+  async updateServiceAvailability(id: number, availability: boolean) {
+    if (!id) throw new Error('Service ID is required');
+    return this.api.updateServiceAvailability(id, availability);
   }
   async getServiceById(id: number) { return this.api.getServiceById(id); }
   async createService(data: Record<string, unknown>) {
@@ -94,7 +98,6 @@ export class PharmacyService {
   async deleteAppointment(id: number) { return this.api.deleteAppointment(id); }
   async getAppointmentsByCustomer(customerId: number, options = {}) { return this.api.getAppointmentsByCustomer(customerId, options); }
 
-  async getAllBills(page = 1, limit = 10) { return this.api.getAllBills(page, limit); }
   async getBillById(id: number) { return this.api.getBillById(id); }
   async getBillsByBusiness(businessId: number, page = 1, limit = 20, options: BillListOptions = {}) {
     if (!businessId) throw new Error('Business ID is required');
