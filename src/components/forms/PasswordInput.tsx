@@ -26,7 +26,7 @@ export function PasswordInput({
   const [visible, setVisible] = useState(false);
 
   const toggleVisibility = useCallback(() => {
-    setVisible(prev => !prev);
+    setVisible((prev) => !prev);
   }, []);
 
   return (

@@ -20,7 +20,7 @@ export function PasswordRuleDots({ password }: PasswordRuleDotsProps) {
 
   return (
     <View style={styles.row} accessibilityRole="list">
-      {PASSWORD_RULES.map(rule => {
+      {PASSWORD_RULES.map((rule) => {
         const met = rule.test(password);
         const Icon = met ? CircleCheck : Circle;
         return (

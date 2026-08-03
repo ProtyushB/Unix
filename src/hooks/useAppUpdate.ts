@@ -1,13 +1,9 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
-import {InteractionManager, Linking, Platform} from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { InteractionManager, Linking, Platform } from 'react-native';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {
-  APP_VERSION_CODE,
-  UPDATES_SUPPORTED,
-  UPDATE_MANIFEST_URL,
-} from '../config/appVersion';
-import {fetchManifest, type UpdateManifest} from '../services/updateService';
-import {CHECK_THROTTLE_MS, updateStorage} from '../storage/update.storage';
+import { APP_VERSION_CODE, UPDATES_SUPPORTED, UPDATE_MANIFEST_URL } from '../config/appVersion';
+import { fetchManifest, type UpdateManifest } from '../services/updateService';
+import { CHECK_THROTTLE_MS, updateStorage } from '../storage/update.storage';
 
 /**
  * The self-hosted APK updater.
@@ -65,7 +61,7 @@ export function useAppUpdate(auto: boolean): UseAppUpdateResult {
   const [error, setError] = useState<string | null>(null);
   const [upToDate, setUpToDate] = useState(false);
 
-  const taskRef = useRef<{cancel: (cb?: (reason: any) => void) => void} | null>(null);
+  const taskRef = useRef<{ cancel: (cb?: (reason: any) => void) => void } | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -79,63 +75,60 @@ export function useAppUpdate(auto: boolean): UseAppUpdateResult {
     };
   }, []);
 
-  const runCheck = useCallback(
-    async (options: {manual: boolean}): Promise<void> => {
-      // Android only. iOS has no sideload path and the install intent below does
-      // not exist there; on web the whole thing is meaningless.
-      if (Platform.OS !== 'android' || !UPDATES_SUPPORTED) return;
+  const runCheck = useCallback(async (options: { manual: boolean }): Promise<void> => {
+    // Android only. iOS has no sideload path and the install intent below does
+    // not exist there; on web the whole thing is meaningless.
+    if (Platform.OS !== 'android' || !UPDATES_SUPPORTED) return;
 
+    if (!options.manual) {
+      const lastChecked = await updateStorage.getLastCheckedAt();
+      if (Date.now() - lastChecked < CHECK_THROTTLE_MS) return;
+    }
+
+    if (mountedRef.current) {
+      setStage('checking');
+      setError(null);
+      setUpToDate(false);
+    }
+
+    const verdict = await fetchManifest(UPDATE_MANIFEST_URL, APP_VERSION_CODE);
+    await updateStorage.markChecked();
+    if (!mountedRef.current) return;
+
+    if (verdict.status === 'update-available') {
+      // Per-version dismissal, checked here rather than inside the pure
+      // evaluator so a manual check can deliberately ignore it — a user who
+      // taps "Check for updates" is asking to see the thing they dismissed.
       if (!options.manual) {
-        const lastChecked = await updateStorage.getLastCheckedAt();
-        if (Date.now() - lastChecked < CHECK_THROTTLE_MS) return;
-      }
-
-      if (mountedRef.current) {
-        setStage('checking');
-        setError(null);
-        setUpToDate(false);
-      }
-
-      const verdict = await fetchManifest(UPDATE_MANIFEST_URL, APP_VERSION_CODE);
-      await updateStorage.markChecked();
-      if (!mountedRef.current) return;
-
-      if (verdict.status === 'update-available') {
-        // Per-version dismissal, checked here rather than inside the pure
-        // evaluator so a manual check can deliberately ignore it — a user who
-        // taps "Check for updates" is asking to see the thing they dismissed.
-        if (!options.manual) {
-          const dismissed = await updateStorage.getDismissedCode();
-          if (!mountedRef.current) return;
-          if (dismissed >= verdict.manifest.versionCode) {
-            setStage('idle');
-            return;
-          }
+        const dismissed = await updateStorage.getDismissedCode();
+        if (!mountedRef.current) return;
+        if (dismissed >= verdict.manifest.versionCode) {
+          setStage('idle');
+          return;
         }
-        // Free retry after a blocked or abandoned install: if the APK is already
-        // sitting in cache and intact, the prompt goes straight to installing.
-        void cleanStaleDownloads(verdict.manifest.versionCode);
-        setManifest(verdict.manifest);
-        setStage('available');
-        return;
       }
+      // Free retry after a blocked or abandoned install: if the APK is already
+      // sitting in cache and intact, the prompt goes straight to installing.
+      void cleanStaleDownloads(verdict.manifest.versionCode);
+      setManifest(verdict.manifest);
+      setStage('available');
+      return;
+    }
 
-      // Everything else is "say nothing". An automatic check that found no
-      // update, a manifest that is not published, a device that is offline and a
-      // build that cannot read its own version all look identical to the user,
-      // which is correct — none of them is actionable.
-      setStage('idle');
-      if (verdict.status === 'invalid') {
-        console.warn(`[update] check failed: ${verdict.reason}`);
-        // Only a manual check surfaces the failure, because only then did
-        // someone ask a question that deserves an answer.
-        if (options.manual) setError('Could not check for updates. Please try again later.');
-      } else if (options.manual && verdict.status === 'up-to-date') {
-        setUpToDate(true);
-      }
-    },
-    [],
-  );
+    // Everything else is "say nothing". An automatic check that found no
+    // update, a manifest that is not published, a device that is offline and a
+    // build that cannot read its own version all look identical to the user,
+    // which is correct — none of them is actionable.
+    setStage('idle');
+    if (verdict.status === 'invalid') {
+      console.warn(`[update] check failed: ${verdict.reason}`);
+      // Only a manual check surfaces the failure, because only then did
+      // someone ask a question that deserves an answer.
+      if (options.manual) setError('Could not check for updates. Please try again later.');
+    } else if (options.manual && verdict.status === 'up-to-date') {
+      setUpToDate(true);
+    }
+  }, []);
 
   // Automatic check. Deliberately NOT in RootNavigator's bootstrap: that gates
   // `isReady` behind a spinner (so anything awaited there becomes cold-start
@@ -148,7 +141,7 @@ export function useAppUpdate(auto: boolean): UseAppUpdateResult {
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     const interaction = InteractionManager.runAfterInteractions(() => {
-      timer = setTimeout(() => void runCheck({manual: false}), STARTUP_DELAY_MS);
+      timer = setTimeout(() => void runCheck({ manual: false }), STARTUP_DELAY_MS);
     });
 
     return () => {
@@ -186,7 +179,7 @@ export function useAppUpdate(auto: boolean): UseAppUpdateResult {
 
       taskRef.current = task;
 
-      task.progress({interval: 250}, (received, total) => {
+      task.progress({ interval: 250 }, (received, total) => {
         if (!mountedRef.current) return;
         // total is -1 when the server sends no Content-Length; null drives an
         // indeterminate bar rather than a fake one stuck at 0%.
@@ -227,7 +220,7 @@ export function useAppUpdate(auto: boolean): UseAppUpdateResult {
     setProgress(null);
   }, [manifest]);
 
-  const checkNow = useCallback(() => runCheck({manual: true}), [runCheck]);
+  const checkNow = useCallback(() => runCheck({ manual: true }), [runCheck]);
 
   return {
     stage,
@@ -347,9 +340,9 @@ async function cleanStaleDownloads(keepVersionCode: number): Promise<void> {
     const entries = await ReactNativeBlobUtil.fs.ls(dir);
     await Promise.all(
       entries
-        .filter(name => /^unix-update-\d+\.apk$/.test(name))
-        .filter(name => Number(name.match(/\d+/)?.[0]) !== keepVersionCode)
-        .map(name => ReactNativeBlobUtil.fs.unlink(`${dir}/${name}`).catch(() => {})),
+        .filter((name) => /^unix-update-\d+\.apk$/.test(name))
+        .filter((name) => Number(name.match(/\d+/)?.[0]) !== keepVersionCode)
+        .map((name) => ReactNativeBlobUtil.fs.unlink(`${dir}/${name}`).catch(() => {})),
     );
   } catch {
     // Cache hygiene only — never worth surfacing.

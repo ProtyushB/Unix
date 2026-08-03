@@ -63,13 +63,25 @@ export interface AuthUser {
 export abstract class AuthApiInterface {
   // OTP Management
   abstract requestOtp(channel: string, value: string): Promise<ApiResponse<unknown>>;
-  abstract resendOtp(channel: string, value: string, isReset?: boolean): Promise<ApiResponse<unknown>>;
-  abstract verifyOtp(channel: string, value: string, otp: string): Promise<ApiResponse<OtpVerificationResult>>;
+  abstract resendOtp(
+    channel: string,
+    value: string,
+    isReset?: boolean,
+  ): Promise<ApiResponse<unknown>>;
+  abstract verifyOtp(
+    channel: string,
+    value: string,
+    otp: string,
+  ): Promise<ApiResponse<OtpVerificationResult>>;
 
   // Reset Password OTP
   abstract requestResetPasswordOtp(channel: string, value: string): Promise<ApiResponse<unknown>>;
   abstract resendResetOtp(channel: string, value: string): Promise<ApiResponse<unknown>>;
-  abstract verifyResetPasswordOtp(channel: string, value: string, otp: string): Promise<ApiResponse<boolean>>;
+  abstract verifyResetPasswordOtp(
+    channel: string,
+    value: string,
+    otp: string,
+  ): Promise<ApiResponse<boolean>>;
 
   // Authentication
   abstract signup(userData: SignupData): Promise<ApiResponse<TokenResponse>>;

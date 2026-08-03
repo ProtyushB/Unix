@@ -61,7 +61,7 @@ export function OtpSheet({
 
   useEffect(() => {
     if (!visible || cooldown <= 0) return;
-    const timer = setTimeout(() => setCooldown(c => c - 1), 1000);
+    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [visible, cooldown]);
 

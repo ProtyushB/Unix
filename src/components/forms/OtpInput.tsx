@@ -31,7 +31,7 @@ export function OtpInput({ value, onChangeOtp, error = false, length = 6 }: OtpI
   // Re-deriving from a joined string loses gap information (e.g. '12456'
   // cannot tell if position 2 or 5 was empty).
   const [digits, setDigits] = useState<string[]>(() =>
-    Array.from({ length }, (_, i) => value[i] ?? '')
+    Array.from({ length }, (_, i) => value[i] ?? ''),
   );
 
   // Only reset when parent explicitly clears value (e.g. email changed)
@@ -41,11 +41,14 @@ export function OtpInput({ value, onChangeOtp, error = false, length = 6 }: OtpI
     }
   }, [value, length]);
 
-  const focusInput = useCallback((index: number) => {
-    if (index >= 0 && index < length) {
-      inputRefs.current[index]?.focus();
-    }
-  }, [length]);
+  const focusInput = useCallback(
+    (index: number) => {
+      if (index >= 0 && index < length) {
+        inputRefs.current[index]?.focus();
+      }
+    },
+    [length],
+  );
 
   const handleChange = useCallback(
     (text: string, index: number) => {
@@ -82,10 +85,12 @@ export function OtpInput({ value, onChangeOtp, error = false, length = 6 }: OtpI
         return (
           <TextInput
             key={index}
-            ref={ref => { inputRefs.current[index] = ref; }}
+            ref={(ref) => {
+              inputRefs.current[index] = ref;
+            }}
             value={digit}
-            onChangeText={text => handleChange(text, index)}
-            onKeyPress={e => handleKeyPress(e, index)}
+            onChangeText={(text) => handleChange(text, index)}
+            onKeyPress={(e) => handleKeyPress(e, index)}
             onFocus={() => setFocusedIndex(index)}
             onBlur={() => setFocusedIndex(null)}
             keyboardType="number-pad"

@@ -12,9 +12,18 @@
       window.process = window.process || { env: { NODE_ENV: 'development' } };
     </script>
     <style>
-      html, body, #root { height: 100%; margin: 0; }
-      #root { display: flex; }
-      * { box-sizing: border-box; }
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+      }
+      #root {
+        display: flex;
+      }
+      * {
+        box-sizing: border-box;
+      }
 
       /* react-native-svg web fix — full-bleed gradient backdrops.
          The app renders page gradients as <Svg style={StyleSheet.absoluteFill}>.
@@ -24,7 +33,10 @@
          the flat background takes over.
          Sized icons (lucide, etc.) always carry explicit width/height attributes,
          so :not([width]):not([height]) targets only these fill layers. */
-      svg:not([width]):not([height]) { width: 100%; height: 100%; }
+      svg:not([width]):not([height]) {
+        width: 100%;
+        height: 100%;
+      }
     </style>
   </head>
   <body>

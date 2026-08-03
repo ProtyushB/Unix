@@ -61,12 +61,7 @@ function getExpiryInfo(
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function InventoryBatchCard({
-  batch,
-  onPress,
-  onEdit,
-  onDelete,
-}: InventoryBatchCardProps) {
+export function InventoryBatchCard({ batch, onPress, onEdit, onDelete }: InventoryBatchCardProps) {
   const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -116,7 +111,7 @@ export function InventoryBatchCard({
         </View>
 
         {/* Actions */}
-        {(onEdit || onDelete) ? (
+        {onEdit || onDelete ? (
           <View style={styles.actions}>
             {onEdit ? (
               <TouchableOpacity

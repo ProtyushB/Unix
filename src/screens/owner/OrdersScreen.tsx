@@ -61,19 +61,36 @@ const LIST_TOP_PAD = 12;
 const LIST_BOTTOM_PAD = 100;
 
 const MONTHS = [
-  'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-  'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+  'JAN',
+  'FEB',
+  'MAR',
+  'APR',
+  'MAY',
+  'JUN',
+  'JUL',
+  'AUG',
+  'SEP',
+  'OCT',
+  'NOV',
+  'DEC',
 ] as const;
 
-const STATUS_ORDER = ['PENDING', 'CONFIRMED', 'PROCESSING', 'COMPLETED', 'CANCELLED', 'REJECTED'] as const;
+const STATUS_ORDER = [
+  'PENDING',
+  'CONFIRMED',
+  'PROCESSING',
+  'COMPLETED',
+  'CANCELLED',
+  'REJECTED',
+] as const;
 
 const STATUS_LABEL: Record<string, string> = {
-  PENDING:    'Pending',
-  CONFIRMED:  'Confirmed',
+  PENDING: 'Pending',
+  CONFIRMED: 'Confirmed',
   PROCESSING: 'Processing',
-  COMPLETED:  'Completed',
-  CANCELLED:  'Cancelled',
-  REJECTED:   'Rejected',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  REJECTED: 'Rejected',
 };
 
 /** Statuses offered in the filter sheet (2×2 grid), per the mockup. */
@@ -100,11 +117,17 @@ const QUICK_STATUSES: {
   tint: 'success' | 'warning' | 'info' | 'error' | 'muted';
   danger?: boolean;
 }[] = [
-  { status: 'CONFIRMED',  label: 'Confirmed',         icon: BadgeCheck,  tint: 'warning' },
-  { status: 'PROCESSING', label: 'Processing',        icon: CircleDot,   tint: 'info' },
-  { status: 'COMPLETED',  label: 'Mark as completed', icon: CircleCheck, tint: 'success', sub: 'Also marks all items delivered' },
-  { status: 'REJECTED',   label: 'Rejected',          icon: Ban,         tint: 'error' },
-  { status: 'CANCELLED',  label: 'Cancel order',      icon: CircleX,     tint: 'error', danger: true },
+  { status: 'CONFIRMED', label: 'Confirmed', icon: BadgeCheck, tint: 'warning' },
+  { status: 'PROCESSING', label: 'Processing', icon: CircleDot, tint: 'info' },
+  {
+    status: 'COMPLETED',
+    label: 'Mark as completed',
+    icon: CircleCheck,
+    tint: 'success',
+    sub: 'Also marks all items delivered',
+  },
+  { status: 'REJECTED', label: 'Rejected', icon: Ban, tint: 'error' },
+  { status: 'CANCELLED', label: 'Cancel order', icon: CircleX, tint: 'error', danger: true },
 ];
 
 // ─── Row mapping ─────────────────────────────────────────────────────────────
@@ -112,14 +135,14 @@ const QUICK_STATUSES: {
 // portal (note `orderStatus` / `orderDate`, NOT `status` / `date`).
 
 interface OrderRow {
-  id:           number;
+  id: number;
   customerName: string;
-  orderNumber:  string;
-  amount:       number;
-  status:       string;
-  when:         string | null;
-  phone?:       string;
-  email?:       string;
+  orderNumber: string;
+  amount: number;
+  status: string;
+  when: string | null;
+  phone?: string;
+  email?: string;
 }
 
 function toOrderRow(raw: any, index: number): OrderRow {
@@ -128,14 +151,14 @@ function toOrderRow(raw: any, index: number): OrderRow {
       ? `${raw.customerFirstName} ${raw.customerLastName}`
       : raw?.customerName || raw?.customer || 'Unknown Customer';
   return {
-    id:           raw?.id ?? index,
+    id: raw?.id ?? index,
     customerName: name,
-    orderNumber:  raw?.orderNumber || `#${raw?.id ?? index}`,
-    amount:       Number(raw?.totalAmount ?? 0),
-    status:       raw?.orderStatus || 'PENDING',
-    when:         raw?.orderDate || raw?.createdAt || null,
-    phone:        raw?.customerPhoneNumber || undefined,
-    email:        raw?.customerEmail || undefined,
+    orderNumber: raw?.orderNumber || `#${raw?.id ?? index}`,
+    amount: Number(raw?.totalAmount ?? 0),
+    status: raw?.orderStatus || 'PENDING',
+    when: raw?.orderDate || raw?.createdAt || null,
+    phone: raw?.customerPhoneNumber || undefined,
+    email: raw?.customerEmail || undefined,
   };
 }
 
@@ -199,10 +222,10 @@ function dayLabelOf(iso: string | null): string {
 type DateSel = DatePresetId | 'CUSTOM';
 
 interface OrderFilters {
-  statuses: string[];   // empty = all
-  date:     DateSel;
-  from?:    string;     // YYYY-MM-DD, only when date === 'CUSTOM'
-  to?:      string;
+  statuses: string[]; // empty = all
+  date: DateSel;
+  from?: string; // YYYY-MM-DD, only when date === 'CUSTOM'
+  to?: string;
 }
 
 const NO_FILTERS: OrderFilters = { statuses: [], date: 'ALL' };
@@ -221,7 +244,7 @@ function isActive(f: OrderFilters): boolean {
 function dateChipLabel(f: OrderFilters): string | null {
   if (f.date === 'ALL') return null;
   if (f.date === 'CUSTOM') return `${f.from ?? '…'} → ${f.to ?? '…'}`;
-  return DATE_PRESETS.find(p => p.id === f.date)?.label ?? null;
+  return DATE_PRESETS.find((p) => p.id === f.date)?.label ?? null;
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
@@ -238,8 +261,7 @@ export function OrdersScreen() {
 
   // selectedModule holds the raw business-type key (PARLOUR / PHARMACY / …).
   const moduleKey = (selectedModule || '').toUpperCase();
-  const activeModule =
-    moduleKey === 'PHARMACY' ? pharmacy : parlour;
+  const activeModule = moduleKey === 'PHARMACY' ? pharmacy : parlour;
 
   const [mode, setMode] = useState<'browse' | 'search'>('browse');
   const [filters, setFilters] = useState<OrderFilters>(NO_FILTERS);
@@ -295,9 +317,8 @@ export function OrdersScreen() {
   // The hook replaces `orders` per page: page 1 resets, later pages append.
   useEffect(() => {
     const mapped = (activeModule.orders as any[]).map(toOrderRow);
-    setRows(prev => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
+    setRows((prev) => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
     loadingMoreRef.current = false;
-     
   }, [activeModule.orders]);
 
   /**
@@ -402,11 +423,17 @@ export function OrdersScreen() {
   const view: View = errored
     ? 'ERROR'
     : searching
-      ? (rows.length ? 'SEARCH' : (debouncedSearch && loadedOnce ? 'NO_RESULTS' : 'SEARCH'))
+      ? rows.length
+        ? 'SEARCH'
+        : debouncedSearch && loadedOnce
+          ? 'NO_RESULTS'
+          : 'SEARCH'
       : !loadedOnce
         ? 'LOADING'
         : rows.length === 0
-          ? (isActive(filters) ? 'FILTERED_EMPTY' : 'EMPTY')
+          ? isActive(filters)
+            ? 'FILTERED_EMPTY'
+            : 'EMPTY'
           : fromSheet
             ? 'FILTERED'
             : 'MAIN';
@@ -428,15 +455,15 @@ export function OrdersScreen() {
   }, []);
 
   const removeStatus = useCallback((s: string) => {
-    setFilters(prev => {
-      const next = { ...prev, statuses: prev.statuses.filter(x => x !== s) };
+    setFilters((prev) => {
+      const next = { ...prev, statuses: prev.statuses.filter((x) => x !== s) };
       setFromSheet(isActive(next));
       return next;
     });
   }, []);
 
   const removeDate = useCallback(() => {
-    setFilters(prev => {
+    setFilters((prev) => {
       const next: OrderFilters = { ...prev, date: 'ALL', from: undefined, to: undefined };
       setFromSheet(isActive(next));
       return next;
@@ -445,12 +472,12 @@ export function OrdersScreen() {
 
   /** Inline chips write the same filter object — tapping one leaves "sheet mode". */
   const setInlineDate = useCallback((d: DatePresetId) => {
-    setFilters(prev => ({ ...prev, date: d, from: undefined, to: undefined }));
+    setFilters((prev) => ({ ...prev, date: d, from: undefined, to: undefined }));
     setFromSheet(false);
   }, []);
 
   const setInlineStatus = useCallback((id: string) => {
-    setFilters(prev => ({ ...prev, statuses: id === 'ALL' ? [] : [id] }));
+    setFilters((prev) => ({ ...prev, statuses: id === 'ALL' ? [] : [id] }));
     setFromSheet(false);
   }, []);
 
@@ -493,7 +520,11 @@ export function OrdersScreen() {
   );
 
   const contactCustomer = useCallback((order: OrderRow) => {
-    const target = order.phone ? `tel:${order.phone}` : order.email ? `mailto:${order.email}` : null;
+    const target = order.phone
+      ? `tel:${order.phone}`
+      : order.email
+        ? `mailto:${order.email}`
+        : null;
     if (target) Linking.openURL(target).catch(() => {});
   }, []);
 
@@ -519,9 +550,12 @@ export function OrdersScreen() {
           </View>
 
           <View style={styles.cardMid}>
-            <Text style={styles.cardName} numberOfLines={1}>{item.customerName}</Text>
+            <Text style={styles.cardName} numberOfLines={1}>
+              {item.customerName}
+            </Text>
             <Text style={styles.cardMeta} numberOfLines={1}>
-              {item.orderNumber}{item.when ? ` · ${timeOf(item.when)}` : ''}
+              {item.orderNumber}
+              {item.when ? ` · ${timeOf(item.when)}` : ''}
             </Text>
           </View>
 
@@ -568,7 +602,9 @@ export function OrdersScreen() {
           // no previous group — only the filter chips, whose spacing is owned by
           // list.paddingTop. Leaving it on stacked the two and pushed the list
           // 24px below the chips while every other gap in the header was 8.
-          <View style={[styles.sectionHeader, section === sections[0] && styles.sectionHeaderFirst]}>
+          <View
+            style={[styles.sectionHeader, section === sections[0] && styles.sectionHeaderFirst]}
+          >
             <Text style={styles.sectionTitle}>{section.title}</Text>
             <Text style={styles.sectionCount}>
               {section.data.length} order{section.data.length === 1 ? '' : 's'}
@@ -591,7 +627,9 @@ export function OrdersScreen() {
       }
       ListFooterComponent={
         activeModule.loading && rows.length > 0 ? (
-          <View style={styles.footer}><ActivityIndicator color={colors.primary} /></View>
+          <View style={styles.footer}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
         ) : null
       }
       showsVerticalScrollIndicator={false}
@@ -605,9 +643,13 @@ export function OrdersScreen() {
     body = (
       <View style={bodyInset}>
         <View style={styles.chipRowStatic}>
-          {[0, 1, 2, 3].map(i => <View key={i} style={styles.skelChip} />)}
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={styles.skelChip} />
+          ))}
         </View>
-        {[0, 1, 2, 3, 4, 5].map(i => <SkeletonRow key={i} styles={styles} />)}
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <SkeletonRow key={i} styles={styles} />
+        ))}
       </View>
     );
   } else if (view === 'ERROR') {
@@ -633,7 +675,9 @@ export function OrdersScreen() {
         subtext="New orders from customers will appear here as they come in."
         ctaLabel="Create Order"
         ctaIcon={<Plus size={18} color="#ffffff" />}
-        onCta={() => { /* TODO: navigate to order create */ }}
+        onCta={() => {
+          /* TODO: navigate to order create */
+        }}
       />
     );
   } else if (view === 'NO_RESULTS') {
@@ -690,7 +734,10 @@ export function OrdersScreen() {
             )}
           </View>
           <Pressable
-            onPress={() => { setMode('browse'); setSearch(''); }}
+            onPress={() => {
+              setMode('browse');
+              setSearch('');
+            }}
             hitSlop={8}
           >
             <Text style={styles.cancelText}>Cancel</Text>
@@ -733,11 +780,18 @@ export function OrdersScreen() {
 
       {/* Filter controls — inline chip rows, or the applied-filters summary */}
       {/* Filter controls stay on screen for FILTERED_EMPTY — they are the only way out of it. */}
-      {!searching && view !== 'EMPTY' && view !== 'ERROR' && view !== 'LOADING' && (
-        fromSheet ? (
+      {!searching &&
+        view !== 'EMPTY' &&
+        view !== 'ERROR' &&
+        view !== 'LOADING' &&
+        (fromSheet ? (
           <View style={styles.appliedRow}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.appliedChips}>
-              {filters.statuses.map(s => (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.appliedChips}
+            >
+              {filters.statuses.map((s) => (
                 <Pressable key={s} style={styles.appliedChip} onPress={() => removeStatus(s)}>
                   <Text style={styles.appliedChipText}>{STATUS_LABEL[s] ?? s}</Text>
                   <X size={13} color={colors.primary} />
@@ -763,16 +817,21 @@ export function OrdersScreen() {
               contentContainerStyle={styles.dateChipRow}
               keyboardShouldPersistTaps="handled"
             >
-              {DATE_PRESETS.map(p => {
+              {DATE_PRESETS.map((p) => {
                 const active = filters.date === p.id;
                 return (
                   <Pressable
                     key={p.id}
                     onPress={() => setInlineDate(p.id)}
                     android_ripple={{ color: palette.divider }}
-                    style={[styles.dateChip, active && { backgroundColor: colors.softBg, borderColor: colors.primary }]}
+                    style={[
+                      styles.dateChip,
+                      active && { backgroundColor: colors.softBg, borderColor: colors.primary },
+                    ]}
                   >
-                    <Text style={[styles.dateChipLabel, active && styles.chipLabelActive]}>{p.label}</Text>
+                    <Text style={[styles.dateChipLabel, active && styles.chipLabelActive]}>
+                      {p.label}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -785,7 +844,7 @@ export function OrdersScreen() {
               contentContainerStyle={styles.statusChipRow}
               keyboardShouldPersistTaps="handled"
             >
-              {statusChips.map(c => {
+              {statusChips.map((c) => {
                 const active =
                   c.id === 'ALL' ? filters.statuses.length === 0 : filters.statuses.includes(c.id);
                 return (
@@ -793,25 +852,31 @@ export function OrdersScreen() {
                     key={c.id}
                     onPress={() => setInlineStatus(c.id)}
                     android_ripple={{ color: palette.divider }}
-                    style={[styles.statusChip, active && { backgroundColor: colors.softBg, borderColor: colors.primary }]}
+                    style={[
+                      styles.statusChip,
+                      active && { backgroundColor: colors.softBg, borderColor: colors.primary },
+                    ]}
                   >
-                    <Text style={[styles.statusChipLabel, active && styles.chipLabelActive]}>{c.label}</Text>
+                    <Text style={[styles.statusChipLabel, active && styles.chipLabelActive]}>
+                      {c.label}
+                    </Text>
                     {c.count != null && (
-                      <Text style={[styles.statusChipCount, active && styles.chipLabelActive]}>{c.count}</Text>
+                      <Text style={[styles.statusChipCount, active && styles.chipLabelActive]}>
+                        {c.count}
+                      </Text>
                     )}
                   </Pressable>
                 );
               })}
             </ScrollView>
           </>
-        )
-      )}
+        ))}
 
       {/* Result count line.
           SEARCH additionally requires a non-empty query: opening the search box shows the
           full list until something is typed, and the line rendered "20 results for ''" —
           a result count attributed to a search nobody performed, with empty quotes. */}
-      {((view === 'FILTERED') || (view === 'SEARCH' && !!debouncedSearch)) && (
+      {(view === 'FILTERED' || (view === 'SEARCH' && !!debouncedSearch)) && (
         <Text style={view === 'SEARCH' ? styles.searchResultLine : styles.filterCountLine}>
           {view === 'SEARCH'
             ? `${rows.length} result${rows.length === 1 ? '' : 's'} for '${debouncedSearch}'`
@@ -827,7 +892,13 @@ export function OrdersScreen() {
 
       {header}
 
-      {showFab && <FAB onPress={() => { /* TODO: navigate to order create */ }} />}
+      {showFab && (
+        <FAB
+          onPress={() => {
+            /* TODO: navigate to order create */
+          }}
+        />
+      )}
 
       {/*
         Each overlay is gated on its own state rather than relying on Modal's `visible` prop alone.
@@ -850,9 +921,15 @@ export function OrdersScreen() {
           order={activeOrder}
           styles={styles}
           theme={theme}
-          onClose={() => { setSheet(null); setActiveOrder(null); }}
+          onClose={() => {
+            setSheet(null);
+            setActiveOrder(null);
+          }}
           onPickStatus={(s) => {
-            if (s === 'CANCELLED') { setDialog('cancelConfirm'); return; }
+            if (s === 'CANCELLED') {
+              setDialog('cancelConfirm');
+              return;
+            }
             changeStatus(activeOrder, s);
           }}
           onContact={() => contactCustomer(activeOrder)}
@@ -897,7 +974,14 @@ function SkeletonRow({ styles }: { styles: any }) {
 // ─── Hero block (empty / error / no-results) ─────────────────────────────────
 
 function HeroBlock({
-  styles, style, icon, headline, subtext, ctaLabel, ctaIcon, onCta,
+  styles,
+  style,
+  icon,
+  headline,
+  subtext,
+  ctaLabel,
+  ctaIcon,
+  onCta,
 }: {
   styles: any;
   /** Reserves the overlay header's height so the block centres in the visible region. */
@@ -929,7 +1013,11 @@ function HeroBlock({
 // ─── Filter sheet ────────────────────────────────────────────────────────────
 
 function FilterSheet({
-  initial, styles, theme, onClose, onApply,
+  initial,
+  styles,
+  theme,
+  onClose,
+  onApply,
 }: {
   initial: OrderFilters;
   styles: any;
@@ -948,16 +1036,25 @@ function FilterSheet({
   const insets = useSafeAreaInsets();
 
   const toggleStatus = (s: string) =>
-    setDraft(d => ({
+    setDraft((d) => ({
       ...d,
-      statuses: d.statuses.includes(s) ? d.statuses.filter(x => x !== s) : [...d.statuses, s],
+      statuses: d.statuses.includes(s) ? d.statuses.filter((x) => x !== s) : [...d.statuses, s],
     }));
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
+    <Modal
+      visible
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={onClose}
+    >
       <Pressable style={styles.sheetOverlay} onPress={onClose} />
       <View style={[styles.sheet, { paddingBottom: 28 + insets.bottom }]}>
-        <View style={styles.grabberWrap}><View style={styles.grabber} /></View>
+        <View style={styles.grabberWrap}>
+          <View style={styles.grabber} />
+        </View>
 
         <View style={styles.sheetHeader}>
           <Text style={styles.sheetTitle}>Filters</Text>
@@ -969,16 +1066,27 @@ function FilterSheet({
         <View style={styles.sheetSection}>
           <Text style={styles.sheetLabel}>Order Status</Text>
           <View style={styles.pillGrid}>
-            {FILTER_STATUSES.map(s => {
+            {FILTER_STATUSES.map((s) => {
               const on = draft.statuses.includes(s);
               return (
                 <Pressable
                   key={s}
                   onPress={() => toggleStatus(s)}
-                  style={[styles.pill, on && { backgroundColor: theme.colors.softBg, borderColor: theme.colors.primary }]}
+                  style={[
+                    styles.pill,
+                    on && {
+                      backgroundColor: theme.colors.softBg,
+                      borderColor: theme.colors.primary,
+                    },
+                  ]}
                 >
                   {on && <Check size={15} color={theme.colors.primary} />}
-                  <Text style={[styles.pillLabel, on && { color: theme.colors.primary, fontWeight: '600' }]}>
+                  <Text
+                    style={[
+                      styles.pillLabel,
+                      on && { color: theme.colors.primary, fontWeight: '600' },
+                    ]}
+                  >
                     {STATUS_LABEL[s] ?? s}
                   </Text>
                 </Pressable>
@@ -990,15 +1098,28 @@ function FilterSheet({
         <View style={styles.sheetSection}>
           <Text style={styles.sheetLabel}>Date Range</Text>
           <View style={styles.presetWrap}>
-            {DATE_PRESETS.map(p => {
+            {DATE_PRESETS.map((p) => {
               const on = draft.date === p.id;
               return (
                 <Pressable
                   key={p.id}
-                  onPress={() => setDraft(d => ({ ...d, date: p.id, from: undefined, to: undefined }))}
-                  style={[styles.preset, on && { backgroundColor: theme.colors.softBg, borderColor: theme.colors.primary }]}
+                  onPress={() =>
+                    setDraft((d) => ({ ...d, date: p.id, from: undefined, to: undefined }))
+                  }
+                  style={[
+                    styles.preset,
+                    on && {
+                      backgroundColor: theme.colors.softBg,
+                      borderColor: theme.colors.primary,
+                    },
+                  ]}
                 >
-                  <Text style={[styles.presetLabel, on && { color: theme.colors.primary, fontWeight: '600' }]}>
+                  <Text
+                    style={[
+                      styles.presetLabel,
+                      on && { color: theme.colors.primary, fontWeight: '600' },
+                    ]}
+                  >
                     {p.label}
                   </Text>
                 </Pressable>
@@ -1007,10 +1128,15 @@ function FilterSheet({
           </View>
 
           <View style={styles.customRow}>
-            {(['from', 'to'] as const).map(which => (
+            {(['from', 'to'] as const).map((which) => (
               <Pressable key={which} style={styles.dateField} onPress={() => setPicking(which)}>
                 <Calendar size={16} color={theme.palette.muted} />
-                <Text style={[styles.dateFieldText, draft[which] && { color: theme.palette.onBackground }]}>
+                <Text
+                  style={[
+                    styles.dateFieldText,
+                    draft[which] && { color: theme.palette.onBackground },
+                  ]}
+                >
                   {draft[which] ?? (which === 'from' ? 'From' : 'To')}
                 </Text>
               </Pressable>
@@ -1023,7 +1149,8 @@ function FilterSheet({
               mode="date"
               onChange={(_e: unknown, d?: Date) => {
                 setPicking(null);
-                if (d) setDraft(prev => ({ ...prev, date: 'CUSTOM', [which(picking)]: toYmd(d) }));
+                if (d)
+                  setDraft((prev) => ({ ...prev, date: 'CUSTOM', [which(picking)]: toYmd(d) }));
               }}
             />
           )}
@@ -1045,7 +1172,12 @@ function which(p: 'from' | 'to'): 'from' | 'to' {
 // ─── Quick actions sheet ─────────────────────────────────────────────────────
 
 function ActionsSheet({
-  order, styles, theme, onClose, onPickStatus, onContact,
+  order,
+  styles,
+  theme,
+  onClose,
+  onPickStatus,
+  onContact,
 }: {
   order: OrderRow;
   styles: any;
@@ -1059,20 +1191,33 @@ function ActionsSheet({
   const pair = theme.avatar.forName(order.customerName);
   const st = theme.status[order.status] ?? theme.status.FALLBACK;
   // Offering the status the order already has is meaningless — drop that row.
-  const actions = QUICK_STATUSES.filter(a => a.status !== order.status);
+  const actions = QUICK_STATUSES.filter((a) => a.status !== order.status);
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
+    <Modal
+      visible
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={onClose}
+    >
       <Pressable style={styles.sheetOverlay} onPress={onClose} />
       <View style={[styles.sheetTight, { paddingBottom: 24 + insets.bottom }]}>
-        <View style={styles.grabberWrap}><View style={styles.grabber} /></View>
+        <View style={styles.grabberWrap}>
+          <View style={styles.grabber} />
+        </View>
 
         <View style={styles.summaryWrap}>
           <View style={[styles.summaryAvatar, { backgroundColor: pair.bg + '26' }]}>
-            <Text style={[styles.avatarText, { color: pair.bg }]}>{initialsOf(order.customerName)}</Text>
+            <Text style={[styles.avatarText, { color: pair.bg }]}>
+              {initialsOf(order.customerName)}
+            </Text>
           </View>
           <View style={styles.cardMid}>
-            <Text style={styles.cardName} numberOfLines={1}>{order.customerName}</Text>
+            <Text style={styles.cardName} numberOfLines={1}>
+              {order.customerName}
+            </Text>
             <Text style={styles.cardMeta} numberOfLines={1}>
               {order.orderNumber} · {formatAmount(order.amount)}
             </Text>
@@ -1087,7 +1232,7 @@ function ActionsSheet({
         <View style={styles.sheetDivider} />
         <Text style={styles.actionsHeader}>CHANGE STATUS</Text>
 
-        {actions.map(a => {
+        {actions.map((a) => {
           const Icon = a.icon;
           return (
             <Pressable
@@ -1098,9 +1243,7 @@ function ActionsSheet({
             >
               <Icon size={19} color={theme.palette[a.tint]} />
               <View style={styles.actionMid}>
-                <Text
-                  style={[styles.actionLabel, a.danger && { color: theme.palette.error }]}
-                >
+                <Text style={[styles.actionLabel, a.danger && { color: theme.palette.error }]}>
                   {a.label}
                 </Text>
                 {a.sub && <Text style={styles.actionSub}>{a.sub}</Text>}
@@ -1111,7 +1254,11 @@ function ActionsSheet({
 
         <View style={styles.sheetDivider} />
 
-        <Pressable style={styles.actionRow} onPress={onContact} android_ripple={{ color: theme.palette.divider }}>
+        <Pressable
+          style={styles.actionRow}
+          onPress={onContact}
+          android_ripple={{ color: theme.palette.divider }}
+        >
           <Phone size={19} color={theme.palette.muted} />
           <View style={styles.actionMid}>
             <Text style={styles.actionLabel}>Contact customer</Text>
@@ -1146,22 +1293,37 @@ function createStyles(theme: AppTheme) {
 
     // Search
     searchRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 12,
-      paddingHorizontal: 16, marginTop: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 16,
+      marginTop: 18,
     },
     searchBox: {
-      flex: 1, height: 46, flexDirection: 'row', alignItems: 'center', gap: 10,
-      paddingHorizontal: 14, borderRadius: 12, borderWidth: 1,
-      backgroundColor: theme.palette.surface, borderColor: theme.palette.divider,
+      flex: 1,
+      height: 46,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      backgroundColor: theme.palette.surface,
+      borderColor: theme.palette.divider,
     },
     searchBoxFocused: { borderWidth: 1.5, borderColor: theme.colors.primary },
     searchInput: { flex: 1, fontSize: 15, color: theme.palette.onBackground, padding: 0 },
     searchPlaceholder: { flex: 1, fontSize: 14, color: dim },
     cancelText: { fontSize: 15, fontWeight: '500', color: theme.colors.primary },
     filterBtn: {
-      width: 46, height: 46, alignItems: 'center', justifyContent: 'center',
-      borderRadius: 12, borderWidth: 1,
-      backgroundColor: theme.palette.surface, borderColor: theme.palette.divider,
+      width: 46,
+      height: 46,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      borderWidth: 1,
+      backgroundColor: theme.palette.surface,
+      borderColor: theme.palette.divider,
     },
 
     // Chips
@@ -1183,18 +1345,34 @@ function createStyles(theme: AppTheme) {
     chipScrollTight: { flexGrow: 0, flexShrink: 0, marginTop: 8 },
     // marginTop matches chipScroll so the skeleton row and the real chip row sit at
     // the same y — otherwise the header nudges when the first page lands.
-    chipRowStatic: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginTop: 8, marginBottom: 4 },
+    chipRowStatic: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingHorizontal: 16,
+      marginTop: 8,
+      marginBottom: 4,
+    },
     dateChipRow: { paddingHorizontal: 16, gap: 6, alignItems: 'center' },
     statusChipRow: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
     dateChip: {
-      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
-      backgroundColor: theme.palette.surface, borderColor: theme.palette.divider,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      backgroundColor: theme.palette.surface,
+      borderColor: theme.palette.divider,
     },
     dateChipLabel: { fontSize: 12, fontWeight: '500', color: theme.palette.muted },
     statusChip: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingHorizontal: 13, paddingVertical: 7, borderRadius: 999, borderWidth: 1,
-      backgroundColor: theme.palette.surface, borderColor: theme.palette.divider,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 13,
+      paddingVertical: 7,
+      borderRadius: 999,
+      borderWidth: 1,
+      backgroundColor: theme.palette.surface,
+      borderColor: theme.palette.divider,
     },
     statusChipLabel: { fontSize: 13, fontWeight: '500', color: theme.palette.muted },
     statusChipCount: { fontSize: 12, fontWeight: '700', color: dim },
@@ -1202,14 +1380,24 @@ function createStyles(theme: AppTheme) {
 
     // Applied filters
     appliedRow: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      gap: 10, paddingHorizontal: 16, marginTop: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+      paddingHorizontal: 16,
+      marginTop: 18,
     },
     appliedChips: { gap: 8, alignItems: 'center' },
     appliedChip: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
-      backgroundColor: theme.colors.softBg, borderColor: theme.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      backgroundColor: theme.colors.softBg,
+      borderColor: theme.colors.primary,
     },
     appliedChipText: { fontSize: 12, fontWeight: '600', color: theme.colors.primary },
     clearAll: { fontSize: 12, fontWeight: '600', color: theme.palette.muted },
@@ -1218,12 +1406,19 @@ function createStyles(theme: AppTheme) {
     // sentence (13px medium, secondary grey), the filtered count as a section label
     // (11px semibold, 1px tracking, dim grey).
     searchResultLine: {
-      fontSize: 13, fontWeight: '500',
-      color: theme.palette.muted, paddingHorizontal: 16, marginTop: 16,
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.palette.muted,
+      paddingHorizontal: 16,
+      marginTop: 16,
     },
     filterCountLine: {
-      fontSize: 11, fontWeight: '600', letterSpacing: 1,
-      color: dim, paddingHorizontal: 18, marginTop: 16,
+      fontSize: 11,
+      fontWeight: '600',
+      letterSpacing: 1,
+      color: dim,
+      paddingHorizontal: 18,
+      marginTop: 16,
     },
 
     // List
@@ -1237,8 +1432,12 @@ function createStyles(theme: AppTheme) {
     // marginBottom — the two stack, so 2 + 10 lands on the same 12 the chips-to-list
     // gap uses. Changing the card margin will silently change this gap too.
     sectionHeader: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 18, paddingTop: 2, paddingBottom: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 18,
+      paddingTop: 2,
+      paddingBottom: 6,
       backgroundColor: theme.palette.background,
     },
     sectionHeaderFirst: { paddingTop: 0 },
@@ -1247,14 +1446,26 @@ function createStyles(theme: AppTheme) {
 
     // Card
     card: {
-      flexDirection: 'row', alignItems: 'center', gap: 13,
-      marginHorizontal: 16, marginBottom: 10,
-      paddingHorizontal: 14, paddingVertical: 13,
-      borderRadius: 16, borderWidth: 1,
-      backgroundColor: theme.palette.surface, borderColor: theme.palette.divider,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+      marginHorizontal: 16,
+      marginBottom: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+      borderRadius: 16,
+      borderWidth: 1,
+      backgroundColor: theme.palette.surface,
+      borderColor: theme.palette.divider,
     },
     cardPressed: { opacity: 0.7 },
-    avatar: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    avatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     avatarText: { fontSize: 14, fontWeight: '600' },
     cardMid: { flex: 1, gap: 4 },
     cardName: { fontSize: 15, fontWeight: '600', color: theme.palette.onBackground },
@@ -1270,17 +1481,38 @@ function createStyles(theme: AppTheme) {
     skelBar: { borderRadius: 8, backgroundColor: theme.palette.divider },
 
     // Hero (empty / error / no results)
-    hero: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 22, paddingHorizontal: 40 },
+    hero: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 22,
+      paddingHorizontal: 40,
+    },
     heroCircle: {
-      width: 96, height: 96, borderRadius: 999, alignItems: 'center', justifyContent: 'center',
-      backgroundColor: theme.palette.surface, borderWidth: 1, borderColor: theme.palette.divider,
+      width: 96,
+      height: 96,
+      borderRadius: 999,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
     },
     heroText: { gap: 8, alignItems: 'center' },
-    heroHeadline: { fontSize: 19, fontWeight: '700', color: theme.palette.onBackground, textAlign: 'center' },
+    heroHeadline: {
+      fontSize: 19,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      textAlign: 'center',
+    },
     heroSub: { fontSize: 13, lineHeight: 18, color: theme.palette.muted, textAlign: 'center' },
     heroCta: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderRadius: 12,
       backgroundColor: theme.colors.primary,
     },
     heroCtaLabel: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
@@ -1289,15 +1521,24 @@ function createStyles(theme: AppTheme) {
     sheetOverlay: { flex: 1, backgroundColor: theme.palette.overlay ?? '#00000088' },
     sheet: {
       backgroundColor: theme.palette.surfaceElevated ?? theme.palette.surface,
-      borderTopLeftRadius: 24, borderTopRightRadius: 24,
-      borderTopWidth: 1, borderColor: theme.palette.divider,
-      paddingTop: 12, paddingHorizontal: 20, paddingBottom: 28, gap: 20,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      borderTopWidth: 1,
+      borderColor: theme.palette.divider,
+      paddingTop: 12,
+      paddingHorizontal: 20,
+      paddingBottom: 28,
+      gap: 20,
     },
     sheetTight: {
       backgroundColor: theme.palette.surfaceElevated ?? theme.palette.surface,
-      borderTopLeftRadius: 24, borderTopRightRadius: 24,
-      borderTopWidth: 1, borderColor: theme.palette.divider,
-      paddingTop: 10, paddingBottom: 24, gap: 4,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      borderTopWidth: 1,
+      borderColor: theme.palette.divider,
+      paddingTop: 10,
+      paddingBottom: 24,
+      gap: 4,
     },
     grabberWrap: { alignItems: 'center', paddingBottom: 6 },
     grabber: { width: 40, height: 4, borderRadius: 999, backgroundColor: theme.palette.divider },
@@ -1309,43 +1550,87 @@ function createStyles(theme: AppTheme) {
 
     pillGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     pill: {
-      flexGrow: 1, flexBasis: '45%', height: 42,
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-      borderRadius: 999, borderWidth: 1,
-      backgroundColor: theme.palette.surface, borderColor: theme.palette.divider,
+      flexGrow: 1,
+      flexBasis: '45%',
+      height: 42,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      backgroundColor: theme.palette.surface,
+      borderColor: theme.palette.divider,
     },
     pillLabel: { fontSize: 13, fontWeight: '500', color: theme.palette.muted },
 
     presetWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     preset: {
-      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1,
-      backgroundColor: theme.palette.surface, borderColor: theme.palette.divider,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 999,
+      borderWidth: 1,
+      backgroundColor: theme.palette.surface,
+      borderColor: theme.palette.divider,
     },
     presetLabel: { fontSize: 13, fontWeight: '500', color: theme.palette.muted },
 
     customRow: { flexDirection: 'row', gap: 10 },
     dateField: {
-      flex: 1, height: 46, flexDirection: 'row', alignItems: 'center', gap: 10,
-      paddingHorizontal: 14, borderRadius: 12, borderWidth: 1,
-      backgroundColor: theme.palette.surface, borderColor: theme.palette.divider,
+      flex: 1,
+      height: 46,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      backgroundColor: theme.palette.surface,
+      borderColor: theme.palette.divider,
     },
     dateFieldText: { flex: 1, fontSize: 14, color: theme.palette.muted },
 
     applyBtn: {
-      height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+      height: 50,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: theme.colors.primary,
     },
     applyLabel: { fontSize: 15, fontWeight: '700', color: '#ffffff' },
 
     // Actions sheet
-    summaryWrap: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 10 },
-    summaryAvatar: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    summaryWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 20,
+      paddingBottom: 10,
+    },
+    summaryAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     sheetDivider: { height: 1, backgroundColor: theme.palette.divider },
     actionsHeader: {
-      fontSize: 11, fontWeight: '700', letterSpacing: 0.8,
-      color: theme.palette.muted, paddingHorizontal: 22, paddingTop: 10, paddingBottom: 4,
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.8,
+      color: theme.palette.muted,
+      paddingHorizontal: 22,
+      paddingTop: 10,
+      paddingBottom: 4,
     },
-    actionRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 22, paddingVertical: 14 },
+    actionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      paddingHorizontal: 22,
+      paddingVertical: 14,
+    },
     actionMid: { flex: 1, gap: 2 },
     actionLabel: { fontSize: 15, fontWeight: '500', color: theme.palette.onBackground },
     actionSub: { fontSize: 12, color: theme.palette.muted },

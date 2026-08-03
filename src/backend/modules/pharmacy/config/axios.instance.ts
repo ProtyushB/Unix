@@ -8,14 +8,14 @@
  */
 
 import axios from 'axios';
-import {PHARMACY_BASE_URL} from './api.config';
-import {installAuthInterceptors} from '../../../shared/config/authInterceptors';
+import { PHARMACY_BASE_URL } from './api.config';
+import { installAuthInterceptors } from '../../../shared/config/authInterceptors';
 
 const pharmacyApiClient = installAuthInterceptors(
   axios.create({
     baseURL: PHARMACY_BASE_URL,
     timeout: 30000,
-    headers: {'Content-Type': 'application/json'},
+    headers: { 'Content-Type': 'application/json' },
   }),
 );
 

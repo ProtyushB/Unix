@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  View,
-  ScrollView,
-  RefreshControl,
-  Linking,
-  StyleSheet,
-} from 'react-native';
+import { View, ScrollView, RefreshControl, Linking, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -127,8 +121,7 @@ export default function DashboardScreen() {
   // `selectedModule` holds the raw business-type key (PARLOUR / PHARMACY), written by AppContext.
   // Compared case-insensitively: an earlier version matched title-case and so always fell through.
   const moduleKey = (selectedModule || '').toUpperCase();
-  const activeModule =
-    moduleKey === 'PHARMACY' ? pharmacy : parlour;
+  const activeModule = moduleKey === 'PHARMACY' ? pharmacy : parlour;
 
   const dashboard = useDashboard();
 
@@ -210,57 +203,81 @@ export default function DashboardScreen() {
 
   // Collapsed shows RECENT_LIMIT; "See all" reveals the rest inline. The toggle
   // only appears when there are extra rows to reveal.
-  const visibleOrders   = ordersExpanded ? orders : orders.slice(0, RECENT_LIMIT);
-  const visibleAppts    = apptsExpanded  ? appointments : appointments.slice(0, RECENT_LIMIT);
+  const visibleOrders = ordersExpanded ? orders : orders.slice(0, RECENT_LIMIT);
+  const visibleAppts = apptsExpanded ? appointments : appointments.slice(0, RECENT_LIMIT);
   const ordersCanExpand = orders.length > RECENT_LIMIT;
-  const apptsCanExpand  = appointments.length > RECENT_LIMIT;
+  const apptsCanExpand = appointments.length > RECENT_LIMIT;
 
   const stats = dashboard.summary?.stats;
   const hasError = !!dashboard.error;
 
   // Four distinct hues, all theme tokens so they stay legible in light mode.
   // The mockup's violet has no counterpart in the palette; amber stands in.
-  const statCards = useMemo(() => [
-    {
-      key: 'revenue',
-      label: 'Revenue',
-      color: palette.success,
-      metric: stats?.todaysRevenue,
-      format: (v: number) => formatCompactCurrency(v),
-      zero: '₹0',
-    },
-    {
-      key: 'orders',
-      label: 'Orders',
-      color: colors.primary,
-      metric: stats?.todaysOrders,
-      format: (v: number) => String(v),
-      zero: '0',
-    },
-    {
-      key: 'appointments',
-      label: 'Appointments',
-      color: palette.info,
-      metric: stats?.todaysAppointments,
-      format: (v: number) => String(v),
-      zero: '0',
-    },
-    {
-      key: 'customers',
-      label: 'Customers',
-      color: palette.warning,
-      metric: stats?.todaysActiveCustomers,
-      format: (v: number) => String(v),
-      zero: '0',
-    },
-  ], [stats, colors.primary, palette.success, palette.info, palette.warning]);
+  const statCards = useMemo(
+    () => [
+      {
+        key: 'revenue',
+        label: 'Revenue',
+        color: palette.success,
+        metric: stats?.todaysRevenue,
+        format: (v: number) => formatCompactCurrency(v),
+        zero: '₹0',
+      },
+      {
+        key: 'orders',
+        label: 'Orders',
+        color: colors.primary,
+        metric: stats?.todaysOrders,
+        format: (v: number) => String(v),
+        zero: '0',
+      },
+      {
+        key: 'appointments',
+        label: 'Appointments',
+        color: palette.info,
+        metric: stats?.todaysAppointments,
+        format: (v: number) => String(v),
+        zero: '0',
+      },
+      {
+        key: 'customers',
+        label: 'Customers',
+        color: palette.warning,
+        metric: stats?.todaysActiveCustomers,
+        format: (v: number) => String(v),
+        zero: '0',
+      },
+    ],
+    [stats, colors.primary, palette.success, palette.info, palette.warning],
+  );
 
-  const quickActions = useMemo(() => [
-    { key: 'product', icon: PackagePlus, label: 'Product', color: colors.primary, tab: 'Products' },
-    { key: 'order', icon: ShoppingCart, label: 'Order', color: palette.info, tab: 'Orders' },
-    { key: 'booking', icon: CalendarPlus, label: 'Booking', color: palette.success, tab: 'Appointments' },
-    { key: 'invoice', icon: ReceiptText, label: 'Invoice', color: palette.warning, tab: 'Billing' },
-  ], [colors.primary, palette.info, palette.success, palette.warning]);
+  const quickActions = useMemo(
+    () => [
+      {
+        key: 'product',
+        icon: PackagePlus,
+        label: 'Product',
+        color: colors.primary,
+        tab: 'Products',
+      },
+      { key: 'order', icon: ShoppingCart, label: 'Order', color: palette.info, tab: 'Orders' },
+      {
+        key: 'booking',
+        icon: CalendarPlus,
+        label: 'Booking',
+        color: palette.success,
+        tab: 'Appointments',
+      },
+      {
+        key: 'invoice',
+        icon: ReceiptText,
+        label: 'Invoice',
+        color: palette.warning,
+        tab: 'Billing',
+      },
+    ],
+    [colors.primary, palette.info, palette.success, palette.warning],
+  );
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -320,7 +337,7 @@ export default function DashboardScreen() {
             {hasError && <LiveDataBanner onRetry={handleRefresh} />}
 
             <View style={styles.statsRow}>
-              {statCards.map(card => (
+              {statCards.map((card) => (
                 <StatCard
                   key={card.key}
                   label={card.label}
@@ -328,11 +345,7 @@ export default function DashboardScreen() {
                   // Zeroes go grey rather than coloured — a green "₹0" reads
                   // like a result, which is the mockup's empty-state point.
                   dimmed={hasError || !card.metric || card.metric.value === 0}
-                  value={
-                    hasError ? '—'
-                      : card.metric ? card.format(card.metric.value)
-                        : card.zero
-                  }
+                  value={hasError ? '—' : card.metric ? card.format(card.metric.value) : card.zero}
                   trend={trendOf(card.metric, hasError)}
                   delta={deltaOf(card.metric)}
                 />
@@ -342,7 +355,7 @@ export default function DashboardScreen() {
             <View style={styles.section}>
               <SectionHead title="Quick Actions" />
               <View style={styles.actionsRow}>
-                {quickActions.map(action => (
+                {quickActions.map((action) => (
                   <QuickActionTile
                     key={action.key}
                     icon={action.icon}
@@ -377,12 +390,10 @@ export default function DashboardScreen() {
                   <SectionHead
                     title="Recent Orders"
                     actionLabel={
-                      ordersCanExpand
-                        ? ordersExpanded ? 'Show less' : 'See all'
-                        : undefined
+                      ordersCanExpand ? (ordersExpanded ? 'Show less' : 'See all') : undefined
                     }
                     expanded={ordersExpanded}
-                    onAction={() => setOrdersExpanded(v => !v)}
+                    onAction={() => setOrdersExpanded((v) => !v)}
                   />
                   {orders.length === 0 ? (
                     <SectionEmptyCard
@@ -411,12 +422,10 @@ export default function DashboardScreen() {
                   <SectionHead
                     title="Recent Appointments"
                     actionLabel={
-                      apptsCanExpand
-                        ? apptsExpanded ? 'Show less' : 'See all'
-                        : undefined
+                      apptsCanExpand ? (apptsExpanded ? 'Show less' : 'See all') : undefined
                     }
                     expanded={apptsExpanded}
-                    onAction={() => setApptsExpanded(v => !v)}
+                    onAction={() => setApptsExpanded((v) => !v)}
                   />
                   {appointments.length === 0 ? (
                     <SectionEmptyCard

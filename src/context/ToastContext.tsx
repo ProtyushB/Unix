@@ -89,7 +89,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timer);
       timersRef.current.delete(id);
     }
-    setToasts(prev => prev.filter(t => t.id !== id));
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   const showToast = useCallback(
@@ -97,14 +97,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       const id = uuidv4();
       const duration = options.duration ?? 3500;
 
-      setToasts(prev => [
+      setToasts((prev) => [
         ...prev,
         { id, message, title: options.title, type, duration, action: options.action },
       ]);
 
       const timer = setTimeout(() => {
         timersRef.current.delete(id);
-        setToasts(prev => prev.filter(t => t.id !== id));
+        setToasts((prev) => prev.filter((t) => t.id !== id));
       }, duration);
       timersRef.current.set(id, timer);
 

@@ -31,7 +31,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Hydrate from AsyncStorage — migrates legacy accent values on first read.
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
-      .then(stored => {
+      .then((stored) => {
         const migrated = migrateLegacyTheme(stored);
         setThemeIdState(migrated);
         // Persist migration so legacy values don't linger.
@@ -50,19 +50,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEY, id).catch(() => {});
   }, []);
 
-  const actions = useMemo<ThemeActions>(
-    () => ({ setTheme }),
-    [setTheme],
-  );
+  const actions = useMemo<ThemeActions>(() => ({ setTheme }), [setTheme]);
 
   // Block render until theme is loaded — prevents flash of wrong theme.
   if (!ready) return null;
 
   return (
     <ThemeActionsContext.Provider value={actions}>
-      <ThemeContext.Provider value={theme}>
-        {children}
-      </ThemeContext.Provider>
+      <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
     </ThemeActionsContext.Provider>
   );
 }

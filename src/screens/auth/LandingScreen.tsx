@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  FlatList,
-  StatusBar,
-  Dimensions,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, FlatList, StatusBar, Dimensions } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppButton from '../../components/common/AppButton';
 import { useTheme } from '../../hooks/useTheme';
@@ -50,7 +42,7 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
 
-  const renderModuleCard = ({ item }: { item: typeof MODULES[number] }) => {
+  const renderModuleCard = ({ item }: { item: (typeof MODULES)[number] }) => {
     return (
       <View style={styles.moduleCard}>
         <View style={[styles.moduleIconContainer, { backgroundColor: `${item.color}20` }]}>
@@ -70,7 +62,8 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
           background glows visibly popped in on the transition to Login or Signup. */}
       <AuthBackground />
       <AuthBarMask />
-      <ScrollView removeClippedSubviews={false}
+      <ScrollView
+        removeClippedSubviews={false}
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, scrollInsets]}
         showsVerticalScrollIndicator={false}
@@ -81,9 +74,7 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.logoText}>Uni</Text>
             <Text style={styles.logoAccent}>x</Text>
           </View>
-          <Text style={styles.tagline}>
-            All-in-one business management platform
-          </Text>
+          <Text style={styles.tagline}>All-in-one business management platform</Text>
         </View>
 
         {/* CTA Buttons */}
@@ -94,11 +85,7 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
             variant="primary"
           />
           <View style={styles.ctaSpacer} />
-          <AppButton
-            title="Sign In"
-            onPress={() => navigation.navigate('Login')}
-            variant="ghost"
-          />
+          <AppButton title="Sign In" onPress={() => navigation.navigate('Login')} variant="ghost" />
         </View>
 
         {/* Feature Highlights */}
@@ -106,14 +93,14 @@ const LandingScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Why Unix?</Text>
           <View style={styles.featuresGrid}>
             {FEATURES.map((feature, index) => (
-                <View key={index} style={styles.featureCard}>
-                  <View style={styles.featureIconContainer}>
-                    <Text style={styles.featureIcon}>{feature.icon}</Text>
-                  </View>
-                  <Text style={styles.featureTitle}>{feature.title}</Text>
-                  <Text style={styles.featureDescription}>{feature.description}</Text>
+              <View key={index} style={styles.featureCard}>
+                <View style={styles.featureIconContainer}>
+                  <Text style={styles.featureIcon}>{feature.icon}</Text>
                 </View>
-              ))}
+                <Text style={styles.featureTitle}>{feature.title}</Text>
+                <Text style={styles.featureDescription}>{feature.description}</Text>
+              </View>
+            ))}
           </View>
         </View>
 

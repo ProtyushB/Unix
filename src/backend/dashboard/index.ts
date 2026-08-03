@@ -5,7 +5,11 @@
 export { useDashboard } from './hook/useDashboard';
 export type { UseDashboardResult } from './hook/useDashboard';
 export { DashboardService } from './service/dashboard.service';
-export { getDashboardService, setDashboardApi, resetDashboardApi } from './provider/dashboard.provider';
+export {
+  getDashboardService,
+  setDashboardApi,
+  resetDashboardApi,
+} from './provider/dashboard.provider';
 export type {
   DashboardMetric,
   DashboardStats,

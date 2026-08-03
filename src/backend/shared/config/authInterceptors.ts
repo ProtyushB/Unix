@@ -47,7 +47,7 @@ const coordinator = new RefreshCoordinator({
   },
   // Bare axios on purpose: routing this through an instrumented client would let a 401 from
   // /auth/refresh recurse straight back into this coordinator.
-  postRefresh: async refreshToken => {
+  postRefresh: async (refreshToken) => {
     const { data } = await axios.post(`${AUTH_BASE_URL}/auth/refresh`, { refreshToken });
     return data?.data ?? {};
   },
@@ -80,7 +80,7 @@ export function installAuthInterceptors(client: AxiosInstance): AxiosInstance {
   );
 
   client.interceptors.response.use(
-    response => response,
+    (response) => response,
     async (error: AxiosError) => {
       const originalRequest = error.config as RetryableRequest | undefined;
       if (!originalRequest) return Promise.reject(error);

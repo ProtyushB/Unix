@@ -30,10 +30,7 @@ import {
   Scissors,
 } from 'lucide-react-native';
 import { FAB } from '../../../components/layout/FAB';
-import {
-  CollapsingHeader,
-  AnimatedSectionList,
-} from '../../../components/layout/CollapsingHeader';
+import { CollapsingHeader, AnimatedSectionList } from '../../../components/layout/CollapsingHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useTheme } from '../../../hooks/useTheme';
 import { useThemedStyles } from '../../../hooks/useThemedStyles';
@@ -136,8 +133,7 @@ export function AppointmentsScreen() {
   const pharmacy = usePharmacy();
 
   const moduleKey = (selectedModule || '').toUpperCase();
-  const activeModule =
-    moduleKey === 'PHARMACY' ? pharmacy : parlour;
+  const activeModule = moduleKey === 'PHARMACY' ? pharmacy : parlour;
 
   // ── Drivers ────────────────────────────────────────────────────────────────
   const [surface, setSurface] = useState<'DAY' | 'CALENDAR'>('DAY');
@@ -197,9 +193,8 @@ export function AppointmentsScreen() {
 
   useEffect(() => {
     const mapped = (activeModule.appointments as any[]).map(toAppointmentRow);
-    setRows(prev => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
+    setRows((prev) => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
     loadingMoreRef.current = false;
-     
   }, [activeModule.appointments]);
 
   /**
@@ -282,7 +277,7 @@ export function AppointmentsScreen() {
     await Promise.all([
       activeModule.loadAppointments(1, PAGE_SIZE, listOpts),
       countsWindow
-        ? activeModule.loadAppointmentDayCounts?.(countsWindow) ?? Promise.resolve()
+        ? (activeModule.loadAppointmentDayCounts?.(countsWindow) ?? Promise.resolve())
         : Promise.resolve(),
     ]);
     setRefreshing(false);
@@ -340,9 +335,13 @@ export function AppointmentsScreen() {
         // The row may have moved to another day: refetch the list AND the dots so both the old and
         // the new day repaint.
         reload();
-        showToast(`Moved to ${formatDayHeading(when)}, ${formatApptTime(`${p(when.getHours())}:${p(when.getMinutes())}`)}`, 'success', {
-          title: 'Appointment rescheduled',
-        });
+        showToast(
+          `Moved to ${formatDayHeading(when)}, ${formatApptTime(`${p(when.getHours())}:${p(when.getMinutes())}`)}`,
+          'success',
+          {
+            title: 'Appointment rescheduled',
+          },
+        );
         return;
       }
       closeAll();
@@ -458,8 +457,14 @@ export function AppointmentsScreen() {
     }
     return null;
   }, [
-    activeModule.loading, rows.length, surface, mode, dayFullyLoaded,
-    styles, colors.primary, palette.muted,
+    activeModule.loading,
+    rows.length,
+    surface,
+    mode,
+    dayFullyLoaded,
+    styles,
+    colors.primary,
+    palette.muted,
   ]);
 
   let body: React.ReactNode;
@@ -480,7 +485,7 @@ export function AppointmentsScreen() {
   } else if (view === 'LOADING' || view === 'CALENDAR_LOADING' || view === 'SEARCHING') {
     body = (
       <View style={[styles.skeletonWrap, bodyInset]}>
-        {[0, 1, 2, 3, 4, 5].map(i => (
+        {[0, 1, 2, 3, 4, 5].map((i) => (
           <SkeletonRow key={i} styles={styles} />
         ))}
       </View>
@@ -591,7 +596,7 @@ export function AppointmentsScreen() {
             </View>
             <Pressable
               style={styles.calBtn}
-              onPress={() => setSurface(s => (s === 'DAY' ? 'CALENDAR' : 'DAY'))}
+              onPress={() => setSurface((s) => (s === 'DAY' ? 'CALENDAR' : 'DAY'))}
               android_ripple={{ color: palette.divider }}
               accessibilityRole="button"
               accessibilityLabel={surface === 'DAY' ? 'Open calendar' : 'Back to day view'}
@@ -622,7 +627,7 @@ export function AppointmentsScreen() {
             selectedDate={selectedDate}
             counts={dayCounts}
             onPickDate={openDay}
-            onShiftMonth={delta =>
+            onShiftMonth={(delta) =>
               setAnchorMonth(({ y, m }) => {
                 const next = new Date(y, m + delta, 1);
                 return { y: next.getFullYear(), m: next.getMonth() };
@@ -684,7 +689,7 @@ export function AppointmentsScreen() {
           styles={styles}
           theme={theme}
           onClose={closeAll}
-          onPickStatus={status => {
+          onPickStatus={(status) => {
             if (status === 'CANCELLED') {
               setDialog('cancelConfirm');
               return;
@@ -705,7 +710,7 @@ export function AppointmentsScreen() {
           styles={styles}
           colors={colors}
           onCancel={() => setSheet('actions')}
-          onConfirm={when => submitReschedule(activeAppt, when)}
+          onConfirm={(when) => submitReschedule(activeAppt, when)}
         />
       )}
 
@@ -748,7 +753,11 @@ function DayDots({ styles, count, color }: { styles: any; count: number; color: 
 }
 
 function WeekStrip({
-  styles, colors, selectedDate, counts, onPickDate,
+  styles,
+  colors,
+  selectedDate,
+  counts,
+  onPickDate,
 }: {
   styles: any;
   colors: any;
@@ -768,7 +777,10 @@ function WeekStrip({
             key={ymd}
             // flex, not a computed width: a measured width breaks in the web preview where
             // Dimensions reports the browser rather than the phone frame.
-            style={[styles.weekDay, active && { backgroundColor: colors.softBg, borderColor: colors.primary }]}
+            style={[
+              styles.weekDay,
+              active && { backgroundColor: colors.softBg, borderColor: colors.primary },
+            ]}
             onPress={() => onPickDate(ymd)}
           >
             <Text style={[styles.weekLabel, active && { color: colors.primary }]}>
@@ -790,7 +802,14 @@ function WeekStrip({
 // ─── Month grid ──────────────────────────────────────────────────────────────
 
 function MonthGrid({
-  styles, colors, palette, anchor, selectedDate, counts, onPickDate, onShiftMonth,
+  styles,
+  colors,
+  palette,
+  anchor,
+  selectedDate,
+  counts,
+  onPickDate,
+  onShiftMonth,
 }: {
   styles: any;
   colors: any;
@@ -810,7 +829,11 @@ function MonthGrid({
   return (
     <View style={styles.monthWrap}>
       <View style={styles.monthHeader}>
-        <Pressable onPress={() => onShiftMonth(-1)} hitSlop={12} accessibilityLabel="Previous month">
+        <Pressable
+          onPress={() => onShiftMonth(-1)}
+          hitSlop={12}
+          accessibilityLabel="Previous month"
+        >
           <ChevronLeft size={20} color={palette.muted} />
         </Pressable>
         <Text style={styles.monthLabel}>{formatMonthLabel(anchor.y, anchor.m)}</Text>
@@ -829,16 +852,12 @@ function MonthGrid({
 
       {weeks.map((week, wi) => (
         <View key={wi} style={styles.gridRow}>
-          {week.map(d => {
+          {week.map((d) => {
             const ymd = toYmd(d);
             const active = ymd === selectedDate;
             const outside = d.getMonth() !== anchor.m;
             return (
-              <Pressable
-                key={ymd}
-                style={styles.gridCell}
-                onPress={() => onPickDate(ymd)}
-              >
+              <Pressable key={ymd} style={styles.gridCell} onPress={() => onPickDate(ymd)}>
                 {/* The selected pill is the whole cell, not a circle around the number — the dots
                     sit inside it and flip to white, which is what the mockup specifies. */}
                 <View style={[styles.gridDayBox, active && { backgroundColor: colors.primary }]}>
@@ -887,7 +906,14 @@ function SkeletonRow({ styles }: { styles: any }) {
 }
 
 function HeroBlock({
-  styles, style, icon, headline, sub, ctaLabel, onCta, colors,
+  styles,
+  style,
+  icon,
+  headline,
+  sub,
+  ctaLabel,
+  onCta,
+  colors,
 }: {
   styles: any;
   /** Reserves the overlay header's height so the block centres in the visible region. */
@@ -916,7 +942,13 @@ function HeroBlock({
 // ─── Actions sheet ───────────────────────────────────────────────────────────
 
 function ActionsSheet({
-  appt, styles, theme, onClose, onPickStatus, onReschedule, onContact,
+  appt,
+  styles,
+  theme,
+  onClose,
+  onPickStatus,
+  onReschedule,
+  onContact,
 }: {
   appt: AppointmentRow;
   styles: any;
@@ -931,11 +963,18 @@ function ActionsSheet({
   const insets = useSafeAreaInsets();
   const st = theme.status[appt.status] ?? theme.status.FALLBACK;
   const pair = theme.avatar.forName(appt.serviceName);
-  const actions = QUICK_STATUSES.filter(a => a.status !== appt.status);
+  const actions = QUICK_STATUSES.filter((a) => a.status !== appt.status);
   const canReschedule = !TERMINAL_STATUSES.includes(appt.status);
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
+    <Modal
+      visible
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={onClose}
+    >
       <Pressable style={styles.sheetOverlay} onPress={onClose} />
       <View style={[styles.sheetTight, { paddingBottom: 24 + insets.bottom }]}>
         <View style={styles.grabberWrap}>
@@ -964,7 +1003,7 @@ function ActionsSheet({
         <View style={styles.sheetDivider} />
         <Text style={styles.actionsHeader}>CHANGE STATUS</Text>
 
-        {actions.map(a => {
+        {actions.map((a) => {
           const Icon = a.icon;
           return (
             <Pressable
@@ -1021,7 +1060,11 @@ function ActionsSheet({
 // ─── Reschedule sheet ────────────────────────────────────────────────────────
 
 function RescheduleSheet({
-  appt, styles, colors, onCancel, onConfirm,
+  appt,
+  styles,
+  colors,
+  onCancel,
+  onConfirm,
 }: {
   appt: AppointmentRow;
   styles: any;
@@ -1041,7 +1084,14 @@ function RescheduleSheet({
   const [picking, setPicking] = useState(true);
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onCancel}>
+    <Modal
+      visible
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={onCancel}
+    >
       <Pressable style={styles.sheetOverlay} onPress={onCancel} />
       <View style={[styles.sheetTight, { paddingBottom: 24 + insets.bottom }]}>
         <View style={styles.grabberWrap}>
@@ -1296,13 +1346,29 @@ function createStyles(theme: AppTheme) {
     skeletonWrap: {},
     skelTime: { width: 34, height: 12, borderRadius: 6, backgroundColor: theme.palette.divider },
     skelTile: { width: 38, height: 38, borderRadius: 12, backgroundColor: theme.palette.divider },
-    skelLineWide: { width: '55%', height: 11, borderRadius: 6, backgroundColor: theme.palette.divider },
-    skelLineNarrow: { width: '38%', height: 9, borderRadius: 5, backgroundColor: theme.palette.divider },
+    skelLineWide: {
+      width: '55%',
+      height: 11,
+      borderRadius: 6,
+      backgroundColor: theme.palette.divider,
+    },
+    skelLineNarrow: {
+      width: '38%',
+      height: 9,
+      borderRadius: 5,
+      backgroundColor: theme.palette.divider,
+    },
     skelPill: { width: 58, height: 18, borderRadius: 999, backgroundColor: theme.palette.divider },
 
     // Hero (empty / error / no-results)
     idleBody: { flex: 1 },
-    hero: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, gap: 10 },
+    hero: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 40,
+      gap: 10,
+    },
     heroIcon: {
       width: 78,
       height: 78,

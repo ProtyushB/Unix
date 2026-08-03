@@ -132,7 +132,7 @@ export async function findBusiness(
   const map = await getBusinessTypeMap();
   if (!map) return null;
   const businesses = map[module] || [];
-  return businesses.find(b => (b.businessName || b.name) === businessName) ?? null;
+  return businesses.find((b) => (b.businessName || b.name) === businessName) ?? null;
 }
 
 /**
@@ -164,8 +164,8 @@ export async function resolveSelectedBusiness(
 
   const map = await getBusinessTypeMap();
   if (!map) return null;
-  const firstType = Object.keys(map).find(t => (map[t] || []).length > 0);
-  return firstType ? map[firstType][0] ?? null : null;
+  const firstType = Object.keys(map).find((t) => (map[t] || []).length > 0);
+  return firstType ? (map[firstType][0] ?? null) : null;
 }
 
 // ─── Selected Business Type ──────────────────────────────────────────────────

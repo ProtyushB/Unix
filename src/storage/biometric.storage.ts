@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {AUTH_KEYS} from './auth.storage';
-import {SESSION_KEYS} from './session.storage';
-import {DMS_KEY} from './dms.storage';
+import { AUTH_KEYS } from './auth.storage';
+import { SESSION_KEYS } from './session.storage';
+import { DMS_KEY } from './dms.storage';
 
 const KEYS = {
   ENABLED: 'biometric:enabled',
@@ -9,11 +9,9 @@ const KEYS = {
 };
 
 export const biometricStorage = {
-  isEnabled: async (): Promise<boolean> =>
-    (await AsyncStorage.getItem(KEYS.ENABLED)) === 'true',
+  isEnabled: async (): Promise<boolean> => (await AsyncStorage.getItem(KEYS.ENABLED)) === 'true',
 
-  setEnabled: (enabled: boolean) =>
-    AsyncStorage.setItem(KEYS.ENABLED, enabled ? 'true' : 'false'),
+  setEnabled: (enabled: boolean) => AsyncStorage.setItem(KEYS.ENABLED, enabled ? 'true' : 'false'),
 
   isPromptSeen: async (): Promise<boolean> =>
     (await AsyncStorage.getItem(KEYS.PROMPT_SEEN)) === 'true',
@@ -29,8 +27,7 @@ export const biometricStorage = {
    * - If biometric is NOT enabled: full clear (same as AsyncStorage.clear).
    */
   logoutClear: async (): Promise<void> => {
-    const biometricEnabled =
-      (await AsyncStorage.getItem(KEYS.ENABLED)) === 'true';
+    const biometricEnabled = (await AsyncStorage.getItem(KEYS.ENABLED)) === 'true';
 
     // Always clear session data, DMS data, and the short-lived access token
     await AsyncStorage.multiRemove([

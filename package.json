@@ -9,7 +9,9 @@
     "web": "vite --config web-preview/vite.config.ts",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@gorhom/bottom-sheet": "^5.2.10",

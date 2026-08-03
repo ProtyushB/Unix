@@ -4,13 +4,7 @@
 // on orderDate). Users are in IST, so the device-local calendar day IS the IST day.
 // `ALL` returns an empty range (no date filter).
 
-export type DatePresetId =
-  | 'ALL'
-  | 'YESTERDAY'
-  | 'TODAY'
-  | 'TOMORROW'
-  | 'THIS_WEEK'
-  | 'THIS_MONTH';
+export type DatePresetId = 'ALL' | 'YESTERDAY' | 'TODAY' | 'TOMORROW' | 'THIS_WEEK' | 'THIS_MONTH';
 
 export interface DatePreset {
   id: DatePresetId;
@@ -87,8 +81,18 @@ export function monthGrid(year: number, month: number): { days: Date[]; from: st
 }
 
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

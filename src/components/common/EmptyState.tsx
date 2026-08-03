@@ -16,13 +16,7 @@ interface EmptyStateProps {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function EmptyState({
-  icon,
-  title,
-  message,
-  actionLabel,
-  onAction,
-}: EmptyStateProps) {
+export function EmptyState({ icon, title, message, actionLabel, onAction }: EmptyStateProps) {
   const styles = useThemedStyles(createStyles);
 
   return (
@@ -31,12 +25,7 @@ export function EmptyState({
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
       {actionLabel && onAction ? (
-        <AppButton
-          title={actionLabel}
-          onPress={onAction}
-          variant="primary"
-          style={styles.button}
-        />
+        <AppButton title={actionLabel} onPress={onAction} variant="primary" style={styles.button} />
       ) : null}
     </View>
   );

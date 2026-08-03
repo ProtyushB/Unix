@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,21 +8,21 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
-import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
-import {AppInput} from '../../components/common/AppInput';
-import {BusinessCard} from '../../components/list/BusinessCard';
-import {EmptyState} from '../../components/common/EmptyState';
-import {LoadingSpinner} from '../../components/common/LoadingSpinner';
+import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { AppInput } from '../../components/common/AppInput';
+import { BusinessCard } from '../../components/list/BusinessCard';
+import { EmptyState } from '../../components/common/EmptyState';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
 
 const CATEGORIES = [
-  {key: 'All', label: 'All'},
-  {key: 'Parlour', label: 'Parlour'},
-  {key: 'Pharmacy', label: 'Pharmacy'},
-  {key: 'Restaurant', label: 'Restaurant'},
-  {key: 'Electronics', label: 'Electronics'},
+  { key: 'All', label: 'All' },
+  { key: 'Parlour', label: 'Parlour' },
+  { key: 'Pharmacy', label: 'Pharmacy' },
+  { key: 'Restaurant', label: 'Restaurant' },
+  { key: 'Electronics', label: 'Electronics' },
 ];
 
 export const ExploreScreen: React.FC = () => {
@@ -35,12 +35,10 @@ export const ExploreScreen: React.FC = () => {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
 
-  const filteredBusinesses = businesses.filter(b => {
+  const filteredBusinesses = businesses.filter((b) => {
     const matchesSearch =
-      !searchText ||
-      b.businessName?.toLowerCase().includes(searchText.toLowerCase());
-    const matchesCategory =
-      activeCategory === 'All' || b.businessType === activeCategory;
+      !searchText || b.businessName?.toLowerCase().includes(searchText.toLowerCase());
+    const matchesCategory = activeCategory === 'All' || b.businessType === activeCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -70,20 +68,20 @@ export const ExploreScreen: React.FC = () => {
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.categoryRow}
-          contentContainerStyle={styles.categoryContent}>
-          {CATEGORIES.map(cat => (
+          contentContainerStyle={styles.categoryContent}
+        >
+          {CATEGORIES.map((cat) => (
             <TouchableOpacity
               key={cat.key}
-              style={[
-                styles.categoryChip,
-                activeCategory === cat.key && styles.categoryChipActive,
-              ]}
-              onPress={() => setActiveCategory(cat.key)}>
+              style={[styles.categoryChip, activeCategory === cat.key && styles.categoryChipActive]}
+              onPress={() => setActiveCategory(cat.key)}
+            >
               <Text
                 style={[
                   styles.categoryText,
                   activeCategory === cat.key && styles.categoryTextActive,
-                ]}>
+                ]}
+              >
                 {cat.label}
               </Text>
             </TouchableOpacity>
@@ -101,12 +99,9 @@ export const ExploreScreen: React.FC = () => {
         ) : (
           <FlatList
             data={filteredBusinesses}
-            keyExtractor={item => String(item.id)}
-            renderItem={({item}) => (
-              <BusinessCard
-                business={item}
-                onPress={() => handleBusinessPress(item)}
-              />
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <BusinessCard business={item} onPress={() => handleBusinessPress(item)} />
             )}
             refreshControl={
               <RefreshControl

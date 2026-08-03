@@ -42,7 +42,7 @@ module.exports = {
       // The web preview is a development harness, not shipped app code: its stubs deliberately
       // stand in for native modules and use inline styles for one-off debug chrome.
       files: ['web-preview/**/*.{ts,tsx}'],
-      rules: {'react-native/no-inline-styles': 'off'},
+      rules: { 'react-native/no-inline-styles': 'off' },
     },
   ],
 };

@@ -24,14 +24,17 @@ export function StatusPill({ status }: StatusPillProps) {
   // would render as "IN PROGRESS". Title-case it here instead.
   const label = normalized
     .split('_')
-    .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
     .join(' ');
 
   return (
-    <View style={[styles.pill, { backgroundColor: colors.bg, borderColor: colors.border, borderWidth: 1 }]}>
-      <Text style={[styles.text, { color: colors.text }]}>
-        {label}
-      </Text>
+    <View
+      style={[
+        styles.pill,
+        { backgroundColor: colors.bg, borderColor: colors.border, borderWidth: 1 },
+      ]}
+    >
+      <Text style={[styles.text, { color: colors.text }]}>{label}</Text>
     </View>
   );
 }

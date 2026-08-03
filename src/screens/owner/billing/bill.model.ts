@@ -53,7 +53,7 @@ export function billDayKey(iso: string | undefined): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   // en-CA renders as YYYY-MM-DD, which is exactly the key format and needs no reassembly.
-  return d.toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 }
 
 /**
@@ -157,7 +157,20 @@ export function billSectionTitle(dayKey: string, today: string): string {
   ).padStart(2, '0')}`;
   if (dayKey === yKey) return 'YESTERDAY';
 
-  const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const MONTHS = [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC',
+  ];
   const [, mm, dd] = dayKey.split('-');
   return `${Number(dd)} ${MONTHS[Number(mm) - 1]}`;
 }
@@ -166,15 +179,15 @@ export function billSectionTitle(dayKey: string, today: string): string {
 export function groupBillsByDay(
   rows: BillRow[],
   today: string,
-): {title: string; data: BillRow[]}[] {
-  const out: {title: string; data: BillRow[]}[] = [];
+): { title: string; data: BillRow[] }[] {
+  const out: { title: string; data: BillRow[] }[] = [];
   for (const row of rows) {
     const title = billSectionTitle(row.date, today);
     const last = out[out.length - 1];
     // Append to the open group rather than bucketing by key: the list is server-sorted, so equal
     // days are already adjacent, and this keeps that order instead of re-deriving one.
     if (last && last.title === title) last.data.push(row);
-    else out.push({title, data: [row]});
+    else out.push({ title, data: [row] });
   }
   return out;
 }

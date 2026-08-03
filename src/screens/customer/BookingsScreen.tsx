@@ -1,19 +1,19 @@
-import React, {useState, useEffect, useCallback} from 'react';
-import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
-import {Calendar} from 'lucide-react-native';
-import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
-import {TopTabBar} from '../../components/layout/TopTabBar';
-import {AppointmentCard} from '../../components/list/AppointmentCard';
-import {EmptyState} from '../../components/common/EmptyState';
-import {LoadingSpinner} from '../../components/common/LoadingSpinner';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { Calendar } from 'lucide-react-native';
+import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { TopTabBar } from '../../components/layout/TopTabBar';
+import { AppointmentCard } from '../../components/list/AppointmentCard';
+import { EmptyState } from '../../components/common/EmptyState';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
 
 const TABS = [
-  {key: 'upcoming', label: 'Upcoming'},
-  {key: 'past', label: 'Past'},
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'past', label: 'Past' },
 ];
 
 export const BookingsScreen: React.FC = () => {
@@ -61,7 +61,7 @@ export const BookingsScreen: React.FC = () => {
     setRefreshing(false);
   }, [loadAppointments]);
 
-  const filteredAppointments = appointments.filter(a => {
+  const filteredAppointments = appointments.filter((a) => {
     if (activeTab === 'upcoming') {
       return ['SCHEDULED', 'CONFIRMED'].includes(a.status);
     }
@@ -77,22 +77,14 @@ export const BookingsScreen: React.FC = () => {
       <View style={styles.container}>
         <Text style={styles.title}>My Bookings</Text>
 
-        <TopTabBar
-          tabs={TABS}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
+        <TopTabBar tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
 
         {loading && !refreshing ? (
           <LoadingSpinner />
         ) : filteredAppointments.length === 0 ? (
           <EmptyState
             icon={<Calendar size={48} color={palette.muted} />}
-            title={
-              activeTab === 'upcoming'
-                ? 'No upcoming bookings'
-                : 'No past bookings'
-            }
+            title={activeTab === 'upcoming' ? 'No upcoming bookings' : 'No past bookings'}
             message={
               activeTab === 'upcoming'
                 ? 'Your upcoming appointments will appear here'
@@ -102,12 +94,9 @@ export const BookingsScreen: React.FC = () => {
         ) : (
           <FlatList
             data={filteredAppointments}
-            keyExtractor={item => String(item.id)}
-            renderItem={({item}) => (
-              <AppointmentCard
-                appointment={item}
-                onPress={() => handleAppointmentPress(item)}
-              />
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <AppointmentCard appointment={item} onPress={() => handleAppointmentPress(item)} />
             )}
             refreshControl={
               <RefreshControl

@@ -72,7 +72,7 @@ export function AppProvider({ children }: AppProviderProps) {
       // Nothing chosen yet (first login): default to the first business so
       // the portal has something to load instead of an empty shell.
       const map = await getBusinessTypeMap();
-      const firstType = map ? Object.keys(map).find(t => (map[t] || []).length > 0) : undefined;
+      const firstType = map ? Object.keys(map).find((t) => (map[t] || []).length > 0) : undefined;
       const firstBiz = firstType ? map![firstType][0] : undefined;
       if (firstType && firstBiz) {
         const name = firstBiz.businessName || firstBiz.name;

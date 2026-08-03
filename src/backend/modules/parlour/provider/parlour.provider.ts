@@ -1,5 +1,5 @@
-import {ParlourService} from '../service/parlour.service';
-import {ParlourApiImpl} from '../api/parlour.api.impl';
+import { ParlourService } from '../service/parlour.service';
+import { ParlourApiImpl } from '../api/parlour.api.impl';
 
 let instance: ParlourService | null = null;
 

@@ -123,15 +123,13 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
     });
   };
 
-  const firstName = user?.username
-    ? userProfile?.firstName || user.username
-    : 'User';
+  const firstName = user?.username ? userProfile?.firstName || user.username : 'User';
 
   if (loading) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={palette.background} />
-      <AuthBarMask />
+        <AuthBarMask />
         <View style={styles.centered}>
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
@@ -143,7 +141,8 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <AuthBarMask />
-      <ScrollView removeClippedSubviews={false}
+      <ScrollView
+        removeClippedSubviews={false}
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, scrollInsets]}
         showsVerticalScrollIndicator={false}
@@ -219,11 +218,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           {/* Auto-navigate hint */}
-          {hasOnlyOneRole && (
-            <Text style={styles.autoNavHint}>
-              Redirecting automatically...
-            </Text>
-          )}
+          {hasOnlyOneRole && <Text style={styles.autoNavHint}>Redirecting automatically...</Text>}
         </Animated.View>
       </ScrollView>
     </View>

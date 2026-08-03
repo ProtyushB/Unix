@@ -6,22 +6,22 @@ import { useEffect, useState } from 'react';
 // causing a 50–150 ms touch-attach delay on Android.
 
 type GroupSheetState = {
-  openGroupId:   string | null;
+  openGroupId: string | null;
   activeTabName: string;
-  navigate:      ((tab: string) => void) | null;
+  navigate: ((tab: string) => void) | null;
 };
 
 let state: GroupSheetState = {
-  openGroupId:   null,
+  openGroupId: null,
   activeTabName: '',
-  navigate:      null,
+  navigate: null,
 };
 
 const listeners = new Set<() => void>();
 
 function update(partial: Partial<GroupSheetState>) {
   state = { ...state, ...partial };
-  listeners.forEach(l => l());
+  listeners.forEach((l) => l());
 }
 
 export function openGroupSheet(groupId: string) {
@@ -45,7 +45,9 @@ export function useGroupSheetState(): GroupSheetState {
   useEffect(() => {
     const l = () => setSnapshot(state);
     listeners.add(l);
-    return () => { listeners.delete(l); };
+    return () => {
+      listeners.delete(l);
+    };
   }, []);
   return snapshot;
 }

@@ -23,7 +23,10 @@ export interface FolderFilterRequest {
 export abstract class FolderApiInterface {
   abstract createFolder(folderDto: FolderDto): Promise<FolderDto>;
   abstract createMultipleFolders(folderDtoList: FolderDto[]): Promise<FolderDto[]>;
-  abstract viewFolder(folderId: number | null | undefined, isChildsRequired?: boolean): Promise<FolderDto>;
+  abstract viewFolder(
+    folderId: number | null | undefined,
+    isChildsRequired?: boolean,
+  ): Promise<FolderDto>;
   abstract viewMultipleFolders(filterRequest: FolderFilterRequest): Promise<FolderDto[]>;
   abstract updateFolder(folderDto: FolderDto): Promise<FolderDto>;
   abstract updateMultipleFolders(folderDtoList: FolderDto[]): Promise<FolderDto[]>;

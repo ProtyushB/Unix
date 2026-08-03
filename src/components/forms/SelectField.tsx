@@ -52,26 +52,29 @@ export function SelectField({
   const [search, setSearch] = useState('');
   const [dropdownPos, setDropdownPos] = useState({ x: 0, y: 0, width: 0 });
 
-  const selectedLabel = options.find(o => o.value === value)?.label;
+  const selectedLabel = options.find((o) => o.value === value)?.label;
 
   const filtered = search.trim()
-    ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
+    ? options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
     : options;
 
   const listHeight = Math.min(filtered.length, MAX_VISIBLE) * OPTION_HEIGHT;
-  const dropdownHeight = SEARCH_BAR_HEIGHT + listHeight + (filtered.length === 0 ? OPTION_HEIGHT : 0);
+  const dropdownHeight =
+    SEARCH_BAR_HEIGHT + listHeight + (filtered.length === 0 ? OPTION_HEIGHT : 0);
 
   const openDropdown = () => {
     // `measure` reports px/py in window coordinates, where y=0 is behind the status
     // bar under edge-to-edge. The Modal below must therefore be statusBarTranslucent
     // so its own origin is the same y=0 — otherwise RN insets the modal content and
     // the dropdown lands a status-bar-height below its trigger.
-    triggerRef.current?.measure((_fx: number, _fy: number, width: number, height: number, px: number, py: number) => {
-      setDropdownPos({ x: px, y: py + height + 4, width });
-      setSearch('');
-      setIsOpen(true);
-      setTimeout(() => searchRef.current?.focus(), 80);
-    });
+    triggerRef.current?.measure(
+      (_fx: number, _fy: number, width: number, height: number, px: number, py: number) => {
+        setDropdownPos({ x: px, y: py + height + 4, width });
+        setSearch('');
+        setIsOpen(true);
+        setTimeout(() => searchRef.current?.focus(), 80);
+      },
+    );
   };
 
   const closeDropdown = () => {
@@ -147,7 +150,10 @@ export function SelectField({
               autoCapitalize="none"
             />
             {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity
+                onPress={() => setSearch('')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Text style={styles.clearIcon}>✕</Text>
               </TouchableOpacity>
             )}
@@ -168,7 +174,7 @@ export function SelectField({
                 <Text style={styles.emptyText}>No results for "{search}"</Text>
               </View>
             ) : (
-              filtered.map(option => {
+              filtered.map((option) => {
                 const isSelected = option.value === value;
                 return (
                   <TouchableOpacity

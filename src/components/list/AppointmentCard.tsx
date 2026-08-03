@@ -30,9 +30,7 @@ export function AppointmentCard({ appointment, onPress }: AppointmentCardProps) 
     <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.card}>
       {/* Left: DateTime */}
       <View style={styles.dateCol}>
-        <Text style={styles.dateTime}>
-          {formatDateTime(appointment.appointmentDateTime)}
-        </Text>
+        <Text style={styles.dateTime}>{formatDateTime(appointment.appointmentDateTime)}</Text>
       </View>
 
       {/* Middle: Customer + service */}

@@ -28,7 +28,13 @@ export type AuthStackParamList = {
    */
   Signup: { prefillEmail?: string; claim?: boolean } | undefined;
   ProfilePersonal: { email: string; username: string };
-  ProfileBusiness: { email: string; username: string; firstName: string; lastName: string; phoneNumber: string };
+  ProfileBusiness: {
+    email: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+  };
   Review: { personal: any; businesses: any[] };
   /** Business signups only — the account is created here, not on Review. */
   Payment: { personal: any; businesses: any[] };

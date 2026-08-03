@@ -70,27 +70,27 @@ describe('toBillRow', () => {
   });
 
   it('names an unlinked walk-in rather than rendering a blank', () => {
-    expect(toBillRow({customerName: '   '}).customerName).toBe('Walk-in');
+    expect(toBillRow({ customerName: '   ' }).customerName).toBe('Walk-in');
     expect(toBillRow({}).customerName).toBe('Walk-in');
   });
 
   it('defaults the statuses a legacy row may not carry', () => {
-    const row = toBillRow({id: 1});
+    const row = toBillRow({ id: 1 });
     expect(row.billStatus).toBe('DRAFT');
     expect(row.paymentStatus).toBe('UNPAID');
   });
 
   it('coerces string amounts', () => {
     // BigDecimal can serialise as a string depending on the mapper.
-    const row = toBillRow({grandTotal: '500.00', paidAmount: '200.00'});
+    const row = toBillRow({ grandTotal: '500.00', paidAmount: '200.00' });
     expect(row.amount).toBe(500);
     expect(row.balance).toBe(300);
   });
 
   // An over-payment or a fully-refunded bill must not report a negative debt.
   it('floors the balance at zero', () => {
-    expect(toBillRow({grandTotal: 100, paidAmount: 150}).balance).toBe(0);
-    expect(toBillRow({grandTotal: 100, refundedAmount: 100}).balance).toBe(0);
+    expect(toBillRow({ grandTotal: 100, paidAmount: 150 }).balance).toBe(0);
+    expect(toBillRow({ grandTotal: 100, refundedAmount: 100 }).balance).toBe(0);
   });
 });
 
@@ -148,9 +148,9 @@ describe('day sections', () => {
       TODAY,
     );
 
-    expect(groups.map(g => g.title)).toEqual(['TODAY', 'YESTERDAY']);
-    expect(groups[0].data.map(r => r.id)).toEqual([1, 2]);
-    expect(groups[1].data.map(r => r.id)).toEqual([3]);
+    expect(groups.map((g) => g.title)).toEqual(['TODAY', 'YESTERDAY']);
+    expect(groups[0].data.map((r) => r.id)).toEqual([1, 2]);
+    expect(groups[1].data.map((r) => r.id)).toEqual([3]);
   });
 
   it('returns nothing for an empty list', () => {

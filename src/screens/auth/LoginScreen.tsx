@@ -45,7 +45,6 @@ import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
@@ -238,9 +237,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       // blip. Compared case-insensitively because the login field is free text.
       const prior = await getLoggedInUser();
       const sameAccount =
-        !!prior?.username &&
-        prior.username.trim().toLowerCase() === username.trim().toLowerCase();
-      const personTypes = await cacheProfile(username.trim(), sameAccount ? prior.types ?? [] : []);
+        !!prior?.username && prior.username.trim().toLowerCase() === username.trim().toLowerCase();
+      const personTypes = await cacheProfile(
+        username.trim(),
+        sameAccount ? (prior.types ?? []) : [],
+      );
 
       if (user) {
         await setLoggedInUser({
@@ -287,7 +288,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <AuthBackground />
-      <AuthBarMask />      <KeyboardAvoidingView
+      <AuthBarMask />{' '}
+      <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
@@ -328,7 +330,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={[styles.optionsRow, busy && styles.dimmed]}>
             <TouchableOpacity
               style={styles.rememberRow}
-              onPress={() => setRememberMe(v => !v)}
+              onPress={() => setRememberMe((v) => !v)}
               disabled={busy}
               activeOpacity={0.7}
             >
@@ -393,7 +395,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
           )}
-
 
           <View style={styles.footerRow}>
             <Text style={styles.footerLabel}>Don't have an account? </Text>

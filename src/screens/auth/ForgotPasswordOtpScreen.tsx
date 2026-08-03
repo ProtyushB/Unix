@@ -50,7 +50,7 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
     setResendCooldown(RESEND_COOLDOWN);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      setResendCooldown(prev => {
+      setResendCooldown((prev) => {
         if (prev <= 1) {
           if (timerRef.current) {
             clearInterval(timerRef.current);
@@ -127,10 +127,7 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
         >
           <AuthTopBack onPress={() => navigation.goBack()} disabled={loading} />
 
-          <AuthHeader
-            title="Reset password"
-            subtitle="Enter the 6-digit code sent to your email"
-          />
+          <AuthHeader title="Reset password" subtitle="Enter the 6-digit code sent to your email" />
 
           <AuthBadge icon={Mail} />
 

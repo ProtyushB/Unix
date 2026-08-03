@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  ScrollView,
-  StyleSheet,
-  Pressable,
-} from 'react-native';
+import { View, Text, TextInput, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Search, X, List, LayoutGrid } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
@@ -18,9 +11,9 @@ import { FAB } from '../layout/FAB';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface ListShellFilter {
-  id:     string;
-  label:  string;
-  icon?:  LucideIcon;
+  id: string;
+  label: string;
+  icon?: LucideIcon;
   color?: string;
 }
 
@@ -31,25 +24,25 @@ interface ListShellProps {
   onBack?: () => void;
 
   /** Filter chips below the search bar. */
-  filters?:        ListShellFilter[];
-  activeFilter?:   string;
+  filters?: ListShellFilter[];
+  activeFilter?: string;
   onFilterChange?: (id: string) => void;
 
   /** Show an always-visible search input. */
-  enableSearch?:   boolean;
-  searchValue?:    string;
+  enableSearch?: boolean;
+  searchValue?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
 
   /** List/Grid toggle — shown only when both onViewChange and view are set. */
-  view?:         'list' | 'grid';
+  view?: 'list' | 'grid';
   onViewChange?: (view: 'list' | 'grid') => void;
 
   /** Extra icons in the header right side, left of the view toggle. */
   headerActions?: React.ReactNode;
 
   /** Floating action button — shown only when onAdd is set. */
-  onAdd?:   () => void;
+  onAdd?: () => void;
   addIcon?: React.ReactNode;
 
   children: React.ReactNode;
@@ -92,7 +85,9 @@ export function ListShell({
               <ArrowLeft size={22} color={palette.onBackground} />
             </Pressable>
           )}
-          <Text style={styles.title} numberOfLines={1}>{title}</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
         </View>
 
         <View style={styles.topBarRight}>
@@ -151,7 +146,7 @@ export function ListShell({
           style={styles.filterRow}
           contentContainerStyle={styles.filterRowContent}
         >
-          {filters.map(filter => {
+          {filters.map((filter) => {
             const isActive = activeFilter === filter.id;
             const Icon = filter.icon;
             const accent = filter.color ?? colors.primary;
@@ -172,12 +167,7 @@ export function ListShell({
                     style={{ marginRight: 4 }}
                   />
                 )}
-                <Text
-                  style={[
-                    styles.chipLabel,
-                    isActive && { color: accent },
-                  ]}
-                >
+                <Text style={[styles.chipLabel, isActive && { color: accent }]}>
                   {filter.label}
                 </Text>
               </Pressable>
@@ -200,74 +190,74 @@ export function ListShell({
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     screen: {
-      flex:            1,
+      flex: 1,
       backgroundColor: theme.palette.background,
     },
     topBar: {
-      flexDirection:     'row',
-      alignItems:        'center',
-      justifyContent:    'space-between',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: 16,
-      paddingTop:        12,
-      paddingBottom:     8,
-      gap:               12,
+      paddingTop: 12,
+      paddingBottom: 8,
+      gap: 12,
     },
     topBarLeft: {
-      flex:          1,
+      flex: 1,
       flexDirection: 'row',
-      alignItems:    'center',
-      gap:           10,
-      minWidth:      0,
+      alignItems: 'center',
+      gap: 10,
+      minWidth: 0,
     },
     topBarRight: {
       flexDirection: 'row',
-      alignItems:    'center',
-      gap:           8,
+      alignItems: 'center',
+      gap: 8,
     },
     iconBtn: {
       padding: 4,
     },
     title: {
-      flex:       1,
-      fontSize:   22,
+      flex: 1,
+      fontSize: 22,
       fontWeight: '700',
-      color:      theme.palette.onBackground,
+      color: theme.palette.onBackground,
     },
     viewToggle: {
-      flexDirection:   'row',
+      flexDirection: 'row',
       backgroundColor: theme.palette.surface,
-      borderWidth:     1,
-      borderColor:     theme.palette.divider,
-      borderRadius:    10,
-      padding:         2,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      borderRadius: 10,
+      padding: 2,
     },
     viewToggleBtn: {
       paddingHorizontal: 8,
-      paddingVertical:   6,
-      borderRadius:      8,
+      paddingVertical: 6,
+      borderRadius: 8,
     },
     viewToggleBtnActive: {
       backgroundColor: theme.colors.softBg,
     },
     searchWrap: {
-      flexDirection:     'row',
-      alignItems:        'center',
-      backgroundColor:   theme.palette.surface,
-      borderWidth:       1,
-      borderColor:       theme.palette.divider,
-      borderRadius:      12,
-      marginHorizontal:  16,
-      marginTop:         4,
-      marginBottom:      8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      borderRadius: 12,
+      marginHorizontal: 16,
+      marginTop: 4,
+      marginBottom: 8,
       paddingHorizontal: 12,
     },
     searchIcon: {
       marginRight: 8,
     },
     searchInput: {
-      flex:            1,
-      color:           theme.palette.onBackground,
-      fontSize:        14,
+      flex: 1,
+      color: theme.palette.onBackground,
+      fontSize: 14,
       paddingVertical: 10,
     },
     searchClear: {
@@ -277,29 +267,29 @@ function createStyles(theme: AppTheme) {
       // No maxHeight. A chip's natural height is ~35px (7+7 padding, 2 border, 13sp line), so the
       // old 40 cap clipped them vertically at an Android font scale of ~1.25 or above. flexGrow:0
       // is what actually keeps this row from expanding; the cap was never load-bearing.
-      marginTop:    2,
+      marginTop: 2,
       marginBottom: 6,
-      flexGrow:     0,
+      flexGrow: 0,
     },
     filterRowContent: {
       paddingHorizontal: 16,
-      gap:               8,
-      alignItems:        'center',
+      gap: 8,
+      alignItems: 'center',
     },
     chip: {
-      flexDirection:     'row',
-      alignItems:        'center',
+      flexDirection: 'row',
+      alignItems: 'center',
       paddingHorizontal: 14,
-      paddingVertical:   7,
-      borderRadius:      20,
-      backgroundColor:   theme.palette.surface,
-      borderWidth:       1,
-      borderColor:       theme.palette.divider,
+      paddingVertical: 7,
+      borderRadius: 20,
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
     },
     chipLabel: {
-      fontSize:   13,
+      fontSize: 13,
       fontWeight: '600',
-      color:      theme.palette.muted,
+      color: theme.palette.muted,
     },
     body: {
       flex: 1,

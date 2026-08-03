@@ -80,15 +80,12 @@ const ForgotPasswordEmailScreen: React.FC<Props> = ({ navigation }) => {
         >
           <AuthTopBack onPress={() => navigation.goBack()} disabled={loading} />
 
-          <AuthHeader
-            title="Reset password"
-            subtitle="Enter your email to receive a reset code"
-          />
+          <AuthHeader title="Reset password" subtitle="Enter your email to receive a reset code" />
 
           <AppInput
             label="Email"
             value={email}
-            onChangeText={v => {
+            onChangeText={(v) => {
               setEmail(v);
               if (error) setError('');
             }}

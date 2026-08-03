@@ -79,32 +79,37 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
   const personService = getPersonService();
   const mountedRef = useRef(true);
 
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
 
   const clearError = (key: keyof Errors) =>
-    setErrors(prev => (prev[key] ? { ...prev, [key]: undefined } : prev));
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
 
   // ── Email + OTP ────────────────────────────────────────────────────────────
 
   const handleVerifyEmail = useCallback(async () => {
     const trimmed = email.trim();
     if (!trimmed) {
-      setErrors(prev => ({ ...prev, email: 'Email is required' }));
+      setErrors((prev) => ({ ...prev, email: 'Email is required' }));
       return;
     }
     if (!validateEmail(trimmed)) {
-      setErrors(prev => ({ ...prev, email: 'Please enter a valid email' }));
+      setErrors((prev) => ({ ...prev, email: 'Please enter a valid email' }));
       return;
     }
 
     setSendingOtp(true);
-    setErrors(prev => ({ ...prev, email: undefined }));
+    setErrors((prev) => ({ ...prev, email: undefined }));
     try {
       await authService.requestOtp('email', trimmed);
       setOtpError('');
       setOtpVisible(true);
     } catch (err: any) {
-      setErrors(prev => ({ ...prev, email: err?.message || 'Failed to send the code.' }));
+      setErrors((prev) => ({ ...prev, email: err?.message || 'Failed to send the code.' }));
     } finally {
       if (mountedRef.current) setSendingOtp(false);
     }
@@ -196,11 +201,11 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleCheckUsername = useCallback(async () => {
     const value = username.trim();
     if (!value) {
-      setErrors(prev => ({ ...prev, username: 'Username is required' }));
+      setErrors((prev) => ({ ...prev, username: 'Username is required' }));
       return;
     }
     if (!validateUsername(value)) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
         username: 'Use 3–20 letters, numbers or underscores',
       }));
@@ -208,16 +213,19 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     setCheckingUsername(true);
-    setErrors(prev => ({ ...prev, username: undefined }));
+    setErrors((prev) => ({ ...prev, username: undefined }));
     try {
       const available = await authService.checkUsername(value);
       setUsernameAvailable(available);
       if (!available) {
-        setErrors(prev => ({ ...prev, username: 'Username is already taken' }));
+        setErrors((prev) => ({ ...prev, username: 'Username is already taken' }));
       }
     } catch (err: any) {
       setUsernameAvailable(null);
-      setErrors(prev => ({ ...prev, username: err?.message || 'Could not check that username.' }));
+      setErrors((prev) => ({
+        ...prev,
+        username: err?.message || 'Could not check that username.',
+      }));
     } finally {
       if (mountedRef.current) setCheckingUsername(false);
     }
@@ -297,7 +305,7 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.fieldGrow}>
                   <AppInput
                     value={email}
-                    onChangeText={v => {
+                    onChangeText={(v) => {
                       setEmail(v);
                       clearError('email');
                     }}
@@ -332,7 +340,7 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.fieldGrow}>
                   <AppInput
                     value={username}
-                    onChangeText={v => {
+                    onChangeText={(v) => {
                       setUsername(v.replace(/\s/g, ''));
                       setUsernameAvailable(null);
                       clearError('username');
@@ -370,7 +378,7 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
               <PasswordInput
                 label="Password *"
                 value={password}
-                onChangeText={v => {
+                onChangeText={(v) => {
                   setPassword(v);
                   clearError('password');
                 }}
@@ -385,7 +393,7 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
               <PasswordInput
                 label="Confirm Password *"
                 value={confirmPassword}
-                onChangeText={v => {
+                onChangeText={(v) => {
                   setConfirmPassword(v);
                   clearError('confirmPassword');
                 }}

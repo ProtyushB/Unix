@@ -1,11 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  StatusBar,
-} from 'react-native';
+import { View, Text, StyleSheet, Animated, StatusBar } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getAccessToken } from '../../storage/auth.storage';
 import { useTheme } from '../../hooks/useTheme';
@@ -48,22 +42,19 @@ const SplashScreen: React.FC<Props> = ({ navigation }) => {
       try {
         const token = await getAccessToken();
         // Wait for animation to finish before navigating
-        setTimeout(
-          () => {
-            if (token) {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'PortalSelection' }],
-              });
-            } else {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Landing' }],
-              });
-            }
-          },
-          2000,
-        );
+        setTimeout(() => {
+          if (token) {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'PortalSelection' }],
+            });
+          } else {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Landing' }],
+            });
+          }
+        }, 2000);
       } catch {
         setTimeout(() => {
           navigation.reset({

@@ -8,11 +8,7 @@
  */
 
 import { FolderService } from '../service/folder.service';
-import {
-  createBusinessDmsFolders,
-  ROLE_FOLDERS,
-  CATEGORY_SLOT_MAP,
-} from './BusinessFolderUtils';
+import { createBusinessDmsFolders, ROLE_FOLDERS, CATEGORY_SLOT_MAP } from './BusinessFolderUtils';
 import {
   getDmsFolderMap,
   setDmsFolderMap,
@@ -173,13 +169,20 @@ function isComplete(entry?: BusinessFolders | null): entry is BusinessFolders {
   );
 }
 
-function isRoleFoldersComplete(
-  roleFolders?: { Business: number; Customer: number; Employee: number },
-): boolean {
-  return !!roleFolders && ROLE_FOLDERS.every((role) => !!(roleFolders as Record<string, number>)[role]);
+function isRoleFoldersComplete(roleFolders?: {
+  Business: number;
+  Customer: number;
+  Employee: number;
+}): boolean {
+  return (
+    !!roleFolders && ROLE_FOLDERS.every((role) => !!(roleFolders as Record<string, number>)[role])
+  );
 }
 
-function mergeSubs(entry: Record<string, unknown>, folders: Array<{ folderName: string; folderId?: number }>) {
+function mergeSubs(
+  entry: Record<string, unknown>,
+  folders: Array<{ folderName: string; folderId?: number }>,
+) {
   folders.forEach((sf) => {
     const key = CATEGORY_SLOT_MAP[sf.folderName];
     if (key) entry[key] = sf.folderId;

@@ -91,8 +91,7 @@ export function toAppointmentRow(raw: Record<string, any>): AppointmentRow {
       ? raw.appointmentItems
       : [];
 
-  const firstServiceName =
-    pick(items[0] ?? {}, 'serviceName', 'packageName') ?? 'Service';
+  const firstServiceName = pick(items[0] ?? {}, 'serviceName', 'packageName') ?? 'Service';
 
   return {
     id: Number(raw.id),

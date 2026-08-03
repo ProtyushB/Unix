@@ -33,7 +33,10 @@ export class FolderApiImpl extends FolderApiInterface {
     return unwrap(response.data);
   }
 
-  async viewFolder(folderId: number | null | undefined, isChildsRequired = false): Promise<FolderDto> {
+  async viewFolder(
+    folderId: number | null | undefined,
+    isChildsRequired = false,
+  ): Promise<FolderDto> {
     const params: Record<string, unknown> = { isChildsRequired };
     if (folderId !== null && folderId !== undefined) {
       params.folderId = folderId;

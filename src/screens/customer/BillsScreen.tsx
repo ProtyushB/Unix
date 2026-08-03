@@ -1,10 +1,10 @@
-import React, {useState, useEffect, useCallback} from 'react';
-import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
-import {Receipt} from 'lucide-react-native';
-import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
-import {BillCard} from '../../components/list/BillCard';
-import {EmptyState} from '../../components/common/EmptyState';
-import {LoadingSpinner} from '../../components/common/LoadingSpinner';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { Receipt } from 'lucide-react-native';
+import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { BillCard } from '../../components/list/BillCard';
+import { EmptyState } from '../../components/common/EmptyState';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
@@ -76,8 +76,8 @@ export const BillsScreen: React.FC = () => {
         ) : (
           <FlatList
             data={bills}
-            keyExtractor={item => String(item.id)}
-            renderItem={({item}) => (
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
               <BillCard
                 bill={item}
                 onPress={() => handleBillPress(item)}

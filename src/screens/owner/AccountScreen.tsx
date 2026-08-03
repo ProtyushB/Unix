@@ -1,45 +1,58 @@
-import React, {useState, useEffect, useCallback, useRef} from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Animated, Modal, ScrollView,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  Modal,
+  ScrollView,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronRight, ChevronDown, Palette, Bell, HelpCircle,
-  Shield, LogOut, Building2, Lock,
+  ChevronRight,
+  ChevronDown,
+  Palette,
+  Bell,
+  HelpCircle,
+  Shield,
+  LogOut,
+  Building2,
+  Lock,
 } from 'lucide-react-native';
-import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
-import {AppCard} from '../../components/common/AppCard';
-import {AvatarBadge} from '../../components/common/AvatarBadge';
-import {AppButton} from '../../components/common/AppButton';
-import {ConfirmDialog} from '../../components/common/ConfirmDialog';
-import {PortalSwitcherSheet} from '../../components/common/PortalSwitcherSheet';
-import {useTheme} from '../../hooks/useTheme';
-import {useThemeActions} from '../../hooks/useThemeActions';
-import {useThemedStyles} from '../../hooks/useThemedStyles';
-import {useToast} from '../../hooks/useToast';
-import {navigationRef} from '../../navigation/RootNavigator';
-import {CommonActions, useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {ProfileStackParamList} from '../../navigation/types';
+import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { AppCard } from '../../components/common/AppCard';
+import { AvatarBadge } from '../../components/common/AvatarBadge';
+import { AppButton } from '../../components/common/AppButton';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { PortalSwitcherSheet } from '../../components/common/PortalSwitcherSheet';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemeActions } from '../../hooks/useThemeActions';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useToast } from '../../hooks/useToast';
+import { navigationRef } from '../../navigation/RootNavigator';
+import { CommonActions, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ProfileStackParamList } from '../../navigation/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type {AppTheme, ThemeId} from '../../theme/theme.types';
-import {THEMES, type ThemeDefinition} from '../../theme/colors';
-import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
-import {biometricStorage} from '../../storage/biometric.storage';
-import {clearTabConfigCache} from '../../backend/tab-config';
-import {resetRefreshState} from '../../backend/shared/config/authInterceptors';
-import {AppVersionRow} from '../../components/common/AppVersionRow';
+import type { AppTheme, ThemeId } from '../../theme/theme.types';
+import { THEMES, type ThemeDefinition } from '../../theme/colors';
+import { PORTALS, PortalKey, getAvailablePortals } from '../../utils/portals';
+import { biometricStorage } from '../../storage/biometric.storage';
+import { clearTabConfigCache } from '../../backend/tab-config';
+import { resetRefreshState } from '../../backend/shared/config/authInterceptors';
+import { AppVersionRow } from '../../components/common/AppVersionRow';
 
 const SETTINGS_ROWS = [
-  {key: 'businesses', label: 'My Businesses', icon: Building2},
-  {key: 'notifications', label: 'Notifications', icon: Bell},
-  {key: 'help', label: 'Help', icon: HelpCircle},
-  {key: 'privacy', label: 'Privacy Policy', icon: Shield},
+  { key: 'businesses', label: 'My Businesses', icon: Building2 },
+  { key: 'notifications', label: 'Notifications', icon: Bell },
+  { key: 'help', label: 'Help', icon: HelpCircle },
+  { key: 'privacy', label: 'Privacy Policy', icon: Shield },
 ];
 
 const ALL_THEMES = Object.values(THEMES);
-const DARK_THEMES = ALL_THEMES.filter(t => t.mode === 'dark');
-const LIGHT_THEMES = ALL_THEMES.filter(t => t.mode === 'light');
+const DARK_THEMES = ALL_THEMES.filter((t) => t.mode === 'dark');
+const LIGHT_THEMES = ALL_THEMES.filter((t) => t.mode === 'light');
 
 // ─── Theme swatch — surface background + accent dot + label ────────────────
 // Mirrors the web Centrix ThemePreview tile. `styles` is passed in so we
@@ -50,26 +63,24 @@ const ThemeSwatch: React.FC<{
   active: boolean;
   styles: ReturnType<typeof createStyles>;
   onPick: (id: ThemeId, label: string) => void;
-}> = ({theme, active, styles, onPick}) => {
+}> = ({ theme, active, styles, onPick }) => {
   const [surface, accent] = theme.swatch;
   return (
     <TouchableOpacity
       style={styles.themeItem}
       activeOpacity={0.7}
-      onPress={() => onPick(theme.id, theme.name)}>
+      onPress={() => onPick(theme.id, theme.name)}
+    >
       <View
         style={[
           styles.themeSwatch,
-          {backgroundColor: surface},
-          active && {borderColor: accent, borderWidth: 2},
-        ]}>
-        <View style={[styles.themeSwatchDot, {backgroundColor: accent}]} />
+          { backgroundColor: surface },
+          active && { borderColor: accent, borderWidth: 2 },
+        ]}
+      >
+        <View style={[styles.themeSwatchDot, { backgroundColor: accent }]} />
       </View>
-      <Text
-        style={[
-          styles.themeLabel,
-          active && {color: accent, fontWeight: '700'},
-        ]}>
+      <Text style={[styles.themeLabel, active && { color: accent, fontWeight: '700' }]}>
         {theme.name}
       </Text>
     </TouchableOpacity>
@@ -81,7 +92,7 @@ export const AccountScreen: React.FC = () => {
   const { colors, palette, name: currentThemeId } = useTheme();
   const { setTheme } = useThemeActions();
   const styles = useThemedStyles(createStyles);
-  const {showToast} = useToast();
+  const { showToast } = useToast();
   // For the theme sheet: it renders in a Modal window, outside this screen's SafeAreaView.
   const insets = useSafeAreaInsets();
   const [user, setUser] = useState<any>(null);
@@ -96,16 +107,19 @@ export const AccountScreen: React.FC = () => {
     overlayAnim.setValue(0);
     setShowPortalSheet(true);
     Animated.parallel([
-      Animated.spring(slideAnim, {toValue: 0, useNativeDriver: true, bounciness: 3, speed: 16}),
-      Animated.timing(overlayAnim, {toValue: 1, duration: 250, useNativeDriver: true}),
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 16 }),
+      Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
     ]).start();
   };
 
   const closePortalSheet = (callback?: () => void) => {
     Animated.parallel([
-      Animated.timing(slideAnim, {toValue: 300, duration: 220, useNativeDriver: true}),
-      Animated.timing(overlayAnim, {toValue: 0, duration: 220, useNativeDriver: true}),
-    ]).start(() => { setShowPortalSheet(false); callback?.(); });
+      Animated.timing(slideAnim, { toValue: 300, duration: 220, useNativeDriver: true }),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(() => {
+      setShowPortalSheet(false);
+      callback?.();
+    });
   };
 
   useEffect(() => {
@@ -127,7 +141,7 @@ export const AccountScreen: React.FC = () => {
     // different owner within the 5-minute TTL paints the previous account's navbar.
     await Promise.all([biometricStorage.logoutClear(), clearTabConfigCache()]);
     resetRefreshState();
-    navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: 'Auth'}]}));
+    navigationRef.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Auth' }] }));
   }, []);
 
   const handleSettingPress = (key: string) => {
@@ -139,7 +153,9 @@ export const AccountScreen: React.FC = () => {
       try {
         await AsyncStorage.setItem('session:activeProfile', PORTALS[key].key);
         if (navigationRef.isReady()) {
-          navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: PORTALS[key].route}]}));
+          navigationRef.dispatch(
+            CommonActions.reset({ index: 0, routes: [{ name: PORTALS[key].route }] }),
+          );
         }
       } catch {
         // navigation dispatch failed silently
@@ -149,7 +165,9 @@ export const AccountScreen: React.FC = () => {
 
   const availablePortals = getAvailablePortals(user);
   const canSwitchPortal = availablePortals.length > 1;
-  const fullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username : 'User';
+  const fullName = user
+    ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username
+    : 'User';
 
   return (
     <ScreenWrapper>
@@ -177,7 +195,8 @@ export const AccountScreen: React.FC = () => {
               <TouchableOpacity
                 style={styles.rolePill}
                 onPress={openPortalSheet}
-                activeOpacity={0.7}>
+                activeOpacity={0.7}
+              >
                 <Building2 size={11} color={colors.primary} />
                 <Text style={styles.rolePillText}>Business</Text>
                 <ChevronDown size={11} color={colors.primary} />
@@ -189,28 +208,34 @@ export const AccountScreen: React.FC = () => {
         <TouchableOpacity
           style={styles.themeRow}
           onPress={() => profileNav.navigate('Security')}
-          activeOpacity={0.7}>
+          activeOpacity={0.7}
+        >
           <Lock size={20} color={palette.muted} />
           <Text style={styles.settingLabel}>Security</Text>
           <ChevronRight size={18} color={palette.divider} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.themeRow} onPress={() => setShowThemePicker(true)} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.themeRow}
+          onPress={() => setShowThemePicker(true)}
+          activeOpacity={0.7}
+        >
           <Palette size={20} color={palette.muted} />
           <Text style={styles.settingLabel}>Theme</Text>
-          <View style={[styles.themePreview, {backgroundColor: colors.primary}]} />
+          <View style={[styles.themePreview, { backgroundColor: colors.primary }]} />
           <ChevronRight size={18} color={palette.divider} />
         </TouchableOpacity>
 
         <View style={styles.settingsSection}>
-          {SETTINGS_ROWS.map(row => {
+          {SETTINGS_ROWS.map((row) => {
             const Icon = row.icon;
             return (
               <TouchableOpacity
                 key={row.key}
                 style={styles.settingRow}
                 onPress={() => handleSettingPress(row.key)}
-                activeOpacity={0.7}>
+                activeOpacity={0.7}
+              >
                 <Icon size={20} color={palette.muted} />
                 <Text style={styles.settingLabel}>{row.label}</Text>
                 <ChevronRight size={18} color={palette.divider} />
@@ -259,7 +284,7 @@ export const AccountScreen: React.FC = () => {
         >
           <View style={styles.overlay}>
             <TouchableOpacity style={styles.overlayBg} onPress={() => setShowThemePicker(false)} />
-            <View style={[styles.sheet, {paddingBottom: 24 + insets.bottom}]}>
+            <View style={[styles.sheet, { paddingBottom: 24 + insets.bottom }]}>
               <Text style={styles.sheetTitle}>Choose Theme</Text>
 
               {/* maxHeight on the sheet without a scroller would simply clip the Light grid on a
@@ -267,7 +292,7 @@ export const AccountScreen: React.FC = () => {
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.sheetSection}>Dark</Text>
                 <View style={styles.themeGrid}>
-                  {DARK_THEMES.map(t => (
+                  {DARK_THEMES.map((t) => (
                     <ThemeSwatch
                       key={t.id}
                       theme={t}
@@ -282,9 +307,9 @@ export const AccountScreen: React.FC = () => {
                   ))}
                 </View>
 
-                <Text style={[styles.sheetSection, {marginTop: 18}]}>Light</Text>
+                <Text style={[styles.sheetSection, { marginTop: 18 }]}>Light</Text>
                 <View style={styles.themeGrid}>
-                  {LIGHT_THEMES.map(t => (
+                  {LIGHT_THEMES.map((t) => (
                     <ThemeSwatch
                       key={t.id}
                       theme={t}
@@ -319,15 +344,26 @@ export const AccountScreen: React.FC = () => {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container: {flex: 1, paddingHorizontal: 16},
-    title: {fontSize: 28, fontWeight: '700', color: theme.palette.onBackground, marginTop: 16, marginBottom: 16},
-    profileCard: {flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16},
+    container: { flex: 1, paddingHorizontal: 16 },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      marginTop: 16,
+      marginBottom: 16,
+    },
+    profileCard: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
     // Mirrors profileCard's layout onto the dark-theme inner wrapper. Padding is
     // deliberately not set here so AppCard's own 16 is preserved by the merge.
-    profileCardContent: {flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 16},
-    profileInfo: {flex: 1},
-    profileName: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground},
-    profileEmail: {fontSize: 13, color: theme.palette.muted, marginTop: 2},
+    profileCardContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      gap: 16,
+    },
+    profileInfo: { flex: 1 },
+    profileName: { fontSize: 18, fontWeight: '700', color: theme.palette.onBackground },
+    profileEmail: { fontSize: 13, color: theme.palette.muted, marginTop: 2 },
     rolePill: {
       marginTop: 6,
       flexDirection: 'row',
@@ -341,7 +377,12 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: theme.colors.border,
     },
-    rolePillText: {fontSize: 11, color: theme.colors.primary, fontWeight: '700', letterSpacing: 0.5},
+    rolePillText: {
+      fontSize: 11,
+      color: theme.colors.primary,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
     themeRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -352,8 +393,8 @@ function createStyles(theme: AppTheme) {
       borderBottomColor: theme.palette.divider + '4D',
       marginBottom: 4,
     },
-    themePreview: {width: 20, height: 20, borderRadius: 10, marginLeft: 'auto', marginRight: 8},
-    settingsSection: {marginBottom: 24},
+    themePreview: { width: 20, height: 20, borderRadius: 10, marginLeft: 'auto', marginRight: 8 },
+    settingsSection: { marginBottom: 24 },
     settingRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -363,10 +404,17 @@ function createStyles(theme: AppTheme) {
       borderBottomWidth: 1,
       borderBottomColor: theme.palette.divider + '4D',
     },
-    settingLabel: {flex: 1, fontSize: 16, color: theme.palette.onBackground},
-    logoutBtn: {marginBottom: 32},
-    overlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end'},
-    overlayBg: {...StyleSheet.absoluteFillObject, backgroundColor: theme.palette.overlay},
+    settingLabel: { flex: 1, fontSize: 16, color: theme.palette.onBackground },
+    logoutBtn: { marginBottom: 32 },
+    overlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: 'flex-end',
+    },
+    overlayBg: { ...StyleSheet.absoluteFillObject, backgroundColor: theme.palette.overlay },
     sheet: {
       backgroundColor: theme.palette.surface,
       borderTopLeftRadius: 20,
@@ -374,7 +422,12 @@ function createStyles(theme: AppTheme) {
       padding: 24,
       maxHeight: '85%',
     },
-    sheetTitle: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground, marginBottom: 16},
+    sheetTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      marginBottom: 16,
+    },
     sheetSection: {
       fontSize: 12,
       fontWeight: '600',
@@ -383,8 +436,8 @@ function createStyles(theme: AppTheme) {
       letterSpacing: 0.8,
       marginBottom: 10,
     },
-    themeGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 12},
-    themeItem: {alignItems: 'center', gap: 6, width: 70},
+    themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    themeItem: { alignItems: 'center', gap: 6, width: 70 },
     themeSwatch: {
       width: 56,
       height: 56,
@@ -395,7 +448,7 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: theme.palette.divider,
     },
-    themeSwatchDot: {width: 14, height: 14, borderRadius: 7},
-    themeLabel: {fontSize: 11, color: theme.palette.muted, textAlign: 'center'},
+    themeSwatchDot: { width: 14, height: 14, borderRadius: 7 },
+    themeLabel: { fontSize: 11, color: theme.palette.muted, textAlign: 'center' },
   });
 }

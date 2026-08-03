@@ -45,7 +45,7 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
   const { showToast } = useToast();
   const authService = getAuthService();
 
-  const allPasswordRulesPass = PASSWORD_RULES.every(rule => rule.test(newPassword));
+  const allPasswordRulesPass = PASSWORD_RULES.every((rule) => rule.test(newPassword));
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
   const isFormValid = allPasswordRulesPass && passwordsMatch;
 
@@ -89,7 +89,8 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <AuthBackground />
-      <AuthBarMask />      <KeyboardAvoidingView
+      <AuthBarMask />{' '}
+      <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
@@ -102,16 +103,11 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
         >
           <AuthTopBack onPress={() => navigation.goBack()} disabled={loading} />
 
-          <AuthHeader
-            title="Reset password"
-            subtitle="Choose a new password for your account"
-          />
+          <AuthHeader title="Reset password" subtitle="Choose a new password for your account" />
 
           <View style={styles.verifiedNote}>
             <CircleCheck size={17} color={palette.success} />
-            <Text style={styles.verifiedText}>
-              Email verified. Set your new password below.
-            </Text>
+            <Text style={styles.verifiedText}>Email verified. Set your new password below.</Text>
           </View>
 
           <View style={styles.form}>
@@ -129,7 +125,7 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
               <PasswordInput
                 label="Confirm New Password"
                 value={confirmPassword}
-                onChangeText={v => {
+                onChangeText={(v) => {
                   setConfirmPassword(v);
                   setTouchedConfirm(true);
                 }}
@@ -150,11 +146,7 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
             disabled={loading || !isFormValid}
           />
 
-          <AuthBackLink
-            label="Back"
-            onPress={() => navigation.goBack()}
-            disabled={loading}
-          />
+          <AuthBackLink label="Back" onPress={() => navigation.goBack()} disabled={loading} />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

@@ -10,11 +10,17 @@ import { ApiResponse } from '../../auth/api/auth.api.interface';
 
 export class BusinessApiImpl extends BusinessApiInterface {
   async createBusiness(businessData: BusinessDto): Promise<ApiResponse<BusinessDto>> {
-    const response = await businessApiClient.post(BUSINESS_API_CONFIG.ENDPOINTS.BUSINESS, businessData);
+    const response = await businessApiClient.post(
+      BUSINESS_API_CONFIG.ENDPOINTS.BUSINESS,
+      businessData,
+    );
     return response.data;
   }
 
-  async updateBusiness(businessData: BusinessDto, flags: UpdateBusinessFlags = {}): Promise<ApiResponse<BusinessDto>> {
+  async updateBusiness(
+    businessData: BusinessDto,
+    flags: UpdateBusinessFlags = {},
+  ): Promise<ApiResponse<BusinessDto>> {
     const params = new URLSearchParams();
     if (flags.updatePhone) params.append('updatePhone', 'true');
     if (flags.updateEmail) params.append('updateEmail', 'true');
@@ -30,7 +36,9 @@ export class BusinessApiImpl extends BusinessApiInterface {
   }
 
   async getBusinessById(businessId: number): Promise<ApiResponse<BusinessDto>> {
-    const response = await businessApiClient.get(BUSINESS_API_CONFIG.ENDPOINTS.BUSINESS_BY_ID(businessId));
+    const response = await businessApiClient.get(
+      BUSINESS_API_CONFIG.ENDPOINTS.BUSINESS_BY_ID(businessId),
+    );
     return response.data;
   }
 
@@ -40,7 +48,9 @@ export class BusinessApiImpl extends BusinessApiInterface {
   }
 
   async deleteBusiness(businessId: number): Promise<ApiResponse<BusinessDto>> {
-    const response = await businessApiClient.delete(BUSINESS_API_CONFIG.ENDPOINTS.BUSINESS_BY_ID(businessId));
+    const response = await businessApiClient.delete(
+      BUSINESS_API_CONFIG.ENDPOINTS.BUSINESS_BY_ID(businessId),
+    );
     return response.data;
   }
 }

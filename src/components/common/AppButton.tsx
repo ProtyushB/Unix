@@ -46,8 +46,16 @@ export function AppButton({
   // sheet, text styles included, so the result is not assignable to a ViewStyle /
   // TextStyle slot. The keys are built from ButtonVariant, so the lookup is sound
   // — the cast just restores what the union erased.
-  const bgStyle = (isDisabled ? styles[`bg_${variant}_disabled` as keyof typeof styles] : styles[`bg_${variant}` as keyof typeof styles]) as ViewStyle;
-  const textColorStyle = (isDisabled ? styles[`text_${variant}_disabled` as keyof typeof styles] : styles[`text_${variant}` as keyof typeof styles]) as TextStyle;
+  const bgStyle = (
+    isDisabled
+      ? styles[`bg_${variant}_disabled` as keyof typeof styles]
+      : styles[`bg_${variant}` as keyof typeof styles]
+  ) as ViewStyle;
+  const textColorStyle = (
+    isDisabled
+      ? styles[`text_${variant}_disabled` as keyof typeof styles]
+      : styles[`text_${variant}` as keyof typeof styles]
+  ) as TextStyle;
   const borderStyle = variant === 'secondary' ? styles.borderSecondary : undefined;
 
   const textColor = StyleSheet.flatten(textColorStyle).color as string;
@@ -97,26 +105,26 @@ function createStyles(theme: AppTheme) {
     },
 
     // Backgrounds
-    bg_primary:          { backgroundColor: theme.colors.primary },
+    bg_primary: { backgroundColor: theme.colors.primary },
     bg_primary_disabled: { backgroundColor: theme.colors.shadow },
-    bg_secondary:          { backgroundColor: theme.palette.surface },
+    bg_secondary: { backgroundColor: theme.palette.surface },
     bg_secondary_disabled: { backgroundColor: theme.palette.surface + '80' },
-    bg_ghost:          { backgroundColor: 'transparent' },
+    bg_ghost: { backgroundColor: 'transparent' },
     bg_ghost_disabled: { backgroundColor: 'transparent' },
-    bg_danger:          { backgroundColor: theme.palette.error },
+    bg_danger: { backgroundColor: theme.palette.error },
     bg_danger_disabled: { backgroundColor: theme.palette.error + '80' },
 
     // Borders
     borderSecondary: { borderWidth: 1, borderColor: theme.palette.divider },
 
     // Text colours
-    text_primary:          { color: '#ffffff' },
+    text_primary: { color: '#ffffff' },
     text_primary_disabled: { color: '#ffffff80' },
-    text_secondary:          { color: theme.palette.onBackground },
+    text_secondary: { color: theme.palette.onBackground },
     text_secondary_disabled: { color: theme.palette.onBackground + '60' },
-    text_ghost:          { color: theme.palette.onBackground },
+    text_ghost: { color: theme.palette.onBackground },
     text_ghost_disabled: { color: theme.palette.onBackground + '40' },
-    text_danger:          { color: '#ffffff' },
+    text_danger: { color: '#ffffff' },
     text_danger_disabled: { color: '#ffffff80' },
 
     text: {
@@ -124,7 +132,7 @@ function createStyles(theme: AppTheme) {
       fontWeight: '600',
       lineHeight: 22,
     },
-    textWithLeftIcon:  { marginLeft: 8 },
+    textWithLeftIcon: { marginLeft: 8 },
     textWithRightIcon: { marginRight: 8 },
   });
 }

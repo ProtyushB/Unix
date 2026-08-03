@@ -33,11 +33,7 @@ export function RecentOrderRow({ order, divided, onPress }: RecentOrderRowProps)
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        divided && styles.divided,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.row, divided && styles.divided, pressed && styles.pressed]}
     >
       <TimeChip parts={formatTimeParts(order.when)} />
 

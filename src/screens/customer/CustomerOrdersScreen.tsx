@@ -1,19 +1,19 @@
-import React, {useState, useEffect, useCallback} from 'react';
-import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
-import {ShoppingBag} from 'lucide-react-native';
-import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
-import {TopTabBar} from '../../components/layout/TopTabBar';
-import {OrderCard} from '../../components/list/OrderCard';
-import {EmptyState} from '../../components/common/EmptyState';
-import {LoadingSpinner} from '../../components/common/LoadingSpinner';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { ShoppingBag } from 'lucide-react-native';
+import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { TopTabBar } from '../../components/layout/TopTabBar';
+import { OrderCard } from '../../components/list/OrderCard';
+import { EmptyState } from '../../components/common/EmptyState';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
 
 const TABS = [
-  {key: 'active', label: 'Active'},
-  {key: 'history', label: 'History'},
+  { key: 'active', label: 'Active' },
+  { key: 'history', label: 'History' },
 ];
 
 export const CustomerOrdersScreen: React.FC = () => {
@@ -61,7 +61,7 @@ export const CustomerOrdersScreen: React.FC = () => {
     setRefreshing(false);
   }, [loadOrders]);
 
-  const filteredOrders = orders.filter(o => {
+  const filteredOrders = orders.filter((o) => {
     if (activeTab === 'active') {
       return ['PENDING', 'CONFIRMED'].includes(o.status);
     }
@@ -77,20 +77,14 @@ export const CustomerOrdersScreen: React.FC = () => {
       <View style={styles.container}>
         <Text style={styles.title}>My Orders</Text>
 
-        <TopTabBar
-          tabs={TABS}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
+        <TopTabBar tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
 
         {loading && !refreshing ? (
           <LoadingSpinner />
         ) : filteredOrders.length === 0 ? (
           <EmptyState
             icon={<ShoppingBag size={48} color={palette.muted} />}
-            title={
-              activeTab === 'active' ? 'No active orders' : 'No order history'
-            }
+            title={activeTab === 'active' ? 'No active orders' : 'No order history'}
             message={
               activeTab === 'active'
                 ? 'Your active orders will appear here'
@@ -100,12 +94,9 @@ export const CustomerOrdersScreen: React.FC = () => {
         ) : (
           <FlatList
             data={filteredOrders}
-            keyExtractor={item => String(item.id)}
-            renderItem={({item}) => (
-              <OrderCard
-                order={item}
-                onPress={() => handleOrderPress(item)}
-              />
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <OrderCard order={item} onPress={() => handleOrderPress(item)} />
             )}
             refreshControl={
               <RefreshControl

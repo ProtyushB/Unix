@@ -7,10 +7,7 @@ const config = getDefaultConfig(__dirname);
 
 config.resolver = {
   ...config.resolver,
-  blockList: [
-    /.*\/android\/.*/,
-    /.*\/ios\/.*/,
-  ],
+  blockList: [/.*\/android\/.*/, /.*\/ios\/.*/],
 };
 
 module.exports = config;

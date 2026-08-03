@@ -1,5 +1,5 @@
-import {PharmacyService} from '../service/pharmacy.service';
-import {PharmacyApiImpl} from '../api/pharmacy.api.impl';
+import { PharmacyService } from '../service/pharmacy.service';
+import { PharmacyApiImpl } from '../api/pharmacy.api.impl';
 
 let instance: PharmacyService | null = null;
 
