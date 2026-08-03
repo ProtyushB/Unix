@@ -283,9 +283,13 @@ export const InventoryScreen: React.FC = () => {
             <LabelValue label="Purchased Qty" value={String(selectedBatch.purchasedQuantity)} />
             <LabelValue label="Remaining Qty" value={String(selectedBatch.remainingQuantity)} />
             <Text style={styles.fieldLabel}>Usage</Text>
+            {/* Traffic light on how much of the batch is gone: mostly used → error, past half →
+                warning, otherwise success. Taken from the palette so the light themes get their
+                darker variants; the raw #ef4444 / #f59e0b / #10b981 that used to be here were
+                tuned for a dark background and washed out on Dawn, Sky and the rest. */}
             <ProgressBar
               progress={used}
-              color={used > 0.8 ? '#ef4444' : used > 0.5 ? '#f59e0b' : '#10b981'}
+              color={used > 0.8 ? palette.error : used > 0.5 ? palette.warning : palette.success}
             />
             {selectedBatch.costPrice && (
               <LabelValue label="Cost Price" value={formatCurrency(selectedBatch.costPrice)} />
@@ -424,7 +428,7 @@ export const InventoryScreen: React.FC = () => {
             style={[styles.filterChip, expiringOnly && styles.filterChipExpiring]}
             onPress={() => setExpiringOnly((v) => !v)}
           >
-            <Clock size={14} color={expiringOnly ? '#f59e0b' : palette.muted} />
+            <Clock size={14} color={expiringOnly ? palette.warning : palette.muted} />
             <Text style={[styles.filterText, expiringOnly && styles.filterTextExpiring]}>
               Expiring 30d
             </Text>
@@ -528,13 +532,16 @@ function createStyles(theme: AppTheme) {
       gap: 4,
     },
     filterChipActive: { backgroundColor: theme.colors.softBg, borderColor: theme.colors.primary },
-    filterChipExpiring: { backgroundColor: 'rgba(245,158,11,0.15)', borderColor: '#f59e0b' },
+    // '26' is hex alpha ≈ 15%, matching the rgba(245,158,11,0.15) this replaced. Appending a hex
+    // pair is the convention already used for the catalog thumbnails (`hue + '22'`); every palette
+    // colour is a 6-digit hex, so it composes cleanly.
+    filterChipExpiring: {
+      backgroundColor: theme.palette.warning + '26',
+      borderColor: theme.palette.warning,
+    },
     filterText: { fontSize: 13, color: theme.palette.muted, fontWeight: '500' },
     filterTextActive: { color: theme.colors.primary },
-    // Same literal amber as filterChipExpiring and expiryWarning in this file. Deliberately NOT
-    // switched to theme.palette.warning here — that would be a visual change riding along in a lint
-    // fix. This screen hardcodes #f59e0b / #ef4444 / #10b981 in five places and wants its own pass.
-    filterTextExpiring: { color: '#f59e0b' },
+    filterTextExpiring: { color: theme.palette.warning },
     listContent: { paddingBottom: 80, gap: 8 },
     card: { gap: 6 },
     cardTitle: {
@@ -562,7 +569,7 @@ function createStyles(theme: AppTheme) {
     },
     fieldValue: { fontSize: 14, color: theme.palette.onBackground, marginTop: 2 },
     expiryWarning: {
-      color: '#f59e0b',
+      color: theme.palette.warning,
       fontSize: 14,
       fontWeight: '600',
       textAlign: 'center',
