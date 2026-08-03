@@ -35,7 +35,6 @@ const LOCAL_DEFAULTS: Record<string, string> = {
   PERSON_API_URL: 'http://localhost:8086',
   PARLOUR_API_URL: 'http://localhost:8086',
   PHARMACY_API_URL: 'http://localhost:8086',
-  RESTAURANT_API_URL: 'http://localhost:8086',
   DMS_API_URL: 'http://localhost:8087',
 };
 
@@ -78,7 +77,6 @@ export const AUTH_API_URL = readBaseUrl('AUTH_API_URL');
 export const PERSON_API_URL = readBaseUrl('PERSON_API_URL');
 export const PARLOUR_API_URL = readBaseUrl('PARLOUR_API_URL');
 export const PHARMACY_API_URL = readBaseUrl('PHARMACY_API_URL');
-export const RESTAURANT_API_URL = readBaseUrl('RESTAURANT_API_URL');
 export const DMS_API_URL = readBaseUrl('DMS_API_URL');
 
 /**

@@ -1,4 +1,4 @@
-import {ParlourApiInterface, ProductListOptions, OrderListOptions, AppointmentListOptions, BillListOptions} from '../api/parlour.api.interface';
+import {ParlourApiInterface, ProductListOptions, ServiceListOptions, OrderListOptions, AppointmentListOptions, BillListOptions} from '../api/parlour.api.interface';
 
 export class ParlourService {
   constructor(private api: ParlourApiInterface) {}
@@ -24,9 +24,13 @@ export class ParlourService {
   async deleteProduct(id: number) { return this.api.deleteProduct(id); }
 
   // Services
-  async getAllServices(businessId: number, page = 1, limit = 10) {
+  async getAllServices(businessId: number, page = 1, limit = 10, options: ServiceListOptions = {}) {
     if (!businessId) throw new Error('Business ID is required');
-    return this.api.getAllServices(businessId, page, limit);
+    return this.api.getAllServices(businessId, page, limit, options);
+  }
+  async updateServiceAvailability(id: number, availability: boolean) {
+    if (!id) throw new Error('Service ID is required');
+    return this.api.updateServiceAvailability(id, availability);
   }
   async getServiceById(id: number) { return this.api.getServiceById(id); }
   async createService(data: Record<string, unknown>) {
@@ -106,7 +110,6 @@ export class ParlourService {
   }
 
   // Bills
-  async getAllBills(page = 1, limit = 10) { return this.api.getAllBills(page, limit); }
   async getBillById(id: number) { return this.api.getBillById(id); }
   async getBillsByBusiness(businessId: number, page = 1, limit = 20, options: BillListOptions = {}) {
     if (!businessId) throw new Error('Business ID is required');

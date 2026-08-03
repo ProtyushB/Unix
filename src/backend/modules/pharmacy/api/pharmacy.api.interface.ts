@@ -3,6 +3,12 @@ export interface ApiResponse<T = unknown> {
   message: string;
   data: T;
   totalPages?: number;
+  /**
+   * Total matching rows across every page. Absent on most endpoints — the server omits it when
+   * null — so treat it as "unknown", never as zero: a client holding page 1 of 3 cannot derive it
+   * from `totalPages`, which is why it exists.
+   */
+  totalElements?: number;
   error: string | null;
 }
 
@@ -100,6 +106,23 @@ export interface ProductListResponse extends ApiResponse<unknown[]> {
   meta?: ProductListMeta;
 }
 
+/**
+ * Server-side narrowing for the service list.
+ *
+ * `search` matches the service NAME only — not the description, and not categories. The screen's
+ * copy says "Try a different name." for exactly that reason; promising more than the spec performs
+ * is how a user concludes search is broken.
+ *
+ * `sortBy` is whitelisted server-side and silently falls back to `id` on anything else. The
+ * server's own default is `id` ascending — oldest first — so the screen always sends an explicit
+ * sort.
+ */
+export interface ServiceListOptions {
+  search?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
 export interface BillListOptions {
   search?: string;
   billStatus?: string;
@@ -138,7 +161,14 @@ export abstract class PharmacyApiInterface {
   abstract updateProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract deleteProduct(id: number): Promise<ApiResponse<unknown>>;
 
-  abstract getAllServices(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>>;
+  abstract getAllServices(
+    businessId: number,
+    page: number,
+    limit: number,
+    options?: ServiceListOptions,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Flips only `availability` — see the impl for why the full PUT is not an option. */
+  abstract updateServiceAvailability(id: number, availability: boolean): Promise<ApiResponse<unknown>>;
   abstract getServiceById(id: number): Promise<ApiResponse<unknown>>;
   abstract createService(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateService(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
@@ -163,7 +193,6 @@ export abstract class PharmacyApiInterface {
   abstract deleteAppointment(id: number): Promise<ApiResponse<unknown>>;
   abstract getAppointmentsByCustomer(customerId: number, options: Record<string, unknown>): Promise<ApiResponse<unknown[]>>;
 
-  abstract getAllBills(page: number, limit: number): Promise<ApiResponse<unknown[]>>;
   abstract getBillById(id: number): Promise<ApiResponse<unknown>>;
   abstract getBillsByBusiness(
     businessId: number,

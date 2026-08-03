@@ -1,4 +1,4 @@
-import {ParlourApiInterface, ApiResponse, ProductListOptions, ProductListResponse, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts, BillListOptions, BillSummary} from './parlour.api.interface';
+import {ParlourApiInterface, ApiResponse, ProductListOptions, ProductListResponse, ServiceListOptions, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts, BillListOptions, BillSummary} from './parlour.api.interface';
 import parlourApiClient from '../config/axios.instance';
 import {PARLOUR_ROUTES} from '../config/api.config';
 
@@ -32,8 +32,15 @@ export class ParlourApiImpl extends ParlourApiInterface {
   }
 
   // ── Services ───────────────────────────────────────────────────────────────
-  async getAllServices(businessId: number, page: number, limit: number): Promise<ApiResponse<unknown[]>> {
-    const res = await parlourApiClient.get(PARLOUR_ROUTES.SERVICES_VIEW_ALL, {params: {businessId, page, limit}});
+  async getAllServices(businessId: number, page: number, limit: number, options: ServiceListOptions = {}): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.SERVICES_VIEW_ALL, {params: {businessId, page, limit, ...options}});
+    return res.data;
+  }
+  // Availability-only PATCH, never the full PUT: that copies the whole request body over the record,
+  // so a partial body would blank the description, price, requiredProductIds and the
+  // isAppointmentRequired flag that decides whether billing auto-generates an appointment.
+  async updateServiceAvailability(id: number, availability: boolean): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.patch(`${PARLOUR_ROUTES.SERVICES_BASE}/${id}/availability`, null, {params: {availability}});
     return res.data;
   }
   async getServiceById(id: number): Promise<ApiResponse<unknown>> {
@@ -128,10 +135,6 @@ export class ParlourApiImpl extends ParlourApiInterface {
   }
 
   // ── Bills ──────────────────────────────────────────────────────────────────
-  async getAllBills(page: number, limit: number): Promise<ApiResponse<unknown[]>> {
-    const res = await parlourApiClient.get(PARLOUR_ROUTES.BILLS_VIEW_ALL, {params: {page, limit}});
-    return res.data;
-  }
   async getBillById(id: number): Promise<ApiResponse<unknown>> {
     const res = await parlourApiClient.get(`${PARLOUR_ROUTES.BILLS_BASE}/${id}`);
     return res.data;

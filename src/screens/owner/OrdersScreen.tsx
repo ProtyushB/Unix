@@ -48,7 +48,6 @@ import { DATE_PRESETS, rangeForPreset, toYmd, type DatePresetId } from '../../ut
 import { useAppContext } from '../../context/AppContext';
 import { useParlour } from '../../backend/modules/parlour/hook/useParlour';
 import { usePharmacy } from '../../backend/modules/pharmacy/hook/usePharmacy';
-import { useRestaurant } from '../../backend/modules/restaurant/hook/useRestaurant';
 import type { OrderListOptions } from '../../backend/modules/shared/hook/useModuleService';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -238,12 +237,11 @@ export function OrdersScreen() {
   const { selectedModule } = useAppContext();
   const parlour = useParlour();
   const pharmacy = usePharmacy();
-  const restaurant = useRestaurant();
 
   // selectedModule holds the raw business-type key (PARLOUR / PHARMACY / …).
   const moduleKey = (selectedModule || '').toUpperCase();
   const activeModule =
-    moduleKey === 'RESTAURANT' ? restaurant : moduleKey === 'PHARMACY' ? pharmacy : parlour;
+    moduleKey === 'PHARMACY' ? pharmacy : parlour;
 
   const [mode, setMode] = useState<'browse' | 'search'>('browse');
   const [filters, setFilters] = useState<OrderFilters>(NO_FILTERS);

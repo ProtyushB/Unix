@@ -22,6 +22,15 @@ interface ServiceResult<T = unknown> {
   message?: string;
   error?: string | null;
   totalPages?: number;
+  /** Total matching rows across every page. Absent unless the endpoint sends it. */
+  totalElements?: number;
+}
+
+/** Services list filters. `search` matches the service name only, server-side. */
+export interface ServiceListOptions {
+  search?: string;
+  sortBy?: string;
+  sortDir?: string;
 }
 
 /** Products list filters. `search` matches product name and brand, server-side. */
@@ -127,7 +136,13 @@ interface ModuleService {
   updateProduct(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteProduct(id: number): Promise<ServiceResult>;
 
-  getAllServices(businessId: number, page: number, limit: number): Promise<ServiceResult>;
+  getAllServices(
+    businessId: number,
+    page: number,
+    limit: number,
+    options?: ServiceListOptions,
+  ): Promise<ServiceResult>;
+  updateServiceAvailability?(id: number, availability: boolean): Promise<ServiceResult>;
   createService(data: Record<string, unknown>): Promise<ServiceResult>;
   updateService(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteService(id: number): Promise<ServiceResult>;
@@ -215,6 +230,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     const [productMeta, setProductMeta] = useState<ProductListMeta | null>(null);
     const [services, setServices] = useState<unknown[]>([]);
     const [servicesTotalPages, setServicesTotalPages] = useState(1);
+    /** Null until a server that sends it answers — never 0, which would read as "no services". */
+    const [servicesTotalElements, setServicesTotalElements] = useState<number | null>(null);
     const [customers, setCustomers] = useState<unknown[]>([]);
     const [employees, setEmployees] = useState<unknown[]>([]);
     const [orders, setOrders] = useState<unknown[]>([]);
@@ -352,9 +369,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           setError(response.error || response.message || null);
           return { success: false, error: response.error };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to delete product';
+          // Same treatment as deleteService: dig the server's reason out of the axios body rather
+          // than reporting "Request failed with status code 409". A product delete is refused when
+          // orders or inventory still reference it, and that reason is the whole message.
+          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const body = e.response?.data;
+          const message = body?.error || body?.message || (err as Error).message || 'Failed to delete product';
           setError(message);
-          return { success: false, error: message };
+          return { success: false, code: body?.code, error: message };
         } finally {
           setLoading(false);
         }
@@ -367,7 +389,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     // ═══════════════════════════════════════════════════════════════
 
     const loadServices = useCallback(
-      async (page = 1, limit = 10) => {
+      async (page = 1, limit = 10, options: ServiceListOptions = {}) => {
         setLoading(true);
         setError(null);
         try {
@@ -378,11 +400,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
             setLoading(false);
             return;
           }
-          const response = await service.getAllServices(businessId, page, limit);
+          const response = await service.getAllServices(businessId, page, limit, options);
           if (response.success) {
             const data = response.data;
             setServices(Array.isArray(data) ? data : []);
             setServicesTotalPages(response.totalPages ?? 1);
+            // Only when the server actually sent it. An older backend omits the field, and
+            // blanking the count on every page-2 fetch would make the header flicker.
+            if (response.totalElements != null) setServicesTotalElements(response.totalElements);
           } else {
             setError(response.error || response.message || null);
             setServices([]);
@@ -445,6 +470,28 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       [service],
     );
 
+    // Un-annotated on purpose: a `Promise<ServiceResult>` return type erases the `code` this adds
+    // on the error path, and the screen branches on it. Same reason as updateProductTracking.
+    const updateServiceAvailability = useCallback(
+      async (id: number, availability: boolean) => {
+        try {
+          if (!service.updateServiceAvailability) {
+            return {success: false, error: 'Not supported for this module'};
+          }
+          return await service.updateServiceAvailability(id, availability);
+        } catch (err) {
+          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const body = e.response?.data;
+          return {
+            success: false,
+            code: body?.code,
+            error: body?.error || body?.message || e.message || 'Failed to update availability',
+          };
+        }
+      },
+      [service],
+    );
+
     const deleteService = useCallback(
       async (id: number) => {
         setLoading(true);
@@ -455,9 +502,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           setError(response.error || response.message || null);
           return { success: false, error: response.error };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to delete service';
+          // Dig the server's reason out of the axios body rather than reporting "Request failed
+          // with status code 409". A service delete is routinely refused because appointments,
+          // packages or bills still reference it, and that reason is the whole message.
+          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const body = e.response?.data;
+          const message = body?.error || body?.message || (err as Error).message || 'Failed to delete service';
           setError(message);
-          return { success: false, error: message };
+          return { success: false, code: body?.code, error: message };
         } finally {
           setLoading(false);
         }
@@ -1187,6 +1239,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       productMeta,
       services,
       servicesTotalPages,
+      servicesTotalElements,
       customers,
       employees,
       orders,
@@ -1213,6 +1266,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       loadServices,
       createService,
       updateService,
+      updateServiceAvailability,
       deleteService,
 
       // Order CRUD
