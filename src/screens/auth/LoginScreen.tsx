@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -197,6 +197,20 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [authService, cacheProfile, navigateToPortal, showToast]);
 
+  /**
+   * Latest `handleBiometricLogin`, so the auto-prompt effect below can stay mount-only.
+   *
+   * It is NOT a stable callback — it closes over authService, cacheProfile, navigateToPortal and
+   * showToast. Listing it as a dependency would re-run the effect whenever any of those change
+   * identity, and each run schedules its own 400ms timer, so the user would be shown a second
+   * biometric prompt on top of the first. Reading it through a ref keeps the effect firing once
+   * without capturing a stale closure.
+   */
+  const biometricLoginRef = useRef(handleBiometricLogin);
+  useEffect(() => {
+    biometricLoginRef.current = handleBiometricLogin;
+  }, [handleBiometricLogin]);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -205,7 +219,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       if (enabled && token) {
         if (mounted) setBiometricReady(true);
         setTimeout(() => {
-          if (mounted) handleBiometricLogin();
+          if (mounted) biometricLoginRef.current();
         }, 400);
       }
     })();

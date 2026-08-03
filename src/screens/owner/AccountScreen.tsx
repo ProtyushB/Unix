@@ -112,15 +112,20 @@ export const AccountScreen: React.FC = () => {
     ]).start();
   };
 
-  const closePortalSheet = (callback?: () => void) => {
-    Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 300, duration: 220, useNativeDriver: true }),
-      Animated.timing(overlayAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
-    ]).start(() => {
-      setShowPortalSheet(false);
-      callback?.();
-    });
-  };
+  // useCallback so handleSwitchPortal below can depend on it honestly. Everything it closes over is
+  // already stable — two useRef animated values and a setState — so this never changes identity.
+  const closePortalSheet = useCallback(
+    (callback?: () => void) => {
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: 300, duration: 220, useNativeDriver: true }),
+        Animated.timing(overlayAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]).start(() => {
+        setShowPortalSheet(false);
+        callback?.();
+      });
+    },
+    [slideAnim, overlayAnim],
+  );
 
   useEffect(() => {
     const load = async () => {
@@ -148,20 +153,23 @@ export const AccountScreen: React.FC = () => {
     if (key === 'theme') setShowThemePicker(true);
   };
 
-  const handleSwitchPortal = useCallback((key: PortalKey) => {
-    closePortalSheet(async () => {
-      try {
-        await AsyncStorage.setItem('session:activeProfile', PORTALS[key].key);
-        if (navigationRef.isReady()) {
-          navigationRef.dispatch(
-            CommonActions.reset({ index: 0, routes: [{ name: PORTALS[key].route }] }),
-          );
+  const handleSwitchPortal = useCallback(
+    (key: PortalKey) => {
+      closePortalSheet(async () => {
+        try {
+          await AsyncStorage.setItem('session:activeProfile', PORTALS[key].key);
+          if (navigationRef.isReady()) {
+            navigationRef.dispatch(
+              CommonActions.reset({ index: 0, routes: [{ name: PORTALS[key].route }] }),
+            );
+          }
+        } catch {
+          // navigation dispatch failed silently
         }
-      } catch {
-        // navigation dispatch failed silently
-      }
-    });
-  }, []);
+      });
+    },
+    [closePortalSheet],
+  );
 
   const availablePortals = getAvailablePortals(user);
   const canSwitchPortal = availablePortals.length > 1;
