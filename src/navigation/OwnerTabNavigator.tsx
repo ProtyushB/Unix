@@ -118,7 +118,11 @@ export function OwnerTabNavigator() {
                 headerShown: false,
                 sceneStyle: { backgroundColor: 'transparent' },
               }}
-              tabBar={(props) => <BottomGroupNav {...props} />}
+              // Passed by reference rather than wrapped in an arrow: the arrow was a new component
+              // type on every render, so React tore the whole tab bar down and rebuilt it instead
+              // of updating it. BottomGroupNav already takes BottomTabBarProps, so the spread was
+              // doing nothing the direct reference does not.
+              tabBar={BottomGroupNav}
             >
               {/* Every screen stays mounted regardless of tab config, matching the
                   web portal: the route resolves, then useTabGateRedirect bounces

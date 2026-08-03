@@ -115,7 +115,7 @@ describe('headerCollapses', () => {
   // Search pins its field so the query stays editable; the hero states would strand the user with
   // no search box and no date navigation.
   it('pins the header everywhere else', () => {
-    for (const v of [
+    for (const state of [
       'ERROR',
       'LOADING',
       'DAY_EMPTY',
@@ -126,7 +126,7 @@ describe('headerCollapses', () => {
       'SEARCH_RESULTS',
       'NO_RESULTS',
     ] as const) {
-      expect(headerCollapses(v)).toBe(false);
+      expect(headerCollapses(state)).toBe(false);
     }
   });
 });

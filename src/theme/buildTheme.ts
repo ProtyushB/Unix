@@ -11,6 +11,10 @@ import type { AppTheme } from './theme.types';
 function hashName(name: string): number {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
+    // `(hash << 5) - hash` is hash * 31 written the classic way. Kept EXACTLY as-is on purpose —
+    // see the note above: any change here reassigns every existing name to a different avatar
+    // colour, so this is a compatibility constraint rather than a style choice.
+    // eslint-disable-next-line no-bitwise
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
   return Math.abs(hash);

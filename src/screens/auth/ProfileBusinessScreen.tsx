@@ -273,7 +273,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                           onPress={() => removeBusiness(biz.id)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Text style={{ fontSize: 16, color: palette.error }}>🗑</Text>
+                          <Text style={[styles.removeGlyph, { color: palette.error }]}>🗑</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -373,7 +373,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                   onPress={addBusiness}
                   activeOpacity={0.7}
                 >
-                  <Text style={{ fontSize: 18, color: colors.primary }}>+</Text>
+                  <Text style={[styles.addGlyph, { color: colors.primary }]}>+</Text>
                   <Text style={styles.addButtonText}>Add Another Business</Text>
                 </TouchableOpacity>
               </View>
@@ -409,6 +409,9 @@ function createStyles(theme: AppTheme) {
       flex: 1,
       backgroundColor: theme.palette.background,
     },
+    /** Glyph sizes only — both take their colour from the theme at the call site. */
+    removeGlyph: { fontSize: 16 },
+    addGlyph: { fontSize: 18 },
     flex: {
       flex: 1,
     },

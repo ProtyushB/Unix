@@ -57,7 +57,7 @@ export function AuthMethodsScreen() {
         </View>
 
         {/* Biometric */}
-        <View style={[styles.sectionLabel, { marginTop: 24 }]}>
+        <View style={[styles.sectionLabel, styles.sectionLabelSpaced]}>
           <Text style={styles.sectionText}>BIOMETRIC</Text>
         </View>
         <View style={styles.methodRow}>
@@ -113,6 +113,8 @@ function createStyles(theme: AppTheme) {
     backBtn: { padding: 4 },
     title: { fontSize: 24, fontWeight: '700', color: theme.palette.onBackground, flex: 1 },
     sectionLabel: { marginBottom: 8, paddingHorizontal: 4 },
+    /** Extra gap above a section that follows another one, rather than the first on the screen. */
+    sectionLabelSpaced: { marginTop: 24 },
     sectionText: { fontSize: 11, fontWeight: '700', color: theme.palette.muted, letterSpacing: 1 },
     methodRow: {
       flexDirection: 'row',

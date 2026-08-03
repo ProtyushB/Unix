@@ -39,7 +39,8 @@ export function SignupStepper({ active }: SignupStepperProps) {
               style={[
                 styles.label,
                 isDone && { color: palette.onSurface },
-                isActive && { color: colors.secondary, fontFamily: 'Inter-Bold' },
+                isActive && styles.labelActive,
+                isActive && { color: colors.secondary },
               ]}
             >
               {label}
@@ -87,6 +88,10 @@ function createStyles(theme: AppTheme) {
       fontFamily: 'Inter-Medium',
       fontSize: 12,
       color: theme.palette.muted,
+    },
+    /** Weight only — the active colour is themed, so it stays at the call site. */
+    labelActive: {
+      fontFamily: 'Inter-Bold',
     },
   });
 }

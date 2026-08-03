@@ -75,12 +75,15 @@ const ThemeSwatch: React.FC<{
         style={[
           styles.themeSwatch,
           { backgroundColor: surface },
-          active && { borderColor: accent, borderWidth: 2 },
+          active && styles.themeSwatchActive,
+          active && { borderColor: accent },
         ]}
       >
         <View style={[styles.themeSwatchDot, { backgroundColor: accent }]} />
       </View>
-      <Text style={[styles.themeLabel, active && { color: accent, fontWeight: '700' }]}>
+      <Text
+        style={[styles.themeLabel, active && styles.themeLabelActive, active && { color: accent }]}
+      >
         {theme.name}
       </Text>
     </TouchableOpacity>
@@ -315,7 +318,7 @@ export const AccountScreen: React.FC = () => {
                   ))}
                 </View>
 
-                <Text style={[styles.sheetSection, { marginTop: 18 }]}>Light</Text>
+                <Text style={[styles.sheetSection, styles.sheetSectionSpaced]}>Light</Text>
                 <View style={styles.themeGrid}>
                   {LIGHT_THEMES.map((t) => (
                     <ThemeSwatch
@@ -458,5 +461,11 @@ function createStyles(theme: AppTheme) {
     },
     themeSwatchDot: { width: 14, height: 14, borderRadius: 7 },
     themeLabel: { fontSize: 11, color: theme.palette.muted, textAlign: 'center' },
+    // Selection ring width and label weight. The accent COLOUR is the theme being previewed, so it
+    // is necessarily dynamic and stays at the call site — only the static half moves here.
+    themeSwatchActive: { borderWidth: 2 },
+    themeLabelActive: { fontWeight: '700' },
+    /** Gap above the second theme group ("Light"), which follows "Dark" rather than opening the sheet. */
+    sheetSectionSpaced: { marginTop: 18 },
   });
 }

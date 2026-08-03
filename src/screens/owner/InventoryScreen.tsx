@@ -425,7 +425,7 @@ export const InventoryScreen: React.FC = () => {
             onPress={() => setExpiringOnly((v) => !v)}
           >
             <Clock size={14} color={expiringOnly ? '#f59e0b' : palette.muted} />
-            <Text style={[styles.filterText, expiringOnly && { color: '#f59e0b' }]}>
+            <Text style={[styles.filterText, expiringOnly && styles.filterTextExpiring]}>
               Expiring 30d
             </Text>
           </TouchableOpacity>
@@ -531,6 +531,10 @@ function createStyles(theme: AppTheme) {
     filterChipExpiring: { backgroundColor: 'rgba(245,158,11,0.15)', borderColor: '#f59e0b' },
     filterText: { fontSize: 13, color: theme.palette.muted, fontWeight: '500' },
     filterTextActive: { color: theme.colors.primary },
+    // Same literal amber as filterChipExpiring and expiryWarning in this file. Deliberately NOT
+    // switched to theme.palette.warning here — that would be a visual change riding along in a lint
+    // fix. This screen hardcodes #f59e0b / #ef4444 / #10b981 in five places and wants its own pass.
+    filterTextExpiring: { color: '#f59e0b' },
     listContent: { paddingBottom: 80, gap: 8 },
     card: { gap: 6 },
     cardTitle: {

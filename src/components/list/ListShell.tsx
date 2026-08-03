@@ -164,7 +164,7 @@ export function ListShell({
                   <Icon
                     size={13}
                     color={isActive ? accent : palette.muted}
-                    style={{ marginRight: 4 }}
+                    style={styles.chipIcon}
                   />
                 )}
                 <Text style={[styles.chipLabel, isActive && { color: accent }]}>
@@ -285,6 +285,9 @@ function createStyles(theme: AppTheme) {
       backgroundColor: theme.palette.surface,
       borderWidth: 1,
       borderColor: theme.palette.divider,
+    },
+    chipIcon: {
+      marginRight: 4,
     },
     chipLabel: {
       fontSize: 13,

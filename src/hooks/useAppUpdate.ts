@@ -141,7 +141,11 @@ export function useAppUpdate(auto: boolean): UseAppUpdateResult {
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     const interaction = InteractionManager.runAfterInteractions(() => {
-      timer = setTimeout(() => void runCheck({ manual: false }), STARTUP_DELAY_MS);
+      timer = setTimeout(() => {
+        // Deliberately not awaited — the startup check must never block, and every failure inside
+        // runCheck is already swallowed by design.
+        runCheck({ manual: false });
+      }, STARTUP_DELAY_MS);
     });
 
     return () => {
