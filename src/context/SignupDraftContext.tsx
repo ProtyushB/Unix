@@ -50,12 +50,20 @@ export const SignupDraftProvider: React.FC<{ children: React.ReactNode }> = ({ c
   return (
     <SignupDraftContext.Provider
       value={{
-        setDraft: draft => { draftRef.current = draft; },
+        setDraft: (draft) => {
+          draftRef.current = draft;
+        },
         getDraft: () => draftRef.current,
-        clearDraft: () => { draftRef.current = null; },
-        setClaim: claim => { claimRef.current = claim; },
+        clearDraft: () => {
+          draftRef.current = null;
+        },
+        setClaim: (claim) => {
+          claimRef.current = claim;
+        },
         getClaim: () => claimRef.current,
-        clearClaim: () => { claimRef.current = null; },
+        clearClaim: () => {
+          claimRef.current = null;
+        },
       }}
     >
       {children}

@@ -32,10 +32,7 @@ export function TopTabBar({ tabs, activeTab, onTabChange }: TopTabBarProps) {
           style={[styles.pill, isActive ? styles.pillActive : styles.pillInactive]}
         >
           <Text
-            style={[
-              styles.pillText,
-              isActive ? styles.pillTextActive : styles.pillTextInactive,
-            ]}
+            style={[styles.pillText, isActive ? styles.pillTextActive : styles.pillTextInactive]}
           >
             {tab.label}
           </Text>

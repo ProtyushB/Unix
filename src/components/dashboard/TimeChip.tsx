@@ -23,8 +23,7 @@ export function TimeChip({ parts, variant = 'neutral' }: TimeChipProps) {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
 
-  const background =
-    variant === 'accent' ? colors.primary + '1F' : palette.surfaceElevated;
+  const background = variant === 'accent' ? colors.primary + '1F' : palette.surfaceElevated;
 
   return (
     <View style={[styles.chip, { backgroundColor: background }]}>

@@ -1,0 +1,12 @@
+# Native build trees — generated or vendor-owned.
+android/
+ios/
+
+node_modules/
+coverage/
+
+# Config files that run in node, not in the app bundle.
+babel.config.js
+metro.config.js
+jest.config.js
+react-native.config.js

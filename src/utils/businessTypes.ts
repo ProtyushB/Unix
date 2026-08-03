@@ -1,5 +1,12 @@
 import {
-  Scissors, Pill, UtensilsCrossed, Cpu, Dumbbell, Store, Shirt, Building2,
+  Scissors,
+  Pill,
+  UtensilsCrossed,
+  Cpu,
+  Dumbbell,
+  Store,
+  Shirt,
+  Building2,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
@@ -37,7 +44,7 @@ export const BUSINESS_TYPES: BusinessTypeOption[] = [
 // ─── Lookup Map (built once) ─────────────────────────────────────────────────
 
 const TYPE_LABEL_MAP: Record<string, string> = Object.fromEntries(
-  BUSINESS_TYPES.map(bt => [bt.value, bt.label]),
+  BUSINESS_TYPES.map((bt) => [bt.value, bt.label]),
 );
 
 // ─── Helper ──────────────────────────────────────────────────────────────────

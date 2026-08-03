@@ -32,12 +32,7 @@ interface Options {
  * one hook serve Orders (title + search + two chip ScrollViews) and Appointments (title + search +
  * a six-row month grid) without branching.
  */
-export function useCollapsingHeader({
-  pinned,
-  refreshing,
-  contentBottomPadding,
-  config,
-}: Options) {
+export function useCollapsingHeader({ pinned, refreshing, contentBottomPadding, config }: Options) {
   const cfg = useMemo(() => ({ ...DEFAULT_HEADER_CONFIG, ...config }), [config]);
 
   // Height lives in two places on purpose: the worklet cannot read React state, and the layout
@@ -82,7 +77,7 @@ export function useCollapsingHeader({
   }, []);
 
   const scrollHandler = useAnimatedScrollHandler({
-    onScroll: e => {
+    onScroll: (e) => {
       'worklet';
       const next = nextHeaderState(
         state.value,

@@ -123,11 +123,7 @@ export class AuthService {
     }
   }
 
-  async resendOtp(
-    channel: string,
-    value: string,
-    isReset = false,
-  ): Promise<ApiResponse<unknown>> {
+  async resendOtp(channel: string, value: string, isReset = false): Promise<ApiResponse<unknown>> {
     if (channel === 'email' && !this.isValidEmail(value)) {
       throw new Error('Invalid email address');
     }
@@ -141,11 +137,7 @@ export class AuthService {
     }
   }
 
-  async verifyOtp(
-    channel: string,
-    value: string,
-    otp: string,
-  ): Promise<OtpVerificationResult> {
+  async verifyOtp(channel: string, value: string, otp: string): Promise<OtpVerificationResult> {
     if (!otp || otp.length !== 6) {
       throw new Error('OTP must be 6 digits');
     }
@@ -198,7 +190,9 @@ export class AuthService {
 
   // ==================== AUTHENTICATION OPERATIONS ====================
 
-  async signup(userData: SignupData): Promise<ApiResponse<{ accessToken: string; refreshToken: string }>> {
+  async signup(
+    userData: SignupData,
+  ): Promise<ApiResponse<{ accessToken: string; refreshToken: string }>> {
     if (!userData.username || !this.isValidUsername(userData.username)) {
       throw new Error('Username must be 3-20 alphanumeric characters');
     }

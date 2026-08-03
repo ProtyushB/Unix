@@ -75,7 +75,7 @@ export function PaymentStep({
         <AppInput
           label="Employee Code *"
           value={employeeCode}
-          onChangeText={v => {
+          onChangeText={(v) => {
             setEmployeeCode(v);
             if (localError) setLocalError('');
           }}

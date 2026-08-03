@@ -22,11 +22,7 @@ interface ScreenWrapperProps {
 // OwnerTabNavigator root so every tab screen shares it. ScreenWrapper stays
 // transparent so the gradient bleeds through the scroll area.
 
-export function ScreenWrapper({
-  children,
-  scrollable = true,
-  style,
-}: ScreenWrapperProps) {
+export function ScreenWrapper({ children, scrollable = true, style }: ScreenWrapperProps) {
   const styles = useThemedStyles(createStyles);
 
   // KeyboardAvoidingView carries iOS. On Android `behavior` is undefined, which makes the component

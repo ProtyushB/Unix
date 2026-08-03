@@ -23,8 +23,8 @@ interface ActivationPendingPanelProps {
 // from the mockup. Payment is manual and out-of-band, so the client has no real
 // source for them — only the Status row is truthful. Wire these to a backend
 // field if/when one exists.
-const PLACEHOLDER_PLAN      = 'Growth · Monthly';
-const PLACEHOLDER_AMOUNT    = '₹2,499';
+const PLACEHOLDER_PLAN = 'Growth · Monthly';
+const PLACEHOLDER_AMOUNT = '₹2,499';
 const PLACEHOLDER_REFERENCE = 'PAY-8842193';
 
 export function ActivationPendingPanel({
@@ -47,8 +47,8 @@ export function ActivationPendingPanel({
           <Text style={styles.title}>Activation Pending</Text>
           <Text style={styles.body}>
             {businessName ? `${businessName} is set up — ` : ''}
-            we're verifying your payment. Your dashboard unlocks automatically
-            once it clears, usually within a few minutes.
+            we're verifying your payment. Your dashboard unlocks automatically once it clears,
+            usually within a few minutes.
           </Text>
         </View>
 
@@ -63,9 +63,7 @@ export function ActivationPendingPanel({
           </View>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Reference</Text>
-            <Text style={[styles.rowValueMuted, styles.mono]}>
-              {PLACEHOLDER_REFERENCE}
-            </Text>
+            <Text style={[styles.rowValueMuted, styles.mono]}>{PLACEHOLDER_REFERENCE}</Text>
           </View>
 
           <View style={styles.divider} />
@@ -89,9 +87,7 @@ export function ActivationPendingPanel({
             ]}
           >
             <Headset size={17} color={colors.onAccent} />
-            <Text style={[styles.primaryLabel, { color: colors.onAccent }]}>
-              Contact Support
-            </Text>
+            <Text style={[styles.primaryLabel, { color: colors.onAccent }]}>Contact Support</Text>
           </Pressable>
 
           <Pressable
@@ -109,9 +105,7 @@ export function ActivationPendingPanel({
           </Pressable>
         </View>
 
-        <Text style={styles.note}>
-          You'll be notified as soon as your account is active.
-        </Text>
+        <Text style={styles.note}>You'll be notified as soon as your account is active.</Text>
       </View>
     </View>
   );

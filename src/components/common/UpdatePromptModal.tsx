@@ -1,9 +1,9 @@
 import React from 'react';
-import {Modal, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator} from 'react-native';
-import {useThemedStyles} from '../../hooks/useThemedStyles';
-import {useAppUpdate, type UseAppUpdateResult} from '../../hooks/useAppUpdate';
-import {AppButton} from './AppButton';
-import type {AppTheme} from '../../theme/theme.types';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useAppUpdate, type UseAppUpdateResult } from '../../hooks/useAppUpdate';
+import { AppButton } from './AppButton';
+import type { AppTheme } from '../../theme/theme.types';
 
 /**
  * Offers a newer self-hosted APK, downloads it, and hands it to the installer.
@@ -31,8 +31,8 @@ export function UpdatePromptModal() {
  * state, so a manual check could not drive the auto-mounted modal above — and
  * duplicating this UI for the manual path would guarantee the two drift.
  */
-export function UpdatePrompt({controller}: {controller: UseAppUpdateResult}) {
-  const {stage, manifest, progress, error, startDownload, dismiss, openInstallSettings} =
+export function UpdatePrompt({ controller }: { controller: UseAppUpdateResult }) {
+  const { stage, manifest, progress, error, startDownload, dismiss, openInstallSettings } =
     controller;
   const styles = useThemedStyles(createStyles);
 
@@ -59,14 +59,13 @@ export function UpdatePrompt({controller}: {controller: UseAppUpdateResult}) {
       navigationBarTranslucent
       // Android back button. Blocked while busy so a stray tap cannot abandon a
       // download mid-flight, which would also count as dismissing the release.
-      onRequestClose={busy ? () => {} : dismiss}>
+      onRequestClose={busy ? () => {} : dismiss}
+    >
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Text style={styles.icon}>⬆️</Text>
           <Text style={styles.title}>Update available</Text>
-          <Text style={styles.subtitle}>
-            Version {manifest.versionName} is ready to install.
-          </Text>
+          <Text style={styles.subtitle}>Version {manifest.versionName} is ready to install.</Text>
 
           {/* Shown before the tap, not after. There is no NetInfo dependency in
               the app so metered-connection detection is a deliberate non-goal —
@@ -93,7 +92,7 @@ export function UpdatePrompt({controller}: {controller: UseAppUpdateResult}) {
                 <ActivityIndicator style={styles.spinner} />
               ) : (
                 <View style={styles.track}>
-                  <View style={[styles.fill, {width: `${Math.round(progress * 100)}%`}]} />
+                  <View style={[styles.fill, { width: `${Math.round(progress * 100)}%` }]} />
                 </View>
               )}
               <Text style={styles.progressText}>
@@ -164,7 +163,7 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: theme.palette.divider,
     },
-    icon: {fontSize: 40, marginBottom: 12},
+    icon: { fontSize: 40, marginBottom: 12 },
     title: {
       fontSize: 20,
       fontWeight: '700',
@@ -178,11 +177,11 @@ function createStyles(theme: AppTheme) {
       textAlign: 'center',
       lineHeight: 21,
     },
-    meta: {fontSize: 13, color: theme.palette.muted, marginTop: 6},
-    notes: {alignSelf: 'stretch', marginTop: 14},
-    note: {fontSize: 13, color: theme.palette.onSurface, lineHeight: 20},
-    progressBlock: {alignSelf: 'stretch', marginTop: 20, alignItems: 'center'},
-    spinner: {marginBottom: 8},
+    meta: { fontSize: 13, color: theme.palette.muted, marginTop: 6 },
+    notes: { alignSelf: 'stretch', marginTop: 14 },
+    note: { fontSize: 13, color: theme.palette.onSurface, lineHeight: 20 },
+    progressBlock: { alignSelf: 'stretch', marginTop: 20, alignItems: 'center' },
+    spinner: { marginBottom: 8 },
     track: {
       alignSelf: 'stretch',
       height: 6,
@@ -190,8 +189,8 @@ function createStyles(theme: AppTheme) {
       backgroundColor: theme.palette.divider,
       overflow: 'hidden',
     },
-    fill: {height: 6, borderRadius: 3, backgroundColor: theme.colors.primary},
-    progressText: {fontSize: 13, color: theme.palette.muted, marginTop: 10, textAlign: 'center'},
+    fill: { height: 6, borderRadius: 3, backgroundColor: theme.colors.primary },
+    progressText: { fontSize: 13, color: theme.palette.muted, marginTop: 10, textAlign: 'center' },
     error: {
       fontSize: 13,
       color: theme.palette.error,
@@ -199,8 +198,8 @@ function createStyles(theme: AppTheme) {
       textAlign: 'center',
       lineHeight: 19,
     },
-    button: {alignSelf: 'stretch', marginTop: 12},
-    laterBtn: {paddingVertical: 10, marginTop: 6},
-    laterText: {fontSize: 14, color: theme.palette.muted, fontWeight: '500'},
+    button: { alignSelf: 'stretch', marginTop: 12 },
+    laterBtn: { paddingVertical: 10, marginTop: 6 },
+    laterText: { fontSize: 14, color: theme.palette.muted, fontWeight: '500' },
   });
 }

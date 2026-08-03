@@ -163,7 +163,10 @@ export abstract class ParlourApiInterface {
     options?: ProductListOptions,
   ): Promise<ProductListResponse>;
   /** Flips only `trackInventory` — see the impl for why the full PUT is not an option. */
-  abstract updateProductTracking(id: number, trackInventory: boolean): Promise<ApiResponse<unknown>>;
+  abstract updateProductTracking(
+    id: number,
+    trackInventory: boolean,
+  ): Promise<ApiResponse<unknown>>;
   abstract getProductById(id: number): Promise<ApiResponse<unknown>>;
   abstract createProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
@@ -177,32 +180,69 @@ export abstract class ParlourApiInterface {
     options?: ServiceListOptions,
   ): Promise<ApiResponse<unknown[]>>;
   /** Flips only `availability` — see the impl for why the full PUT is not an option. */
-  abstract updateServiceAvailability(id: number, availability: boolean): Promise<ApiResponse<unknown>>;
+  abstract updateServiceAvailability(
+    id: number,
+    availability: boolean,
+  ): Promise<ApiResponse<unknown>>;
   abstract getServiceById(id: number): Promise<ApiResponse<unknown>>;
   abstract createService(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateService(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract deleteService(id: number): Promise<ApiResponse<unknown>>;
 
   // Orders
-  abstract getAllOrders(businessId: number, page: number, limit: number, options?: OrderListOptions): Promise<ApiResponse<unknown[]>>;
-  abstract getOrderSummary(businessId: number, options?: {fromDate?: string; toDate?: string}): Promise<ApiResponse<OrderSummary>>;
-  abstract updateOrderStatus(id: number, status: string, options?: {userId?: number; reason?: string}): Promise<ApiResponse<unknown>>;
+  abstract getAllOrders(
+    businessId: number,
+    page: number,
+    limit: number,
+    options?: OrderListOptions,
+  ): Promise<ApiResponse<unknown[]>>;
+  abstract getOrderSummary(
+    businessId: number,
+    options?: { fromDate?: string; toDate?: string },
+  ): Promise<ApiResponse<OrderSummary>>;
+  abstract updateOrderStatus(
+    id: number,
+    status: string,
+    options?: { userId?: number; reason?: string },
+  ): Promise<ApiResponse<unknown>>;
   abstract getOrderById(id: number): Promise<ApiResponse<unknown>>;
   abstract createOrder(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateOrder(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract deleteOrder(id: number): Promise<ApiResponse<unknown>>;
-  abstract getOrdersByCustomer(customerId: number, options: Record<string, unknown>): Promise<ApiResponse<unknown[]>>;
+  abstract getOrdersByCustomer(
+    customerId: number,
+    options: Record<string, unknown>,
+  ): Promise<ApiResponse<unknown[]>>;
 
   // Appointments
-  abstract getAllAppointments(businessId: number, page: number, limit: number, options?: AppointmentListOptions): Promise<ApiResponse<unknown[]>>;
-  abstract getAppointmentDayCounts(businessId: number, options: {fromDate: string; toDate: string}): Promise<ApiResponse<AppointmentDayCounts>>;
-  abstract updateAppointmentStatus(id: number, status: string, options?: {userId?: number; reason?: string}): Promise<ApiResponse<unknown>>;
-  abstract rescheduleAppointment(id: number, appointmentDateTime: string, options?: {userId?: number; reason?: string}): Promise<ApiResponse<unknown>>;
+  abstract getAllAppointments(
+    businessId: number,
+    page: number,
+    limit: number,
+    options?: AppointmentListOptions,
+  ): Promise<ApiResponse<unknown[]>>;
+  abstract getAppointmentDayCounts(
+    businessId: number,
+    options: { fromDate: string; toDate: string },
+  ): Promise<ApiResponse<AppointmentDayCounts>>;
+  abstract updateAppointmentStatus(
+    id: number,
+    status: string,
+    options?: { userId?: number; reason?: string },
+  ): Promise<ApiResponse<unknown>>;
+  abstract rescheduleAppointment(
+    id: number,
+    appointmentDateTime: string,
+    options?: { userId?: number; reason?: string },
+  ): Promise<ApiResponse<unknown>>;
   abstract getAppointmentById(id: number): Promise<ApiResponse<unknown>>;
   abstract createAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract deleteAppointment(id: number): Promise<ApiResponse<unknown>>;
-  abstract getAppointmentsByCustomer(customerId: number, options: Record<string, unknown>): Promise<ApiResponse<unknown[]>>;
+  abstract getAppointmentsByCustomer(
+    customerId: number,
+    options: Record<string, unknown>,
+  ): Promise<ApiResponse<unknown[]>>;
 
   // Bills
   abstract getBillById(id: number): Promise<ApiResponse<unknown>>;
@@ -217,7 +257,7 @@ export abstract class ParlourApiInterface {
   abstract updateBillPayment(
     id: number,
     paymentStatus: string,
-    options?: {paidAmount?: number; refundedAmount?: number},
+    options?: { paidAmount?: number; refundedAmount?: number },
   ): Promise<ApiResponse<unknown>>;
   abstract getBillsByCustomer(customerId: number): Promise<ApiResponse<unknown[]>>;
   abstract createBill(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
@@ -228,11 +268,17 @@ export abstract class ParlourApiInterface {
   abstract addInventoryBatch(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateInventoryBatch(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract getInventoryBatch(id: number): Promise<ApiResponse<unknown>>;
-  abstract getInventoryBatchesByProduct(productId: number, businessId: number): Promise<ApiResponse<unknown[]>>;
+  abstract getInventoryBatchesByProduct(
+    productId: number,
+    businessId: number,
+  ): Promise<ApiResponse<unknown[]>>;
   abstract getInventoryBatchesByBusiness(businessId: number): Promise<ApiResponse<unknown[]>>;
   abstract getTotalStock(productId: number, businessId: number): Promise<ApiResponse<number>>;
   abstract isAvailable(productId: number, businessId: number): Promise<ApiResponse<boolean>>;
-  abstract getExpiringBatches(businessId: number, withinDays: number): Promise<ApiResponse<unknown[]>>;
+  abstract getExpiringBatches(
+    businessId: number,
+    withinDays: number,
+  ): Promise<ApiResponse<unknown[]>>;
   abstract updateBatchStatus(id: number, status: string): Promise<ApiResponse<unknown>>;
   abstract deleteInventoryBatch(id: number): Promise<ApiResponse<unknown>>;
 }

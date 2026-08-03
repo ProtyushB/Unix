@@ -91,7 +91,7 @@ const ForgotUsernameEmailScreen: React.FC<Props> = ({ navigation }) => {
           <AppInput
             label="Email"
             value={email}
-            onChangeText={v => {
+            onChangeText={(v) => {
               setEmail(v);
               if (error) setError('');
             }}

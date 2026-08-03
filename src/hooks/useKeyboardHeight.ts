@@ -23,7 +23,7 @@ export function useKeyboardHeight(): number {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const showSub = Keyboard.addListener(showEvent, e => {
+    const showSub = Keyboard.addListener(showEvent, (e) => {
       setHeight(e.endCoordinates.height);
     });
     const hideSub = Keyboard.addListener(hideEvent, () => setHeight(0));

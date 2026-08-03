@@ -33,14 +33,10 @@ export function PersonCard({ person, onPress }: PersonCardProps) {
         <Text style={styles.name} numberOfLines={1}>
           {fullName}
         </Text>
-        {person.role ? (
-          <Text style={styles.role}>{person.role}</Text>
-        ) : null}
+        {person.role ? <Text style={styles.role}>{person.role}</Text> : null}
       </View>
 
-      {person.phone ? (
-        <Text style={styles.phone}>{person.phone}</Text>
-      ) : null}
+      {person.phone ? <Text style={styles.phone}>{person.phone}</Text> : null}
     </TouchableOpacity>
   );
 }

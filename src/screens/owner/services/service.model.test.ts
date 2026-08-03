@@ -44,43 +44,43 @@ describe('toServiceRow', () => {
 
   // The form treats 0 and blank alike and sends null, so a 0 here would mean "zero minutes".
   it('preserves a null duration rather than coercing it to zero', () => {
-    expect(toServiceRow({duration: null}).duration).toBeNull();
+    expect(toServiceRow({ duration: null }).duration).toBeNull();
     expect(toServiceRow({}).duration).toBeNull();
-    expect(toServiceRow({duration: ''}).duration).toBeNull();
-    expect(toServiceRow({duration: 45}).duration).toBe(45);
+    expect(toServiceRow({ duration: '' }).duration).toBeNull();
+    expect(toServiceRow({ duration: 45 }).duration).toBe(45);
   });
 
   // The column is NOT NULL DEFAULT true; only an explicit false means unavailable.
   it('treats a missing availability as available', () => {
     expect(toServiceRow({}).availability).toBe(true);
-    expect(toServiceRow({availability: false}).availability).toBe(false);
-    expect(toServiceRow({availability: true}).availability).toBe(true);
+    expect(toServiceRow({ availability: false }).availability).toBe(false);
+    expect(toServiceRow({ availability: true }).availability).toBe(true);
   });
 
   // A description is up to 1000 characters server-side and the row gives it one line; an embedded
   // newline would otherwise blow the row height out.
   it('collapses whitespace in the description to keep it one line', () => {
-    expect(toServiceRow({description: 'Wash,\n  cut\tand   blow-dry '}).description).toBe(
+    expect(toServiceRow({ description: 'Wash,\n  cut\tand   blow-dry ' }).description).toBe(
       'Wash, cut and blow-dry',
     );
     expect(toServiceRow({}).description).toBe('');
   });
 
   it('names an untitled service rather than rendering a blank row', () => {
-    expect(toServiceRow({name: '   '}).name).toBe('Untitled service');
+    expect(toServiceRow({ name: '   ' }).name).toBe('Untitled service');
     expect(toServiceRow({}).name).toBe('Untitled service');
   });
 
   it('coerces string prices', () => {
     // BigDecimal can serialise as a string depending on the mapper.
-    expect(toServiceRow({price: '1500.00'}).price).toBe(1500);
+    expect(toServiceRow({ price: '1500.00' }).price).toBe(1500);
   });
 });
 
 describe('availability', () => {
   it('reads straight off the stored flag', () => {
-    expect(availabilityStateFor(row({availability: true}))).toBe('AVAILABLE');
-    expect(availabilityStateFor(row({availability: false}))).toBe('UNAVAILABLE');
+    expect(availabilityStateFor(row({ availability: true }))).toBe('AVAILABLE');
+    expect(availabilityStateFor(row({ availability: false }))).toBe('UNAVAILABLE');
   });
 
   it('labels and tints both states', () => {

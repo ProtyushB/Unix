@@ -28,7 +28,9 @@ export class PersonService {
 
   // ===== Person Operations =====
 
-  async createPerson(personData: PersonDto & { businesses?: BusinessDto[] }): Promise<ServiceResult<PersonDto>> {
+  async createPerson(
+    personData: PersonDto & { businesses?: BusinessDto[] },
+  ): Promise<ServiceResult<PersonDto>> {
     try {
       const hasBusiness = personData.businesses && personData.businesses.length > 0;
 
@@ -74,7 +76,10 @@ export class PersonService {
     }
   }
 
-  async updatePerson(personData: PersonDto, flags?: UpdatePersonFlags): Promise<ServiceResult<PersonDto>> {
+  async updatePerson(
+    personData: PersonDto,
+    flags?: UpdatePersonFlags,
+  ): Promise<ServiceResult<PersonDto>> {
     try {
       const response = await this.api.updatePerson(personData, flags);
       if (response.success) {
@@ -133,7 +138,7 @@ export class PersonService {
     try {
       const response = await this.api.lookupCustomers({ email });
       const candidates = response?.data || [];
-      const match = candidates.find(c => c.matchedByEmail) || candidates[0];
+      const match = candidates.find((c) => c.matchedByEmail) || candidates[0];
       return match?.person || null;
     } catch {
       return null;
@@ -206,6 +211,11 @@ export class PersonService {
 
   private extractErrorMessage(error: unknown, fallback: string): string {
     const axiosError = error as AxiosError<{ error?: string; message?: string }>;
-    return axiosError.response?.data?.error || axiosError.response?.data?.message || (error as Error).message || fallback;
+    return (
+      axiosError.response?.data?.error ||
+      axiosError.response?.data?.message ||
+      (error as Error).message ||
+      fallback
+    );
   }
 }

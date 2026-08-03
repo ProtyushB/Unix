@@ -65,10 +65,7 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
 
   const renderItem = useCallback(
     ({ item, index }: { item: GalleryImage; index: number }) => (
-      <TouchableOpacity
-        onPress={() => openViewer(index)}
-        activeOpacity={0.85}
-      >
+      <TouchableOpacity onPress={() => openViewer(index)} activeOpacity={0.85}>
         <Image
           source={{ uri: item.uri }}
           style={[styles.thumbnail, { width: thumbnailSize, height: thumbnailSize * 0.6 }]}
@@ -111,11 +108,7 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
         />
 
         {onAddImage ? (
-          <TouchableOpacity
-            onPress={onAddImage}
-            style={styles.addBtn}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity onPress={onAddImage} style={styles.addBtn} activeOpacity={0.7}>
             <Plus size={22} color="#ffffff" />
           </TouchableOpacity>
         ) : null}
@@ -127,10 +120,7 @@ export function ImageGallery({ images, onAddImage }: ImageGalleryProps) {
           {images.map((_, index) => (
             <View
               key={index}
-              style={[
-                styles.dot,
-                index === activeIndex ? styles.dotActive : styles.dotInactive,
-              ]}
+              style={[styles.dot, index === activeIndex ? styles.dotActive : styles.dotInactive]}
             />
           ))}
         </View>

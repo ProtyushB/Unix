@@ -9,15 +9,21 @@ let open = false;
 const listeners = new Set<() => void>();
 
 function emit() {
-  listeners.forEach(l => l());
+  listeners.forEach((l) => l());
 }
 
 export function openBusinessSheet() {
-  if (!open) { open = true; emit(); }
+  if (!open) {
+    open = true;
+    emit();
+  }
 }
 
 export function closeBusinessSheet() {
-  if (open) { open = false; emit(); }
+  if (open) {
+    open = false;
+    emit();
+  }
 }
 
 export function useBusinessSheetState(): boolean {
@@ -25,7 +31,9 @@ export function useBusinessSheetState(): boolean {
   useEffect(() => {
     const l = () => setSnapshot(open);
     listeners.add(l);
-    return () => { listeners.delete(l); };
+    return () => {
+      listeners.delete(l);
+    };
   }, []);
   return snapshot;
 }

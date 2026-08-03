@@ -21,7 +21,9 @@ export class BusinessService {
     this.api = getBusinessApi();
   }
 
-  async createBusiness(data: BusinessDto & { personId?: number }): Promise<ServiceResult<BusinessDto>> {
+  async createBusiness(
+    data: BusinessDto & { personId?: number },
+  ): Promise<ServiceResult<BusinessDto>> {
     try {
       const payload: BusinessDto = {
         businessName: data.businessName,
@@ -46,11 +48,18 @@ export class BusinessService {
       }
       return { success: false, data: null, error: response.error || response.message };
     } catch (error) {
-      return { success: false, data: null, error: this.extractErrorMessage(error, 'Failed to create business') };
+      return {
+        success: false,
+        data: null,
+        error: this.extractErrorMessage(error, 'Failed to create business'),
+      };
     }
   }
 
-  async updateBusiness(businessData: BusinessDto, flags?: UpdateBusinessFlags): Promise<ServiceResult<BusinessDto>> {
+  async updateBusiness(
+    businessData: BusinessDto,
+    flags?: UpdateBusinessFlags,
+  ): Promise<ServiceResult<BusinessDto>> {
     try {
       const response = await this.api.updateBusiness(businessData, flags);
       if (response.success) {
@@ -58,7 +67,11 @@ export class BusinessService {
       }
       return { success: false, data: null, error: response.error || response.message };
     } catch (error) {
-      return { success: false, data: null, error: this.extractErrorMessage(error, 'Failed to update business') };
+      return {
+        success: false,
+        data: null,
+        error: this.extractErrorMessage(error, 'Failed to update business'),
+      };
     }
   }
 
@@ -70,7 +83,11 @@ export class BusinessService {
       }
       return { success: false, data: null, error: response.error || response.message };
     } catch (error) {
-      return { success: false, data: null, error: this.extractErrorMessage(error, 'Failed to get business') };
+      return {
+        success: false,
+        data: null,
+        error: this.extractErrorMessage(error, 'Failed to get business'),
+      };
     }
   }
 
@@ -82,7 +99,11 @@ export class BusinessService {
       }
       return { success: false, data: null, error: response.error || response.message };
     } catch (error) {
-      return { success: false, data: null, error: this.extractErrorMessage(error, 'Failed to get businesses') };
+      return {
+        success: false,
+        data: null,
+        error: this.extractErrorMessage(error, 'Failed to get businesses'),
+      };
     }
   }
 
@@ -94,12 +115,21 @@ export class BusinessService {
       }
       return { success: false, data: null, error: response.error || response.message };
     } catch (error) {
-      return { success: false, data: null, error: this.extractErrorMessage(error, 'Failed to delete business') };
+      return {
+        success: false,
+        data: null,
+        error: this.extractErrorMessage(error, 'Failed to delete business'),
+      };
     }
   }
 
   private extractErrorMessage(error: unknown, fallback: string): string {
     const axiosError = error as AxiosError<{ error?: string; message?: string }>;
-    return axiosError.response?.data?.error || axiosError.response?.data?.message || (error as Error).message || fallback;
+    return (
+      axiosError.response?.data?.error ||
+      axiosError.response?.data?.message ||
+      (error as Error).message ||
+      fallback
+    );
   }
 }

@@ -1,4 +1,4 @@
-import {evaluateManifest} from './updateService';
+import { evaluateManifest } from './updateService';
 
 /**
  * Tests for the updater's decision logic.
@@ -48,7 +48,7 @@ describe('evaluateManifest — version comparison', () => {
 describe('evaluateManifest — unknown local version', () => {
   // A build that cannot read its own versionCode must stay silent: it would
   // treat every published release as an upgrade and prompt forever.
-  it.each([0, -1, 1.5, NaN])('reports unsupported for currentCode %p', code => {
+  it.each([0, -1, 1.5, NaN])('reports unsupported for currentCode %p', (code) => {
     expect(evaluateManifest(manifestJson(), code, MANIFEST_URL).status).toBe('unsupported');
   });
 });
@@ -81,18 +81,18 @@ describe('evaluateManifest — malformed bodies', () => {
   // A string versionCode is a publish bug. Coercing it would silently turn the
   // comparison lexicographic, where "1042" < "999".
   it('rejects a string versionCode rather than coercing it', () => {
-    const verdict = evaluateManifest(manifestJson({versionCode: '1042'}), 1001, MANIFEST_URL);
+    const verdict = evaluateManifest(manifestJson({ versionCode: '1042' }), 1001, MANIFEST_URL);
     expect(verdict.status).toBe('invalid');
   });
 
-  it.each([0, -5, 10.5])('rejects versionCode %p', code => {
-    expect(evaluateManifest(manifestJson({versionCode: code}), 1001, MANIFEST_URL).status).toBe(
+  it.each([0, -5, 10.5])('rejects versionCode %p', (code) => {
+    expect(evaluateManifest(manifestJson({ versionCode: code }), 1001, MANIFEST_URL).status).toBe(
       'invalid',
     );
   });
 
   it('rejects a missing apkUrl', () => {
-    expect(evaluateManifest(manifestJson({apkUrl: undefined}), 1001, MANIFEST_URL).status).toBe(
+    expect(evaluateManifest(manifestJson({ apkUrl: undefined }), 1001, MANIFEST_URL).status).toBe(
       'invalid',
     );
   });
@@ -101,7 +101,7 @@ describe('evaluateManifest — malformed bodies', () => {
 describe('evaluateManifest — apkUrl guards', () => {
   it('rejects a plain-http apkUrl', () => {
     const verdict = evaluateManifest(
-      manifestJson({apkUrl: 'http://dev.centrixpro.in/downloads/unix.apk'}),
+      manifestJson({ apkUrl: 'http://dev.centrixpro.in/downloads/unix.apk' }),
       1001,
       MANIFEST_URL,
     );
@@ -113,7 +113,7 @@ describe('evaluateManifest — apkUrl guards', () => {
   // a cross-origin apkUrl would silently move a dev user onto production.
   it('rejects an apkUrl on a different origin than the manifest', () => {
     const verdict = evaluateManifest(
-      manifestJson({apkUrl: 'https://live.centrixpro.in/downloads/unix.apk'}),
+      manifestJson({ apkUrl: 'https://live.centrixpro.in/downloads/unix.apk' }),
       1001,
       MANIFEST_URL,
     );
@@ -122,7 +122,7 @@ describe('evaluateManifest — apkUrl guards', () => {
   });
 
   it('rejects an unparseable apkUrl', () => {
-    expect(evaluateManifest(manifestJson({apkUrl: 'not a url'}), 1001, MANIFEST_URL).status).toBe(
+    expect(evaluateManifest(manifestJson({ apkUrl: 'not a url' }), 1001, MANIFEST_URL).status).toBe(
       'invalid',
     );
   });
@@ -133,7 +133,7 @@ describe('evaluateManifest — optional fields', () => {
   // download's post-check and make the updater permanently unusable, which is
   // worse than simply not having the check.
   it('drops a nonsense sizeBytes instead of failing the whole manifest', () => {
-    const verdict = evaluateManifest(manifestJson({sizeBytes: -1}), 1001, MANIFEST_URL);
+    const verdict = evaluateManifest(manifestJson({ sizeBytes: -1 }), 1001, MANIFEST_URL);
     expect(verdict.status).toBe('update-available');
     if (verdict.status === 'update-available') {
       expect(verdict.manifest.sizeBytes).toBeUndefined();
@@ -141,7 +141,7 @@ describe('evaluateManifest — optional fields', () => {
   });
 
   it('drops a malformed sha256 instead of failing the whole manifest', () => {
-    const verdict = evaluateManifest(manifestJson({sha256: 'nope'}), 1001, MANIFEST_URL);
+    const verdict = evaluateManifest(manifestJson({ sha256: 'nope' }), 1001, MANIFEST_URL);
     expect(verdict.status).toBe('update-available');
     if (verdict.status === 'update-available') {
       expect(verdict.manifest.sha256).toBeUndefined();
@@ -156,7 +156,7 @@ describe('evaluateManifest — optional fields', () => {
   });
 
   it('falls back to the versionCode when versionName is missing', () => {
-    const verdict = evaluateManifest(manifestJson({versionName: 42}), 1001, MANIFEST_URL);
+    const verdict = evaluateManifest(manifestJson({ versionName: 42 }), 1001, MANIFEST_URL);
     if (verdict.status === 'update-available') {
       expect(verdict.manifest.versionName).toBe('1042');
     }
@@ -164,7 +164,7 @@ describe('evaluateManifest — optional fields', () => {
 
   it('keeps only string entries in notes', () => {
     const verdict = evaluateManifest(
-      manifestJson({notes: ['Fixed a bug', 7, null, 'And another']}),
+      manifestJson({ notes: ['Fixed a bug', 7, null, 'And another'] }),
       1001,
       MANIFEST_URL,
     );

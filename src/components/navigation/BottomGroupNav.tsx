@@ -1,11 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,11 +8,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { useBlurTargets } from '../common/BlurTargetContext';
 import type { AppTheme } from '../../theme/theme.types';
-import {
-  NAV_GROUPS,
-  filterNavGroupsByTabs,
-  findGroupByTabName,
-} from '../../navigation/navGroups';
+import { NAV_GROUPS, filterNavGroupsByTabs, findGroupByTabName } from '../../navigation/navGroups';
 import { useTabGateRedirect } from '../../navigation/useTabGateRedirect';
 import { useTabConfig } from '../../backend/tab-config';
 import {
@@ -65,10 +55,7 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
   const isDark = theme.mode === 'dark';
 
   const { tabs } = useTabConfig();
-  const visibleGroups = useMemo(
-    () => filterNavGroupsByTabs(NAV_GROUPS, tabs),
-    [tabs],
-  );
+  const visibleGroups = useMemo(() => filterNavGroupsByTabs(NAV_GROUPS, tabs), [tabs]);
 
   // Bounce off a screen whose tab just got switched off.
   useTabGateRedirect(state, navigation);
@@ -105,12 +92,7 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
   }, [navigation]);
 
   return (
-    <View
-      style={[
-        isDark ? styles.barGlass : styles.barFlat,
-        { paddingBottom: insets.bottom + 6 },
-      ]}
-    >
+    <View style={[isDark ? styles.barGlass : styles.barFlat, { paddingBottom: insets.bottom + 6 }]}>
       {isDark && (
         <>
           <BlurView
@@ -123,10 +105,7 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
           />
           <View
             pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: palette.surface + '66' },
-            ]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: palette.surface + '66' }]}
           />
         </>
       )}
@@ -143,15 +122,15 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
           { paddingLeft: 14 + insets.left, paddingRight: 14 + insets.right },
         ]}
       >
-        {visibleGroups.map(group => {
-          const GroupIcon  = group.groupIcon;
-          const isActive   = activeGroupId === group.id;
-          const isOpen     = openGroupId   === group.id;
+        {visibleGroups.map((group) => {
+          const GroupIcon = group.groupIcon;
+          const isActive = activeGroupId === group.id;
+          const isOpen = openGroupId === group.id;
           const tintActive = isActive || isOpen;
           // Counts VISIBLE items: a group filtered down to one surviving item
           // navigates straight there instead of opening a one-row sheet.
-          const isSingle   = group.items.length === 1;
-          const isAccount  = group.id === 'account';
+          const isSingle = group.items.length === 1;
+          const isAccount = group.id === 'account';
 
           const tab = (
             <TouchableOpacity
@@ -176,7 +155,7 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
                       styles.avatar,
                       {
                         backgroundColor: accountColor + '26',
-                        borderColor:     accountColor + '40',
+                        borderColor: accountColor + '40',
                       },
                     ]}
                   >
@@ -187,17 +166,14 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
                 </View>
               ) : (
                 <View style={[styles.iconWrap, tintActive && styles.iconWrapActive]}>
-                  <GroupIcon
-                    size={21}
-                    color={tintActive ? colors.primary : palette.muted}
-                  />
+                  <GroupIcon size={21} color={tintActive ? colors.primary : palette.muted} />
                 </View>
               )}
               <Text
                 style={[
                   styles.barTabLabel,
                   {
-                    color:      tintActive ? colors.primary : palette.muted,
+                    color: tintActive ? colors.primary : palette.muted,
                     fontWeight: tintActive ? '600' : '500',
                   },
                 ]}
@@ -230,72 +206,72 @@ function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     barFlat: {
       backgroundColor: theme.palette.surface,
-      borderTopWidth:  1,
-      borderTopColor:  theme.palette.divider,
-      paddingTop:      6,
+      borderTopWidth: 1,
+      borderTopColor: theme.palette.divider,
+      paddingTop: 6,
     },
     barGlass: {
       backgroundColor: 'transparent',
-      overflow:        'hidden',
-      borderTopWidth:  1,
-      borderTopColor:  theme.palette.divider + '80',
-      paddingTop:      6,
+      overflow: 'hidden',
+      borderTopWidth: 1,
+      borderTopColor: theme.palette.divider + '80',
+      paddingTop: 6,
     },
     barContent: {
       paddingHorizontal: 14,
-      gap:               2,
+      gap: 2,
     },
     barScrollContent: {
       zIndex: 1,
     },
     barTab: {
-      width:           76,
+      width: 76,
       paddingVertical: 8,
       paddingHorizontal: 2,
-      alignItems:      'center',
-      gap:             5,
+      alignItems: 'center',
+      gap: 5,
     },
     navDivider: {
-      width:            1,
-      height:           32,
-      alignSelf:        'center',
+      width: 1,
+      height: 32,
+      alignSelf: 'center',
       marginHorizontal: 7,
-      backgroundColor:  theme.palette.divider,
+      backgroundColor: theme.palette.divider,
     },
     iconWrap: {
-      width:          44,
-      height:         40,
-      borderRadius:   14,
-      alignItems:     'center',
+      width: 44,
+      height: 40,
+      borderRadius: 14,
+      alignItems: 'center',
       justifyContent: 'center',
       // overflow:hidden forces an Android outline clip so the rounded corners
       // render even on tabs activated after mount (a bg transparent→color
       // transition otherwise leaves square corners on Android).
-      overflow:       'hidden',
+      overflow: 'hidden',
     },
     iconWrapActive: {
       backgroundColor: theme.colors.softBg,
     },
     avatarWrap: {
-      width:          44,
-      height:         40,
-      alignItems:     'center',
+      width: 44,
+      height: 40,
+      alignItems: 'center',
       justifyContent: 'center',
     },
     avatar: {
-      width:          30,
-      height:         30,
-      borderRadius:   8,
-      alignItems:     'center',
+      width: 30,
+      height: 30,
+      borderRadius: 8,
+      alignItems: 'center',
       justifyContent: 'center',
-      borderWidth:    1,
+      borderWidth: 1,
     },
     avatarInitials: {
-      fontSize:   11,
+      fontSize: 11,
       fontWeight: '600',
     },
     barTabLabel: {
-      fontSize:  10,
+      fontSize: 10,
       textAlign: 'center',
     },
   });

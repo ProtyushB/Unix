@@ -42,10 +42,7 @@ const ForgotUsernameSentScreen: React.FC<Props> = ({ navigation, route }) => {
       >
         <AuthTopBack onPress={() => navigation.goBack()} />
 
-        <AuthHeader
-          title="Recover username"
-          subtitle="Check your inbox for your username"
-        />
+        <AuthHeader title="Recover username" subtitle="Check your inbox for your username" />
 
         <AuthBadge icon={CircleCheck} tone="success" />
 

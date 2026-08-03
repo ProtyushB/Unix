@@ -8,14 +8,14 @@
  */
 
 import axios from 'axios';
-import {PARLOUR_BASE_URL} from './api.config';
-import {installAuthInterceptors} from '../../../shared/config/authInterceptors';
+import { PARLOUR_BASE_URL } from './api.config';
+import { installAuthInterceptors } from '../../../shared/config/authInterceptors';
 
 const parlourApiClient = installAuthInterceptors(
   axios.create({
     baseURL: PARLOUR_BASE_URL,
     timeout: 30000,
-    headers: {'Content-Type': 'application/json'},
+    headers: { 'Content-Type': 'application/json' },
   }),
 );
 

@@ -41,11 +41,25 @@ export const ALWAYS_ON_TABS = ['DASHBOARD', 'BILLS'] as const;
  * `STOCK_TRANSFER`) at compile time in navGroups.
  */
 export const DEFAULT_ALL_ON = {
-  DASHBOARD: true, REPORTS: true, EMPLOYEES: true, CUSTOMERS: true,
-  LOYALTY: true, WARRANTY_CLAIMS: true, EXPENSES: true,
-  PRODUCTS: true, SERVICES: true, INVENTORY: true, CATEGORIES: true,
-  ORDERS: true, APPOINTMENTS: true, PACKAGES: true, SUBSCRIPTIONS: true,
-  SERVICE_PLANS: true, CONSUMPTION: true, WASTAGE: true, STOCK_TRANSFER: true,
+  DASHBOARD: true,
+  REPORTS: true,
+  EMPLOYEES: true,
+  CUSTOMERS: true,
+  LOYALTY: true,
+  WARRANTY_CLAIMS: true,
+  EXPENSES: true,
+  PRODUCTS: true,
+  SERVICES: true,
+  INVENTORY: true,
+  CATEGORIES: true,
+  ORDERS: true,
+  APPOINTMENTS: true,
+  PACKAGES: true,
+  SUBSCRIPTIONS: true,
+  SERVICE_PLANS: true,
+  CONSUMPTION: true,
+  WASTAGE: true,
+  STOCK_TRANSFER: true,
   BILLS: true,
 } as const;
 
@@ -57,11 +71,7 @@ export type TabMap = Record<TabKey, boolean>;
  * HIDDEN (fail-closed), so an unresolved or still-loading state can never flash
  * an unreleased feature the way a permissive baseline would.
  */
-export const RELEASE_GATED_TABS: readonly TabKey[] = [
-  'PACKAGES',
-  'SUBSCRIPTIONS',
-  'SERVICE_PLANS',
-];
+export const RELEASE_GATED_TABS: readonly TabKey[] = ['PACKAGES', 'SUBSCRIPTIONS', 'SERVICE_PLANS'];
 
 const TAB_KEYS = Object.keys(DEFAULT_ALL_ON) as TabKey[];
 

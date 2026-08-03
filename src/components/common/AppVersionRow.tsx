@@ -1,12 +1,12 @@
 import React from 'react';
-import {View, Text, TouchableOpacity, StyleSheet, ActivityIndicator} from 'react-native';
-import {Smartphone} from 'lucide-react-native';
-import {useThemedStyles} from '../../hooks/useThemedStyles';
-import {useTheme} from '../../hooks/useTheme';
-import {useAppUpdate} from '../../hooks/useAppUpdate';
-import {APP_VERSION_NAME, UPDATES_SUPPORTED} from '../../config/appVersion';
-import {UpdatePrompt} from './UpdatePromptModal';
-import type {AppTheme} from '../../theme/theme.types';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Smartphone } from 'lucide-react-native';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { useTheme } from '../../hooks/useTheme';
+import { useAppUpdate } from '../../hooks/useAppUpdate';
+import { APP_VERSION_NAME, UPDATES_SUPPORTED } from '../../config/appVersion';
+import { UpdatePrompt } from './UpdatePromptModal';
+import type { AppTheme } from '../../theme/theme.types';
 
 /**
  * "App version" row with a manual update check.
@@ -22,8 +22,8 @@ import type {AppTheme} from '../../theme/theme.types';
  */
 export function AppVersionRow() {
   const controller = useAppUpdate(false);
-  const {stage, error, upToDate, checkNow} = controller;
-  const {palette} = useTheme();
+  const { stage, error, upToDate, checkNow } = controller;
+  const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
 
   const checking = stage === 'checking';
@@ -71,11 +71,11 @@ function createStyles(theme: AppTheme) {
       gap: 12,
       paddingVertical: 14,
     },
-    labelBlock: {flex: 1},
-    label: {fontSize: 15, color: theme.palette.onBackground, fontWeight: '500'},
-    value: {fontSize: 12, color: theme.palette.muted, marginTop: 2},
-    action: {fontSize: 13, color: theme.colors.primary, fontWeight: '600'},
-    hint: {fontSize: 12, color: theme.palette.muted, marginBottom: 8},
-    error: {fontSize: 12, color: theme.palette.error, marginBottom: 8},
+    labelBlock: { flex: 1 },
+    label: { fontSize: 15, color: theme.palette.onBackground, fontWeight: '500' },
+    value: { fontSize: 12, color: theme.palette.muted, marginTop: 2 },
+    action: { fontSize: 13, color: theme.colors.primary, fontWeight: '600' },
+    hint: { fontSize: 12, color: theme.palette.muted, marginBottom: 8 },
+    error: { fontSize: 12, color: theme.palette.error, marginBottom: 8 },
   });
 }

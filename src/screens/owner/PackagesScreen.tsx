@@ -12,31 +12,95 @@ import { formatCurrency } from '../../utils/formatters';
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
 interface MockPackage {
-  id:          number;
-  name:        string;
-  tier:        'BASIC' | 'STANDARD' | 'PREMIUM';
-  price:       number;
-  itemCount:   number;
+  id: number;
+  name: string;
+  tier: 'BASIC' | 'STANDARD' | 'PREMIUM';
+  price: number;
+  itemCount: number;
   validityDay: number;
-  icon:        LucideIcon;
+  icon: LucideIcon;
 }
 
 const MOCK_PACKAGES: MockPackage[] = [
-  { id: 1, name: 'Bridal Glow',        tier: 'PREMIUM',  price: 18500, itemCount: 6, validityDay: 90,  icon: Crown },
-  { id: 2, name: 'Spa Essentials',     tier: 'STANDARD', price: 6500,  itemCount: 4, validityDay: 60,  icon: Heart },
-  { id: 3, name: 'Haircare Starter',   tier: 'BASIC',    price: 2500,  itemCount: 3, validityDay: 30,  icon: PackageIcon },
-  { id: 4, name: 'Party Ready',        tier: 'STANDARD', price: 4200,  itemCount: 3, validityDay: 30,  icon: Sparkles },
-  { id: 5, name: 'Monthly Unlimited',  tier: 'PREMIUM',  price: 12000, itemCount: 10, validityDay: 30, icon: Crown },
-  { id: 6, name: 'Skin Refresh',       tier: 'STANDARD', price: 5800,  itemCount: 4, validityDay: 45,  icon: Sparkles },
-  { id: 7, name: 'Festive Combo',      tier: 'BASIC',    price: 1800,  itemCount: 2, validityDay: 15,  icon: Gift },
-  { id: 8, name: 'Groom Grooming',     tier: 'STANDARD', price: 5500,  itemCount: 5, validityDay: 60,  icon: PackageIcon },
+  {
+    id: 1,
+    name: 'Bridal Glow',
+    tier: 'PREMIUM',
+    price: 18500,
+    itemCount: 6,
+    validityDay: 90,
+    icon: Crown,
+  },
+  {
+    id: 2,
+    name: 'Spa Essentials',
+    tier: 'STANDARD',
+    price: 6500,
+    itemCount: 4,
+    validityDay: 60,
+    icon: Heart,
+  },
+  {
+    id: 3,
+    name: 'Haircare Starter',
+    tier: 'BASIC',
+    price: 2500,
+    itemCount: 3,
+    validityDay: 30,
+    icon: PackageIcon,
+  },
+  {
+    id: 4,
+    name: 'Party Ready',
+    tier: 'STANDARD',
+    price: 4200,
+    itemCount: 3,
+    validityDay: 30,
+    icon: Sparkles,
+  },
+  {
+    id: 5,
+    name: 'Monthly Unlimited',
+    tier: 'PREMIUM',
+    price: 12000,
+    itemCount: 10,
+    validityDay: 30,
+    icon: Crown,
+  },
+  {
+    id: 6,
+    name: 'Skin Refresh',
+    tier: 'STANDARD',
+    price: 5800,
+    itemCount: 4,
+    validityDay: 45,
+    icon: Sparkles,
+  },
+  {
+    id: 7,
+    name: 'Festive Combo',
+    tier: 'BASIC',
+    price: 1800,
+    itemCount: 2,
+    validityDay: 15,
+    icon: Gift,
+  },
+  {
+    id: 8,
+    name: 'Groom Grooming',
+    tier: 'STANDARD',
+    price: 5500,
+    itemCount: 5,
+    validityDay: 60,
+    icon: PackageIcon,
+  },
 ];
 
 const FILTERS = [
-  { id: 'ALL',      label: 'All' },
-  { id: 'BASIC',    label: 'Basic' },
+  { id: 'ALL', label: 'All' },
+  { id: 'BASIC', label: 'Basic' },
   { id: 'STANDARD', label: 'Standard' },
-  { id: 'PREMIUM',  label: 'Premium' },
+  { id: 'PREMIUM', label: 'Premium' },
 ];
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
@@ -45,12 +109,12 @@ export function PackagesScreen() {
   const { palette } = useTheme();
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
-  const [view, setView]     = useState<'list' | 'grid'>('grid');
+  const [view, setView] = useState<'list' | 'grid'>('grid');
 
   const visible = useMemo(() => {
-    return MOCK_PACKAGES.filter(p => {
-      const matchTier  = filter === 'ALL' || p.tier === filter;
-      const q          = search.trim().toLowerCase();
+    return MOCK_PACKAGES.filter((p) => {
+      const matchTier = filter === 'ALL' || p.tier === filter;
+      const q = search.trim().toLowerCase();
       const matchQuery = !q || p.name.toLowerCase().includes(q);
       return matchTier && matchQuery;
     });
@@ -68,7 +132,9 @@ export function PackagesScreen() {
       searchPlaceholder="Search packages..."
       view={view}
       onViewChange={setView}
-      onAdd={() => { /* TODO */ }}
+      onAdd={() => {
+        /* TODO */
+      }}
     >
       {visible.length === 0 ? (
         <EmptyState
@@ -80,7 +146,7 @@ export function PackagesScreen() {
         <FlatList
           key="grid"
           data={visible}
-          keyExtractor={p => String(p.id)}
+          keyExtractor={(p) => String(p.id)}
           numColumns={2}
           contentContainerStyle={styles.gridContent}
           columnWrapperStyle={styles.gridRow}
@@ -98,7 +164,7 @@ export function PackagesScreen() {
         <FlatList
           key="list"
           data={visible}
-          keyExtractor={p => String(p.id)}
+          keyExtractor={(p) => String(p.id)}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
             <ListCard
@@ -117,6 +183,6 @@ export function PackagesScreen() {
 
 const styles = StyleSheet.create({
   gridContent: { paddingHorizontal: 10, paddingTop: 8, paddingBottom: 100 },
-  gridRow:     { justifyContent: 'space-between' },
+  gridRow: { justifyContent: 'space-between' },
   listContent: { paddingTop: 8, paddingBottom: 100 },
 });

@@ -40,9 +40,7 @@ export function StatCard({
   const styles = useThemedStyles(createStyles);
 
   const trendColor =
-    trend === 'up' ? palette.success
-      : trend === 'down' ? palette.error
-        : palette.muted;
+    trend === 'up' ? palette.success : trend === 'down' ? palette.error : palette.muted;
 
   return (
     <View style={styles.card}>

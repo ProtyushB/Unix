@@ -36,25 +36,28 @@ interface AppInputProps {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export const AppInput = React.forwardRef<TextInput, AppInputProps>(function AppInput({
-  label,
-  value,
-  defaultValue,
-  onChangeText,
-  placeholder,
-  error,
-  disabled = false,
-  leftIcon,
-  rightIcon,
-  keyboardType,
-  secureTextEntry,
-  multiline = false,
-  style,
-  autoCapitalize,
-  autoCorrect,
-  autoComplete,
-  maxLength,
-}, ref) {
+export const AppInput = React.forwardRef<TextInput, AppInputProps>(function AppInput(
+  {
+    label,
+    value,
+    defaultValue,
+    onChangeText,
+    placeholder,
+    error,
+    disabled = false,
+    leftIcon,
+    rightIcon,
+    keyboardType,
+    secureTextEntry,
+    multiline = false,
+    style,
+    autoCapitalize,
+    autoCorrect,
+    autoComplete,
+    maxLength,
+  },
+  ref,
+) {
   const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [isFocused, setIsFocused] = useState(false);
@@ -138,14 +141,14 @@ function createStyles(theme: AppTheme) {
     },
     borderDefault: { borderColor: theme.palette.divider + 'B3' },
     borderFocused: { borderColor: theme.colors.primary },
-    borderError:   { borderColor: theme.palette.error },
+    borderError: { borderColor: theme.palette.error },
     inputDisabled: { opacity: 0.5 },
     inputMultiline: {
       minHeight: 100,
       alignItems: 'flex-start',
       paddingVertical: 12,
     },
-    iconLeft:  { marginRight: 10 },
+    iconLeft: { marginRight: 10 },
     iconRight: { marginLeft: 10 },
     input: {
       flex: 1,
@@ -153,7 +156,7 @@ function createStyles(theme: AppTheme) {
       color: theme.palette.onBackground,
       paddingVertical: 12,
     },
-    inputWithLeftIcon:  { paddingLeft: 0 },
+    inputWithLeftIcon: { paddingLeft: 0 },
     inputWithRightIcon: { paddingRight: 0 },
     multilineInput: {
       minHeight: 76,

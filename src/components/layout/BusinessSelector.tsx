@@ -28,11 +28,7 @@ export function BusinessSelector({
   const label = `${displayModule} / ${displayBusiness}`;
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      style={styles.container}
-    >
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.container}>
       <Text style={styles.label} numberOfLines={1}>
         {label}
       </Text>

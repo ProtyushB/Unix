@@ -15,11 +15,7 @@ interface LoadingSpinnerProps {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function LoadingSpinner({
-  size = 'large',
-  color,
-  overlay = false,
-}: LoadingSpinnerProps) {
+export function LoadingSpinner({ size = 'large', color, overlay = false }: LoadingSpinnerProps) {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const spinnerColor = color ?? colors.primary;

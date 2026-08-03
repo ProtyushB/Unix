@@ -1,12 +1,5 @@
-import React, {useState, useEffect, useCallback, useRef} from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-  Animated,
-} from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, Alert, StyleSheet, Animated } from 'react-native';
 import {
   User,
   ChevronRight,
@@ -19,21 +12,21 @@ import {
   LogOut,
   Shield,
 } from 'lucide-react-native';
-import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
-import {AppCard} from '../../components/common/AppCard';
-import {AvatarBadge} from '../../components/common/AvatarBadge';
-import {AppButton} from '../../components/common/AppButton';
-import {ConfirmDialog} from '../../components/common/ConfirmDialog';
-import {PortalSwitcherSheet} from '../../components/common/PortalSwitcherSheet';
+import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { AppCard } from '../../components/common/AppCard';
+import { AvatarBadge } from '../../components/common/AvatarBadge';
+import { AppButton } from '../../components/common/AppButton';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { PortalSwitcherSheet } from '../../components/common/PortalSwitcherSheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {navigationRef} from '../../navigation/RootNavigator';
-import {CommonActions, useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {PORTALS, PortalKey, getAvailablePortals} from '../../utils/portals';
-import {ProfileStackParamList} from '../../navigation/types';
-import {biometricStorage} from '../../storage/biometric.storage';
-import {clearTabConfigCache} from '../../backend/tab-config';
-import {resetRefreshState} from '../../backend/shared/config/authInterceptors';
+import { navigationRef } from '../../navigation/RootNavigator';
+import { CommonActions, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { PORTALS, PortalKey, getAvailablePortals } from '../../utils/portals';
+import { ProfileStackParamList } from '../../navigation/types';
+import { biometricStorage } from '../../storage/biometric.storage';
+import { clearTabConfigCache } from '../../backend/tab-config';
+import { resetRefreshState } from '../../backend/shared/config/authInterceptors';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
@@ -48,11 +41,11 @@ interface UserProfile {
 }
 
 const SETTINGS_ROWS = [
-  {key: 'theme', label: 'Theme', icon: Palette},
-  {key: 'notifications', label: 'Notifications', icon: Bell},
-  {key: 'language', label: 'Language', icon: Globe},
-  {key: 'help', label: 'Help', icon: HelpCircle},
-  {key: 'contact', label: 'Contact Us', icon: Mail},
+  { key: 'theme', label: 'Theme', icon: Palette },
+  { key: 'notifications', label: 'Notifications', icon: Bell },
+  { key: 'language', label: 'Language', icon: Globe },
+  { key: 'help', label: 'Help', icon: HelpCircle },
+  { key: 'contact', label: 'Contact Us', icon: Mail },
 ];
 
 export const CustomerProfileScreen: React.FC = () => {
@@ -71,16 +64,19 @@ export const CustomerProfileScreen: React.FC = () => {
     overlayAnim.setValue(0);
     setShowPortalSheet(true);
     Animated.parallel([
-      Animated.spring(slideAnim, {toValue: 0, useNativeDriver: true, bounciness: 3, speed: 16}),
-      Animated.timing(overlayAnim, {toValue: 1, duration: 250, useNativeDriver: true}),
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 16 }),
+      Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
     ]).start();
   };
 
   const closePortalSheet = (callback?: () => void) => {
     Animated.parallel([
-      Animated.timing(slideAnim, {toValue: 300, duration: 220, useNativeDriver: true}),
-      Animated.timing(overlayAnim, {toValue: 0, duration: 220, useNativeDriver: true}),
-    ]).start(() => { setShowPortalSheet(false); callback?.(); });
+      Animated.timing(slideAnim, { toValue: 300, duration: 220, useNativeDriver: true }),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(() => {
+      setShowPortalSheet(false);
+      callback?.();
+    });
   };
 
   useEffect(() => {
@@ -104,7 +100,9 @@ export const CustomerProfileScreen: React.FC = () => {
       try {
         await AsyncStorage.setItem('session:activeProfile', PORTALS[key].key);
         if (navigationRef.isReady()) {
-          navigationRef.dispatch(CommonActions.reset({index: 0, routes: [{name: PORTALS[key].route}]}));
+          navigationRef.dispatch(
+            CommonActions.reset({ index: 0, routes: [{ name: PORTALS[key].route }] }),
+          );
         }
       } catch {
         // navigation dispatch failed silently
@@ -122,7 +120,7 @@ export const CustomerProfileScreen: React.FC = () => {
       navigationRef.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [{name: 'Auth'}],
+          routes: [{ name: 'Auth' }],
         }),
       );
     } catch {
@@ -143,9 +141,7 @@ export const CustomerProfileScreen: React.FC = () => {
     }
   };
 
-  const fullName = user
-    ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
-    : 'User';
+  const fullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'User';
 
   return (
     <ScreenWrapper>
@@ -160,13 +156,12 @@ export const CustomerProfileScreen: React.FC = () => {
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{fullName}</Text>
             <Text style={styles.profileEmail}>{user?.email || ''}</Text>
-            {user?.phone && (
-              <Text style={styles.profilePhone}>{user.phone}</Text>
-            )}
+            {user?.phone && <Text style={styles.profilePhone}>{user.phone}</Text>}
             <TouchableOpacity
               style={styles.rolePill}
               onPress={() => canSwitchPortal && openPortalSheet()}
-              activeOpacity={canSwitchPortal ? 0.7 : 1}>
+              activeOpacity={canSwitchPortal ? 0.7 : 1}
+            >
               <User size={11} color={colors.primary} />
               <Text style={styles.rolePillText}>Customer</Text>
               {canSwitchPortal && <ChevronDown size={11} color={colors.primary} />}
@@ -178,7 +173,8 @@ export const CustomerProfileScreen: React.FC = () => {
         <TouchableOpacity
           style={styles.securityRow}
           onPress={() => profileNav.navigate('Security')}
-          activeOpacity={0.7}>
+          activeOpacity={0.7}
+        >
           <Shield size={20} color={palette.muted} />
           <Text style={styles.settingLabel}>Security</Text>
           <ChevronRight size={18} color={palette.divider} />
@@ -186,14 +182,15 @@ export const CustomerProfileScreen: React.FC = () => {
 
         <View style={styles.settingsSection}>
           <Text style={styles.sectionTitle}>Settings</Text>
-          {SETTINGS_ROWS.map(row => {
+          {SETTINGS_ROWS.map((row) => {
             const Icon = row.icon;
             return (
               <TouchableOpacity
                 key={row.key}
                 style={styles.settingRow}
                 onPress={() => handleSettingPress(row.key)}
-                activeOpacity={0.7}>
+                activeOpacity={0.7}
+              >
                 <Icon size={20} color={palette.muted} />
                 <Text style={styles.settingLabel}>{row.label}</Text>
                 <ChevronRight size={18} color={palette.divider} />
@@ -280,8 +277,25 @@ function createStyles(theme: AppTheme) {
       color: theme.palette.muted,
       marginTop: 2,
     },
-    rolePill: {marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: theme.colors.softBg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', borderWidth: 1, borderColor: theme.colors.border},
-    rolePillText: {fontSize: 11, color: theme.colors.primary, fontWeight: '700', letterSpacing: 0.5},
+    rolePill: {
+      marginTop: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: theme.colors.softBg,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    rolePillText: {
+      fontSize: 11,
+      color: theme.colors.primary,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
     settingsSection: {
       marginBottom: 24,
     },

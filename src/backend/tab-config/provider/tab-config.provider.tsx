@@ -21,21 +21,10 @@
  *  - `updateTabs` is not ported — there is no mobile settings panel to call it.
  */
 
-import React, {
-  createContext,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  ALWAYS_ON_TABS,
-  DEFAULT_UNRESOLVED,
-  TAB_CONFIG_API_CONFIG,
-} from '../config/api.config';
+import { ALWAYS_ON_TABS, DEFAULT_UNRESOLVED, TAB_CONFIG_API_CONFIG } from '../config/api.config';
 import {
   UNRESOLVED_SNAPSHOT,
   normalizeTabConfig,
@@ -148,7 +137,7 @@ export async function clearTabConfigCache(): Promise<void> {
   lastResolvedBusinessId = null;
   try {
     const keys = await AsyncStorage.getAllKeys();
-    const ours = keys.filter(k => k.startsWith(TAB_CONFIG_API_CONFIG.CACHE_KEY_PREFIX));
+    const ours = keys.filter((k) => k.startsWith(TAB_CONFIG_API_CONFIG.CACHE_KEY_PREFIX));
     if (ours.length) await AsyncStorage.multiRemove(ours);
   } catch {
     // Nothing actionable — the TTL will age the entries out regardless.

@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import {AppInput} from '../../components/common/AppInput';
+import { AppInput } from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import SelectField from '../../components/forms/SelectField';
 import AuthBackground from '../../components/auth/AuthBackground';
@@ -76,11 +76,9 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
   const SCROLL_OFFSET = 20; // breathing room from top of screen
 
   const updateBusiness = (id: string, field: keyof BusinessForm, value: string) => {
-    setBusinesses(prev =>
-      prev.map(b => (b.id === id ? { ...b, [field]: value } : b)),
-    );
+    setBusinesses((prev) => prev.map((b) => (b.id === id ? { ...b, [field]: value } : b)));
     if (errors[id]?.[field]) {
-      setErrors(prev => {
+      setErrors((prev) => {
         const copy = { ...prev };
         if (copy[id]) {
           copy[id] = { ...copy[id] };
@@ -93,7 +91,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const addBusiness = () => {
     const newBiz = createEmptyBusiness();
-    setBusinesses(prev => [...prev, newBiz]);
+    setBusinesses((prev) => [...prev, newBiz]);
     setTimeout(() => {
       const cardY = cardYPositions.current.get(newBiz.id) ?? 0;
       scrollViewRef.current?.scrollTo({
@@ -106,11 +104,11 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
   const removeBusiness = (id: string) => {
     if (businesses.length <= 1) return;
 
-    const deletedIndex = businesses.findIndex(b => b.id === id);
-    const remaining = businesses.filter(b => b.id !== id);
+    const deletedIndex = businesses.findIndex((b) => b.id === id);
+    const remaining = businesses.filter((b) => b.id !== id);
 
     setBusinesses(remaining);
-    setErrors(prev => {
+    setErrors((prev) => {
       const copy = { ...prev };
       delete copy[id];
       return copy;
@@ -144,7 +142,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
     const newErrors: Record<string, Record<string, string>> = {};
     let isValid = true;
 
-    businesses.forEach(biz => {
+    businesses.forEach((biz) => {
       const bizErrors: Record<string, string> = {};
 
       if (!biz.businessName.trim()) {
@@ -179,7 +177,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
     const personal = { firstName, lastName, email, username, phoneNumber };
 
     const businessData = hasBusiness
-      ? businesses.map(biz => ({
+      ? businesses.map((biz) => ({
           businessName: biz.businessName.trim(),
           businessType: biz.businessType,
           // Same rule as the personal phone: store bare digits, not what was
@@ -195,7 +193,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
     navigation.navigate('Review', { personal, businesses: businessData });
   };
 
-  const businessTypeOptions = BUSINESS_TYPES.map(bt => ({
+  const businessTypeOptions = BUSINESS_TYPES.map((bt) => ({
     label: bt.label,
     value: bt.value,
   }));
@@ -220,11 +218,13 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
           <AuthHeader title="Complete your profile" subtitle="Tell us more about yourself" />
           <SignupStepper active={1} />
 
-          <View onLayout={(e) => { innerViewY.current = e.nativeEvent.layout.y; }}>
+          <View
+            onLayout={(e) => {
+              innerViewY.current = e.nativeEvent.layout.y;
+            }}
+          >
             <AuthSection icon={Building2} title="Business Information" />
-            <Text style={styles.subtitle}>
-              Do you have businesses?
-            </Text>
+            <Text style={styles.subtitle}>Do you have businesses?</Text>
 
             {/* Toggle */}
             <View style={styles.toggleRow}>
@@ -253,13 +253,17 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
             {hasBusiness === true && (
               <View
                 style={styles.businessFormsSection}
-                onLayout={(e) => { businessSectionY.current = e.nativeEvent.layout.y; }}
+                onLayout={(e) => {
+                  businessSectionY.current = e.nativeEvent.layout.y;
+                }}
               >
                 {businesses.map((biz, index) => (
                   <View
                     key={biz.id}
                     style={styles.businessCard}
-                    onLayout={(e) => { cardYPositions.current.set(biz.id, e.nativeEvent.layout.y); }}
+                    onLayout={(e) => {
+                      cardYPositions.current.set(biz.id, e.nativeEvent.layout.y);
+                    }}
                   >
                     {/* Card Header */}
                     <View style={styles.businessCardHeader}>
@@ -278,7 +282,9 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                     <AppInput
                       label="Business Name"
                       value={biz.businessName}
-                      onChangeText={(val) => updateBusiness(biz.id, 'businessName', val.trimStart())}
+                      onChangeText={(val) =>
+                        updateBusiness(biz.id, 'businessName', val.trimStart())
+                      }
                       placeholder="Enter business name"
                       error={errors[biz.id]?.businessName}
                     />
@@ -311,7 +317,9 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                     <AppInput
                       label="Business Email"
                       value={biz.businessEmail}
-                      onChangeText={(val) => updateBusiness(biz.id, 'businessEmail', val.replace(/\s/g, ''))}
+                      onChangeText={(val) =>
+                        updateBusiness(biz.id, 'businessEmail', val.replace(/\s/g, ''))
+                      }
                       placeholder="business@example.com"
                       keyboardType="email-address"
                       autoCapitalize="none"
@@ -322,7 +330,9 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                     <AppInput
                       label="GSTIN (Optional)"
                       value={biz.gstin}
-                      onChangeText={(val) => updateBusiness(biz.id, 'gstin', val.replace(/\s/g, '').toUpperCase())}
+                      onChangeText={(val) =>
+                        updateBusiness(biz.id, 'gstin', val.replace(/\s/g, '').toUpperCase())
+                      }
                       placeholder="e.g. 22AAAAA0000A1Z5"
                       autoCapitalize="characters"
                       autoCorrect={false}
@@ -333,7 +343,9 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                     <AppInput
                       label="CIN (Optional)"
                       value={biz.cin}
-                      onChangeText={(val) => updateBusiness(biz.id, 'cin', val.replace(/\s/g, '').toUpperCase())}
+                      onChangeText={(val) =>
+                        updateBusiness(biz.id, 'cin', val.replace(/\s/g, '').toUpperCase())
+                      }
                       placeholder="e.g. L17110MH1973PLC013222"
                       autoCapitalize="characters"
                       autoCorrect={false}
@@ -344,7 +356,9 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
                     <AppInput
                       label="PAN (Optional)"
                       value={biz.pan}
-                      onChangeText={(val) => updateBusiness(biz.id, 'pan', val.replace(/\s/g, '').toUpperCase())}
+                      onChangeText={(val) =>
+                        updateBusiness(biz.id, 'pan', val.replace(/\s/g, '').toUpperCase())
+                      }
                       placeholder="e.g. ABCDE1234F"
                       autoCapitalize="characters"
                       autoCorrect={false}
@@ -377,11 +391,7 @@ const ProfileBusinessScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Review Button */}
             {hasBusiness !== null && (
               <View style={styles.buttonContainer}>
-                <AppButton
-                  title="Review & Submit"
-                  onPress={handleReview}
-                  variant="primary"
-                />
+                <AppButton title="Review & Submit" onPress={handleReview} variant="primary" />
               </View>
             )}
           </View>

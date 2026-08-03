@@ -1,16 +1,39 @@
-import {PharmacyApiInterface, ApiResponse, ProductListOptions, ProductListResponse, ServiceListOptions, OrderListOptions, OrderSummary, AppointmentListOptions, AppointmentDayCounts, BillListOptions, BillSummary} from './pharmacy.api.interface';
+import {
+  PharmacyApiInterface,
+  ApiResponse,
+  ProductListOptions,
+  ProductListResponse,
+  ServiceListOptions,
+  OrderListOptions,
+  OrderSummary,
+  AppointmentListOptions,
+  AppointmentDayCounts,
+  BillListOptions,
+  BillSummary,
+} from './pharmacy.api.interface';
 import pharmacyApiClient from '../config/axios.instance';
-import {PHARMACY_ROUTES} from '../config/api.config';
+import { PHARMACY_ROUTES } from '../config/api.config';
 
 export class PharmacyApiImpl extends PharmacyApiInterface {
-  async getAllProducts(businessId: number, page: number, limit: number, options: ProductListOptions = {}): Promise<ProductListResponse> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.PRODUCTS_VIEW_ALL, {params: {businessId, page, limit, ...options}});
+  async getAllProducts(
+    businessId: number,
+    page: number,
+    limit: number,
+    options: ProductListOptions = {},
+  ): Promise<ProductListResponse> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.PRODUCTS_VIEW_ALL, {
+      params: { businessId, page, limit, ...options },
+    });
     return res.data;
   }
   // Tracking-only PATCH, never the full PUT: that copies the whole request body over the record and
   // rebuilds the sale-unit ladder, so a partial body would silently destroy it.
   async updateProductTracking(id: number, trackInventory: boolean): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.PRODUCTS_BASE}/${id}/tracking`, null, {params: {trackInventory}});
+    const res = await pharmacyApiClient.patch(
+      `${PHARMACY_ROUTES.PRODUCTS_BASE}/${id}/tracking`,
+      null,
+      { params: { trackInventory } },
+    );
     return res.data;
   }
   async getProductById(id: number): Promise<ApiResponse<unknown>> {
@@ -29,15 +52,29 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.PRODUCTS_BASE}/${id}`);
     return res.data;
   }
-  async getAllServices(businessId: number, page: number, limit: number, options: ServiceListOptions = {}): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.SERVICES_VIEW_ALL, {params: {businessId, page, limit, ...options}});
+  async getAllServices(
+    businessId: number,
+    page: number,
+    limit: number,
+    options: ServiceListOptions = {},
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.SERVICES_VIEW_ALL, {
+      params: { businessId, page, limit, ...options },
+    });
     return res.data;
   }
   // Availability-only PATCH, never the full PUT: that copies the whole request body over the record,
   // so a partial body would blank the description, price, requiredProductIds and the
   // isAppointmentRequired flag that decides whether billing auto-generates an appointment.
-  async updateServiceAvailability(id: number, availability: boolean): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.SERVICES_BASE}/${id}/availability`, null, {params: {availability}});
+  async updateServiceAvailability(
+    id: number,
+    availability: boolean,
+  ): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(
+      `${PHARMACY_ROUTES.SERVICES_BASE}/${id}/availability`,
+      null,
+      { params: { availability } },
+    );
     return res.data;
   }
   async getServiceById(id: number): Promise<ApiResponse<unknown>> {
@@ -56,16 +93,34 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.SERVICES_BASE}/${id}`);
     return res.data;
   }
-  async getAllOrders(businessId: number, page: number, limit: number, options: OrderListOptions = {}): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.ORDERS_VIEW_ALL, {params: {businessId, page, limit, ...options}});
+  async getAllOrders(
+    businessId: number,
+    page: number,
+    limit: number,
+    options: OrderListOptions = {},
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.ORDERS_VIEW_ALL, {
+      params: { businessId, page, limit, ...options },
+    });
     return res.data;
   }
-  async getOrderSummary(businessId: number, options: {fromDate?: string; toDate?: string} = {}): Promise<ApiResponse<OrderSummary>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.ORDERS_SUMMARY, {params: {businessId, ...options}});
+  async getOrderSummary(
+    businessId: number,
+    options: { fromDate?: string; toDate?: string } = {},
+  ): Promise<ApiResponse<OrderSummary>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.ORDERS_SUMMARY, {
+      params: { businessId, ...options },
+    });
     return res.data;
   }
-  async updateOrderStatus(id: number, status: string, options: {userId?: number; reason?: string} = {}): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.ORDERS_BASE}/${id}/status`, null, {params: {status, ...options}});
+  async updateOrderStatus(
+    id: number,
+    status: string,
+    options: { userId?: number; reason?: string } = {},
+  ): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.ORDERS_BASE}/${id}/status`, null, {
+      params: { status, ...options },
+    });
     return res.data;
   }
   async getOrderById(id: number): Promise<ApiResponse<unknown>> {
@@ -84,25 +139,58 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.ORDERS_BASE}/${id}`);
     return res.data;
   }
-  async getOrdersByCustomer(customerId: number, options: Record<string, unknown>): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.ORDERS_BY_CUSTOMER}/${customerId}`, {params: options});
+  async getOrdersByCustomer(
+    customerId: number,
+    options: Record<string, unknown>,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.ORDERS_BY_CUSTOMER}/${customerId}`, {
+      params: options,
+    });
     return res.data;
   }
-  async getAllAppointments(businessId: number, page: number, limit: number, options: AppointmentListOptions = {}): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.APPOINTMENTS_VIEW_ALL, {params: {businessId, page, limit, ...options}});
+  async getAllAppointments(
+    businessId: number,
+    page: number,
+    limit: number,
+    options: AppointmentListOptions = {},
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.APPOINTMENTS_VIEW_ALL, {
+      params: { businessId, page, limit, ...options },
+    });
     return res.data;
   }
-  async getAppointmentDayCounts(businessId: number, options: {fromDate: string; toDate: string}): Promise<ApiResponse<AppointmentDayCounts>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.APPOINTMENTS_DAY_COUNTS, {params: {businessId, ...options}});
+  async getAppointmentDayCounts(
+    businessId: number,
+    options: { fromDate: string; toDate: string },
+  ): Promise<ApiResponse<AppointmentDayCounts>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.APPOINTMENTS_DAY_COUNTS, {
+      params: { businessId, ...options },
+    });
     return res.data;
   }
-  async updateAppointmentStatus(id: number, status: string, options: {userId?: number; reason?: string} = {}): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${id}/status`, null, {params: {status, ...options}});
+  async updateAppointmentStatus(
+    id: number,
+    status: string,
+    options: { userId?: number; reason?: string } = {},
+  ): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(
+      `${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${id}/status`,
+      null,
+      { params: { status, ...options } },
+    );
     return res.data;
   }
   // appointmentDateTime is a zone-less IST wall clock — never an ISO instant with a Z.
-  async rescheduleAppointment(id: number, appointmentDateTime: string, options: {userId?: number; reason?: string} = {}): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${id}/schedule`, null, {params: {appointmentDateTime, ...options}});
+  async rescheduleAppointment(
+    id: number,
+    appointmentDateTime: string,
+    options: { userId?: number; reason?: string } = {},
+  ): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(
+      `${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${id}/schedule`,
+      null,
+      { params: { appointmentDateTime, ...options } },
+    );
     return res.data;
   }
   async getAppointmentById(id: number): Promise<ApiResponse<unknown>> {
@@ -121,33 +209,56 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${id}`);
     return res.data;
   }
-  async getAppointmentsByCustomer(customerId: number, options: Record<string, unknown>): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.APPOINTMENTS_BY_CUSTOMER}/${customerId}`, {params: options});
+  async getAppointmentsByCustomer(
+    customerId: number,
+    options: Record<string, unknown>,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(
+      `${PHARMACY_ROUTES.APPOINTMENTS_BY_CUSTOMER}/${customerId}`,
+      { params: options },
+    );
     return res.data;
   }
   async getBillById(id: number): Promise<ApiResponse<unknown>> {
     const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.BILLS_BASE}/${id}`);
     return res.data;
   }
-  async getBillsByBusiness(businessId: number, page = 1, limit = 20, options: BillListOptions = {}): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.BILLS_BY_BUSINESS}/${businessId}`, {params: {page, limit, ...options}});
+  async getBillsByBusiness(
+    businessId: number,
+    page = 1,
+    limit = 20,
+    options: BillListOptions = {},
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.BILLS_BY_BUSINESS}/${businessId}`, {
+      params: { page, limit, ...options },
+    });
     return res.data;
   }
   async getBillSummary(businessId: number): Promise<ApiResponse<BillSummary>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.BILLS_SUMMARY, {params: {businessId}});
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.BILLS_SUMMARY, {
+      params: { businessId },
+    });
     return res.data;
   }
   // Status-only PATCH, never the full PUT: that rebuilds the bill from a complete request body and
   // a partial one silently wipes its lines. Cancelling here also un-links the billed
   // orders/appointments and restocks bill-owned bare lines, server-side.
   async updateBillStatus(id: number, billStatus: string): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.BILLS_BASE}/${id}/status`, null, {params: {billStatus}});
+    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.BILLS_BASE}/${id}/status`, null, {
+      params: { billStatus },
+    });
     return res.data;
   }
   // paidAmount is required for PARTIALLY_PAID, refundedAmount for PARTIAL_REFUNDED — the server
   // 400s otherwise rather than silently settling to zero.
-  async updateBillPayment(id: number, paymentStatus: string, options: {paidAmount?: number; refundedAmount?: number} = {}): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.BILLS_BASE}/${id}/payment`, null, {params: {paymentStatus, ...options}});
+  async updateBillPayment(
+    id: number,
+    paymentStatus: string,
+    options: { paidAmount?: number; refundedAmount?: number } = {},
+  ): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.patch(`${PHARMACY_ROUTES.BILLS_BASE}/${id}/payment`, null, {
+      params: { paymentStatus, ...options },
+    });
     return res.data;
   }
   async getBillsByCustomer(customerId: number): Promise<ApiResponse<unknown[]>> {
@@ -178,28 +289,48 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.INVENTORY_VIEW}/${id}`);
     return res.data;
   }
-  async getInventoryBatchesByProduct(productId: number, businessId: number): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_BY_PRODUCT, {params: {productId, businessId}});
+  async getInventoryBatchesByProduct(
+    productId: number,
+    businessId: number,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_BY_PRODUCT, {
+      params: { productId, businessId },
+    });
     return res.data;
   }
   async getInventoryBatchesByBusiness(businessId: number): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.INVENTORY_BY_BUSINESS}/${businessId}`);
+    const res = await pharmacyApiClient.get(
+      `${PHARMACY_ROUTES.INVENTORY_BY_BUSINESS}/${businessId}`,
+    );
     return res.data;
   }
   async getTotalStock(productId: number, businessId: number): Promise<ApiResponse<number>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_TOTAL_STOCK, {params: {productId, businessId}});
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_TOTAL_STOCK, {
+      params: { productId, businessId },
+    });
     return res.data;
   }
   async isAvailable(productId: number, businessId: number): Promise<ApiResponse<boolean>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_IS_AVAILABLE, {params: {productId, businessId}});
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_IS_AVAILABLE, {
+      params: { productId, businessId },
+    });
     return res.data;
   }
-  async getExpiringBatches(businessId: number, withinDays: number): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_EXPIRING, {params: {businessId, withinDays}});
+  async getExpiringBatches(
+    businessId: number,
+    withinDays: number,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_EXPIRING, {
+      params: { businessId, withinDays },
+    });
     return res.data;
   }
   async updateBatchStatus(id: number, status: string): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.put(`${PHARMACY_ROUTES.INVENTORY_UPDATE_STATUS}/${id}`, null, {params: {status}});
+    const res = await pharmacyApiClient.put(
+      `${PHARMACY_ROUTES.INVENTORY_UPDATE_STATUS}/${id}`,
+      null,
+      { params: { status } },
+    );
     return res.data;
   }
   async deleteInventoryBatch(id: number): Promise<ApiResponse<unknown>> {

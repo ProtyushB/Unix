@@ -23,9 +23,10 @@ export class FolderService {
   async createFolder(folderDto: FolderDto): Promise<FolderDto> {
     if (!folderDto) throw new Error('folderDto is required');
     try {
-      const dto = folderDto.parentFolderId != null
-        ? folderDto
-        : { ...folderDto, parentFolderId: DEFAULT_PARENT_FOLDER_ID };
+      const dto =
+        folderDto.parentFolderId != null
+          ? folderDto
+          : { ...folderDto, parentFolderId: DEFAULT_PARENT_FOLDER_ID };
       return await this.api.createFolder(dto);
     } catch (error) {
       throw this.handleApiError(error);
@@ -37,10 +38,8 @@ export class FolderService {
       throw new Error('At least one folderDto is required');
     }
     try {
-      const dtoList = folderDtoList.map(dto =>
-        dto.parentFolderId != null
-          ? dto
-          : { ...dto, parentFolderId: DEFAULT_PARENT_FOLDER_ID },
+      const dtoList = folderDtoList.map((dto) =>
+        dto.parentFolderId != null ? dto : { ...dto, parentFolderId: DEFAULT_PARENT_FOLDER_ID },
       );
       return await this.api.createMultipleFolders(dtoList);
     } catch (error) {
@@ -50,7 +49,10 @@ export class FolderService {
 
   // ==================== FOLDER VIEW ====================
 
-  async viewFolder(folderId: number | null | undefined, isChildsRequired = false): Promise<FolderDto> {
+  async viewFolder(
+    folderId: number | null | undefined,
+    isChildsRequired = false,
+  ): Promise<FolderDto> {
     try {
       return await this.api.viewFolder(folderId, isChildsRequired);
     } catch (error) {

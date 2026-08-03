@@ -72,10 +72,7 @@ export function OwnerTabNavigator() {
     // owner portal rather than App.tsx: the request is business-scoped, and
     // firing it during login would hit businessApiClient's 401 → reset-to-Login.
     <TabConfigProvider>
-      <BlurTargetProvider
-        gradientTarget={gradientTarget}
-        contentTarget={contentTarget}
-      >
+      <BlurTargetProvider gradientTarget={gradientTarget} contentTarget={contentTarget}>
         <View style={styles.flex}>
           {/*
             One status bar for the whole portal. It used to be set only by DashboardScreen, so bar
@@ -93,14 +90,18 @@ export function OwnerTabNavigator() {
             <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
               <Defs>
                 <LinearGradient id="appPageVertical" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <Stop offset="0%"   stopColor={theme.palette.pageEdge}   stopOpacity={1} />
-                  <Stop offset="50%"  stopColor={theme.palette.background} stopOpacity={1} />
-                  <Stop offset="100%" stopColor={theme.palette.pageEdge}   stopOpacity={1} />
+                  <Stop offset="0%" stopColor={theme.palette.pageEdge} stopOpacity={1} />
+                  <Stop offset="50%" stopColor={theme.palette.background} stopOpacity={1} />
+                  <Stop offset="100%" stopColor={theme.palette.pageEdge} stopOpacity={1} />
                 </LinearGradient>
                 <LinearGradient id="appPageAccent" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <Stop offset="0%"   stopColor={theme.colors.primary}   stopOpacity={accentOpacity} />
-                  <Stop offset="50%"  stopColor={theme.colors.primary}   stopOpacity={0} />
-                  <Stop offset="100%" stopColor={theme.colors.secondary} stopOpacity={accentOpacity} />
+                  <Stop offset="0%" stopColor={theme.colors.primary} stopOpacity={accentOpacity} />
+                  <Stop offset="50%" stopColor={theme.colors.primary} stopOpacity={0} />
+                  <Stop
+                    offset="100%"
+                    stopColor={theme.colors.secondary}
+                    stopOpacity={accentOpacity}
+                  />
                 </LinearGradient>
               </Defs>
               <Rect x="0" y="0" width="100%" height="100%" fill="url(#appPageVertical)" />
@@ -123,28 +124,28 @@ export function OwnerTabNavigator() {
                   web portal: the route resolves, then useTabGateRedirect bounces
                   you. Unmounting a focused screen would make React Navigation
                   re-derive the index and flash an arbitrary neighbour. */}
-              <Tab.Screen name="Dashboard"      component={DashboardScreen} />
-              <Tab.Screen name="Orders"         component={OrdersScreen} />
-              <Tab.Screen name="Appointments"   component={AppointmentsScreen} />
-              <Tab.Screen name="Billing"        component={BillingScreen} />
-              <Tab.Screen name="Products"       component={ProductsScreen} />
-              <Tab.Screen name="Services"       component={ServicesScreen} />
-              <Tab.Screen name="Packages"       component={PackagesScreen} />
-              <Tab.Screen name="Subscriptions"  component={SubscriptionsScreen} />
-              <Tab.Screen name="ServicePlans"   component={ServicePlansScreen} />
-              <Tab.Screen name="Inventory"      component={InventoryScreen} />
-              <Tab.Screen name="Consumptions"   component={ConsumptionsScreen} />
+              <Tab.Screen name="Dashboard" component={DashboardScreen} />
+              <Tab.Screen name="Orders" component={OrdersScreen} />
+              <Tab.Screen name="Appointments" component={AppointmentsScreen} />
+              <Tab.Screen name="Billing" component={BillingScreen} />
+              <Tab.Screen name="Products" component={ProductsScreen} />
+              <Tab.Screen name="Services" component={ServicesScreen} />
+              <Tab.Screen name="Packages" component={PackagesScreen} />
+              <Tab.Screen name="Subscriptions" component={SubscriptionsScreen} />
+              <Tab.Screen name="ServicePlans" component={ServicePlansScreen} />
+              <Tab.Screen name="Inventory" component={InventoryScreen} />
+              <Tab.Screen name="Consumptions" component={ConsumptionsScreen} />
               <Tab.Screen name="StockTransfers" component={StockTransfersScreen} />
-              <Tab.Screen name="Wastage"        component={WastageScreen} />
+              <Tab.Screen name="Wastage" component={WastageScreen} />
               {/* No Expenses screen yet — the placeholder reads its title from the
                   route name, so this renders "Expenses / Coming soon". */}
-              <Tab.Screen name="Expenses"       component={PlaceholderScreen} />
-              <Tab.Screen name="Customers"      component={CustomersScreen} />
-              <Tab.Screen name="Employees"      component={EmployeesScreen} />
+              <Tab.Screen name="Expenses" component={PlaceholderScreen} />
+              <Tab.Screen name="Customers" component={CustomersScreen} />
+              <Tab.Screen name="Employees" component={EmployeesScreen} />
               <Tab.Screen name="WarrantyClaims" component={WarrantyClaimsScreen} />
-              <Tab.Screen name="Loyalty"        component={LoyaltyScreen} />
-              <Tab.Screen name="Reports"        component={ReportsScreen} />
-              <Tab.Screen name="Account"        component={AccountNavigator} />
+              <Tab.Screen name="Loyalty" component={LoyaltyScreen} />
+              <Tab.Screen name="Reports" component={ReportsScreen} />
+              <Tab.Screen name="Account" component={AccountNavigator} />
             </Tab.Navigator>
           </BlurTargetView>
 

@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,28 +8,27 @@ import {
   ScrollView,
   RefreshControl,
   StyleSheet,
-  Alert,
 } from 'react-native';
-import {Archive, Clock, Search} from 'lucide-react-native';
-import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
-import {AppCard} from '../../components/common/AppCard';
-import {AppButton} from '../../components/common/AppButton';
-import {AppInput} from '../../components/common/AppInput';
-import {StatusPill} from '../../components/common/StatusPill';
-import {InventoryBatchCard} from '../../components/list/InventoryBatchCard';
-import {EmptyState} from '../../components/common/EmptyState';
-import {LoadingSpinner} from '../../components/common/LoadingSpinner';
-import {ConfirmDialog} from '../../components/common/ConfirmDialog';
-import {FAB} from '../../components/layout/FAB';
-import {ProgressBar} from '../../components/forms/ProgressBar';
-import {SelectField} from '../../components/forms/SelectField';
-import {DatePicker} from '../../components/forms/DatePicker';
-import {formatDate, formatCurrency} from '../../utils/formatters';
-import {useAppContext} from '../../context/AppContext';
-import {useParlour} from '../../backend/modules/parlour/hook/useParlour';
-import {usePharmacy} from '../../backend/modules/pharmacy/hook/usePharmacy';
-import {useToast} from '../../hooks/useToast';
-import {getBusinessTypeMap} from '../../storage/session.storage';
+import { Archive, Clock } from 'lucide-react-native';
+import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { AppCard } from '../../components/common/AppCard';
+import { AppButton } from '../../components/common/AppButton';
+import { AppInput } from '../../components/common/AppInput';
+import { StatusPill } from '../../components/common/StatusPill';
+import { InventoryBatchCard } from '../../components/list/InventoryBatchCard';
+import { EmptyState } from '../../components/common/EmptyState';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { FAB } from '../../components/layout/FAB';
+import { ProgressBar } from '../../components/forms/ProgressBar';
+import { SelectField } from '../../components/forms/SelectField';
+import { DatePicker } from '../../components/forms/DatePicker';
+import { formatDate, formatCurrency } from '../../utils/formatters';
+import { useAppContext } from '../../context/AppContext';
+import { useParlour } from '../../backend/modules/parlour/hook/useParlour';
+import { usePharmacy } from '../../backend/modules/pharmacy/hook/usePharmacy';
+import { useToast } from '../../hooks/useToast';
+import { getBusinessTypeMap } from '../../storage/session.storage';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
@@ -37,28 +36,27 @@ import type { AppTheme } from '../../theme/theme.types';
 type ViewState = 'list' | 'detail' | 'add' | 'edit';
 
 const STATUS_OPTIONS = [
-  {value: 'ALL', label: 'All Statuses'},
-  {value: 'ACTIVE', label: 'Active'},
-  {value: 'ON_HOLD', label: 'On Hold'},
-  {value: 'QUARANTINED', label: 'Quarantined'},
-  {value: 'EXPIRED', label: 'Expired'},
-  {value: 'DEPLETED', label: 'Depleted'},
+  { value: 'ALL', label: 'All Statuses' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'ON_HOLD', label: 'On Hold' },
+  { value: 'QUARANTINED', label: 'Quarantined' },
+  { value: 'EXPIRED', label: 'Expired' },
+  { value: 'DEPLETED', label: 'Depleted' },
 ];
 
 const EDITABLE_STATUSES = [
-  {value: 'ACTIVE', label: 'Active'},
-  {value: 'ON_HOLD', label: 'On Hold'},
-  {value: 'QUARANTINED', label: 'Quarantined'},
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'ON_HOLD', label: 'On Hold' },
+  { value: 'QUARANTINED', label: 'Quarantined' },
 ];
 
 export const InventoryScreen: React.FC = () => {
-  const {selectedModule, selectedBusiness} = useAppContext();
+  const { selectedModule, selectedBusiness } = useAppContext();
   const parlour = useParlour();
   const pharmacy = usePharmacy();
-  const {showToast} = useToast();
+  const { showToast } = useToast();
 
-  const activeModule =
-    selectedModule?.toLowerCase().includes('pharmacy') ? pharmacy : parlour;
+  const activeModule = selectedModule?.toLowerCase().includes('pharmacy') ? pharmacy : parlour;
 
   const [viewState, setViewState] = useState<ViewState>('list');
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
@@ -74,14 +72,29 @@ export const InventoryScreen: React.FC = () => {
 
   // Form state for add/edit
   const [form, setForm] = useState<{
-    productId: string; batchNumber: string; supplierName: string;
-    purchasedQuantity: string; remainingQuantity: string;
-    costPrice: string; sellingPrice: string; status: string;
-    manufactureDate: Date | null; expiryDate: Date | null; receivedDate: Date | null;
+    productId: string;
+    batchNumber: string;
+    supplierName: string;
+    purchasedQuantity: string;
+    remainingQuantity: string;
+    costPrice: string;
+    sellingPrice: string;
+    status: string;
+    manufactureDate: Date | null;
+    expiryDate: Date | null;
+    receivedDate: Date | null;
   }>({
-    productId: '', batchNumber: '', supplierName: '', purchasedQuantity: '', remainingQuantity: '',
-    costPrice: '', sellingPrice: '', status: 'ACTIVE',
-    manufactureDate: null, expiryDate: null, receivedDate: null,
+    productId: '',
+    batchNumber: '',
+    supplierName: '',
+    purchasedQuantity: '',
+    remainingQuantity: '',
+    costPrice: '',
+    sellingPrice: '',
+    status: 'ACTIVE',
+    manufactureDate: null,
+    expiryDate: null,
+    receivedDate: null,
   });
 
   // Resolve businessId from storage — stable primitive dep
@@ -112,9 +125,10 @@ export const InventoryScreen: React.FC = () => {
   const batches: any[] = activeModule?.inventory || [];
   const loading = activeModule?.loading;
 
-  const filteredBatches = batches.filter(b => {
+  const filteredBatches = batches.filter((b) => {
     const matchStatus = statusFilter === 'ALL' || b.status === statusFilter;
-    const matchSearch = !searchText ||
+    const matchSearch =
+      !searchText ||
       b.productName?.toLowerCase().includes(searchText.toLowerCase()) ||
       b.batchNumber?.toLowerCase().includes(searchText.toLowerCase());
     return matchStatus && matchSearch;
@@ -149,7 +163,7 @@ export const InventoryScreen: React.FC = () => {
     };
     try {
       if (viewState === 'edit' && selectedBatch) {
-        await activeModule.updateInventoryBatch?.({...payload, id: selectedBatch.id});
+        await activeModule.updateInventoryBatch?.({ ...payload, id: selectedBatch.id });
         showToast('Batch updated', 'success');
       } else {
         await activeModule.addInventoryBatch?.(payload);
@@ -193,7 +207,19 @@ export const InventoryScreen: React.FC = () => {
 
   const openAdd = () => {
     setSelectedBatch(null);
-    setForm({productId: '', batchNumber: '', supplierName: '', purchasedQuantity: '', remainingQuantity: '', costPrice: '', sellingPrice: '', status: 'ACTIVE', manufactureDate: null, expiryDate: null, receivedDate: null});
+    setForm({
+      productId: '',
+      batchNumber: '',
+      supplierName: '',
+      purchasedQuantity: '',
+      remainingQuantity: '',
+      costPrice: '',
+      sellingPrice: '',
+      status: 'ACTIVE',
+      manufactureDate: null,
+      expiryDate: null,
+      receivedDate: null,
+    });
     setViewState('add');
   };
 
@@ -202,7 +228,9 @@ export const InventoryScreen: React.FC = () => {
     : null;
 
   if (viewState === 'detail' && selectedBatch) {
-    const used = (selectedBatch.purchasedQuantity - selectedBatch.remainingQuantity) / selectedBatch.purchasedQuantity;
+    const used =
+      (selectedBatch.purchasedQuantity - selectedBatch.remainingQuantity) /
+      selectedBatch.purchasedQuantity;
     return (
       // scrollable={false}: ScreenWrapper renders its own ScrollView by default, and nesting a
       // second vertical scroller inside it makes neither one fully own the gesture.
@@ -219,9 +247,20 @@ export const InventoryScreen: React.FC = () => {
             <LabelValue label="Product ID" value={String(selectedBatch.productId)} />
             <LabelValue label="Batch #" value={selectedBatch.batchNumber || '—'} />
             <LabelValue label="Supplier" value={selectedBatch.supplierName || '—'} />
-            <LabelValue label="Manufacture Date" value={selectedBatch.manufactureDate ? formatDate(selectedBatch.manufactureDate) : '—'} />
-            <LabelValue label="Expiry Date" value={selectedBatch.expiryDate ? formatDate(selectedBatch.expiryDate) : '—'} />
-            <LabelValue label="Received Date" value={selectedBatch.receivedDate ? formatDate(selectedBatch.receivedDate) : '—'} />
+            <LabelValue
+              label="Manufacture Date"
+              value={
+                selectedBatch.manufactureDate ? formatDate(selectedBatch.manufactureDate) : '—'
+              }
+            />
+            <LabelValue
+              label="Expiry Date"
+              value={selectedBatch.expiryDate ? formatDate(selectedBatch.expiryDate) : '—'}
+            />
+            <LabelValue
+              label="Received Date"
+              value={selectedBatch.receivedDate ? formatDate(selectedBatch.receivedDate) : '—'}
+            />
             <View style={styles.statusRow}>
               <Text style={styles.fieldLabel}>Status</Text>
               <StatusPill status={selectedBatch.status} />
@@ -232,11 +271,22 @@ export const InventoryScreen: React.FC = () => {
             <LabelValue label="Purchased Qty" value={String(selectedBatch.purchasedQuantity)} />
             <LabelValue label="Remaining Qty" value={String(selectedBatch.remainingQuantity)} />
             <Text style={styles.fieldLabel}>Usage</Text>
-            <ProgressBar progress={used} color={used > 0.8 ? '#ef4444' : used > 0.5 ? '#f59e0b' : '#10b981'} />
-            {selectedBatch.costPrice && <LabelValue label="Cost Price" value={formatCurrency(selectedBatch.costPrice)} />}
-            {selectedBatch.sellingPrice && <LabelValue label="Selling Price" value={formatCurrency(selectedBatch.sellingPrice)} />}
+            <ProgressBar
+              progress={used}
+              color={used > 0.8 ? '#ef4444' : used > 0.5 ? '#f59e0b' : '#10b981'}
+            />
+            {selectedBatch.costPrice && (
+              <LabelValue label="Cost Price" value={formatCurrency(selectedBatch.costPrice)} />
+            )}
+            {selectedBatch.sellingPrice && (
+              <LabelValue
+                label="Selling Price"
+                value={formatCurrency(selectedBatch.sellingPrice)}
+              />
+            )}
           </AppCard>
-        </ScrollView>      </ScreenWrapper>
+        </ScrollView>{' '}
+      </ScreenWrapper>
     );
   }
 
@@ -251,27 +301,77 @@ export const InventoryScreen: React.FC = () => {
             </TouchableOpacity>
             <Text style={styles.formTitle}>{viewState === 'add' ? 'Add Batch' : 'Edit Batch'}</Text>
           </View>
-          <AppInput label="Product ID *" value={form.productId} onChangeText={v => setForm(f => ({...f, productId: v}))} keyboardType="numeric" />
-          <AppInput label="Batch Number" value={form.batchNumber} onChangeText={v => setForm(f => ({...f, batchNumber: v}))} />
-          <AppInput label="Supplier Name" value={form.supplierName} onChangeText={v => setForm(f => ({...f, supplierName: v}))} />
-          <AppInput label="Purchased Quantity *" value={form.purchasedQuantity} onChangeText={v => setForm(f => ({...f, purchasedQuantity: v}))} keyboardType="numeric" />
-          <AppInput label="Remaining Quantity" value={form.remainingQuantity} onChangeText={v => setForm(f => ({...f, remainingQuantity: v}))} keyboardType="numeric" />
-          <AppInput label="Cost Price (₹)" value={form.costPrice} onChangeText={v => setForm(f => ({...f, costPrice: v}))} keyboardType="decimal-pad" />
-          <AppInput label="Selling Price (₹)" value={form.sellingPrice} onChangeText={v => setForm(f => ({...f, sellingPrice: v}))} keyboardType="decimal-pad" />
+          <AppInput
+            label="Product ID *"
+            value={form.productId}
+            onChangeText={(v) => setForm((f) => ({ ...f, productId: v }))}
+            keyboardType="numeric"
+          />
+          <AppInput
+            label="Batch Number"
+            value={form.batchNumber}
+            onChangeText={(v) => setForm((f) => ({ ...f, batchNumber: v }))}
+          />
+          <AppInput
+            label="Supplier Name"
+            value={form.supplierName}
+            onChangeText={(v) => setForm((f) => ({ ...f, supplierName: v }))}
+          />
+          <AppInput
+            label="Purchased Quantity *"
+            value={form.purchasedQuantity}
+            onChangeText={(v) => setForm((f) => ({ ...f, purchasedQuantity: v }))}
+            keyboardType="numeric"
+          />
+          <AppInput
+            label="Remaining Quantity"
+            value={form.remainingQuantity}
+            onChangeText={(v) => setForm((f) => ({ ...f, remainingQuantity: v }))}
+            keyboardType="numeric"
+          />
+          <AppInput
+            label="Cost Price (₹)"
+            value={form.costPrice}
+            onChangeText={(v) => setForm((f) => ({ ...f, costPrice: v }))}
+            keyboardType="decimal-pad"
+          />
+          <AppInput
+            label="Selling Price (₹)"
+            value={form.sellingPrice}
+            onChangeText={(v) => setForm((f) => ({ ...f, sellingPrice: v }))}
+            keyboardType="decimal-pad"
+          />
           <SelectField
             label="Status"
             value={form.status}
             options={EDITABLE_STATUSES}
-            onChange={v => setForm(f => ({...f, status: v}))}
+            onChange={(v) => setForm((f) => ({ ...f, status: v }))}
           />
-          <DatePicker label="Manufacture Date" value={form.manufactureDate} onChange={d => setForm(f => ({...f, manufactureDate: d}))} />
-          <DatePicker label="Expiry Date" value={form.expiryDate} onChange={d => setForm(f => ({...f, expiryDate: d}))} />
-          <DatePicker label="Received Date" value={form.receivedDate} onChange={d => setForm(f => ({...f, receivedDate: d}))} />
+          <DatePicker
+            label="Manufacture Date"
+            value={form.manufactureDate}
+            onChange={(d) => setForm((f) => ({ ...f, manufactureDate: d }))}
+          />
+          <DatePicker
+            label="Expiry Date"
+            value={form.expiryDate}
+            onChange={(d) => setForm((f) => ({ ...f, expiryDate: d }))}
+          />
+          <DatePicker
+            label="Received Date"
+            value={form.receivedDate}
+            onChange={(d) => setForm((f) => ({ ...f, receivedDate: d }))}
+          />
           {expiryWarning !== null && expiryWarning <= 90 && expiryWarning > 0 && (
             <Text style={styles.expiryWarning}>⚠ Expires in {expiryWarning} days</Text>
           )}
-          <AppButton title={viewState === 'add' ? 'Add Batch' : 'Save Changes'} onPress={handleSave} style={styles.saveBtn} />
-        </ScrollView>      </ScreenWrapper>
+          <AppButton
+            title={viewState === 'add' ? 'Add Batch' : 'Save Changes'}
+            onPress={handleSave}
+            style={styles.saveBtn}
+          />
+        </ScrollView>{' '}
+      </ScreenWrapper>
     );
   }
 
@@ -289,20 +389,33 @@ export const InventoryScreen: React.FC = () => {
           placeholderTextColor={palette.muted}
         />
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterContent}>
-          {STATUS_OPTIONS.map(opt => (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterRow}
+          contentContainerStyle={styles.filterContent}
+        >
+          {STATUS_OPTIONS.map((opt) => (
             <TouchableOpacity
               key={opt.value}
               style={[styles.filterChip, statusFilter === opt.value && styles.filterChipActive]}
-              onPress={() => setStatusFilter(opt.value)}>
-              <Text style={[styles.filterText, statusFilter === opt.value && styles.filterTextActive]}>{opt.label}</Text>
+              onPress={() => setStatusFilter(opt.value)}
+            >
+              <Text
+                style={[styles.filterText, statusFilter === opt.value && styles.filterTextActive]}
+              >
+                {opt.label}
+              </Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity
             style={[styles.filterChip, expiringOnly && styles.filterChipExpiring]}
-            onPress={() => setExpiringOnly(v => !v)}>
+            onPress={() => setExpiringOnly((v) => !v)}
+          >
             <Clock size={14} color={expiringOnly ? '#f59e0b' : palette.muted} />
-            <Text style={[styles.filterText, expiringOnly && {color: '#f59e0b'}]}>Expiring 30d</Text>
+            <Text style={[styles.filterText, expiringOnly && { color: '#f59e0b' }]}>
+              Expiring 30d
+            </Text>
           </TouchableOpacity>
         </ScrollView>
 
@@ -317,16 +430,25 @@ export const InventoryScreen: React.FC = () => {
         ) : (
           <FlatList
             data={filteredBatches}
-            keyExtractor={item => String(item.id)}
-            renderItem={({item}) => (
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
               <InventoryBatchCard
                 batch={item}
-                onPress={() => { setSelectedBatch(item); setViewState('detail'); }}
+                onPress={() => {
+                  setSelectedBatch(item);
+                  setViewState('detail');
+                }}
                 onEdit={() => openEdit(item)}
                 onDelete={() => setDeleteConfirm(item.id)}
               />
             )}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+              />
+            }
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />
@@ -349,7 +471,7 @@ export const InventoryScreen: React.FC = () => {
   );
 };
 
-const LabelValue = ({label, value}: {label: string; value: string}) => {
+const LabelValue = ({ label, value }: { label: string; value: string }) => {
   const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.lvRow}>
@@ -361,29 +483,75 @@ const LabelValue = ({label, value}: {label: string; value: string}) => {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    listContainer: {flex: 1, paddingHorizontal: 16},
-    content: {padding: 16, gap: 12, paddingBottom: 32},
-    title: {fontSize: 28, fontWeight: '700', color: theme.palette.onBackground, marginTop: 16, marginBottom: 12},
-    searchInput: {backgroundColor: theme.palette.surface + '99', borderWidth: 1, borderColor: theme.palette.divider, borderRadius: 12, padding: 12, color: theme.palette.onBackground, fontSize: 14, marginBottom: 12},
-    filterRow: {maxHeight: 44, marginBottom: 8},
-    filterContent: {gap: 8, paddingRight: 16},
-    filterChip: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: theme.palette.surface + '99', borderWidth: 1, borderColor: theme.palette.divider, gap: 4},
-    filterChipActive: {backgroundColor: theme.colors.softBg, borderColor: theme.colors.primary},
-    filterChipExpiring: {backgroundColor: 'rgba(245,158,11,0.15)', borderColor: '#f59e0b'},
-    filterText: {fontSize: 13, color: theme.palette.muted, fontWeight: '500'},
-    filterTextActive: {color: theme.colors.primary},
-    listContent: {paddingBottom: 80, gap: 8},
-    card: {gap: 6},
-    cardTitle: {fontSize: 16, fontWeight: '700', color: theme.palette.onBackground, marginBottom: 8},
-    detailHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16},
-    backBtn: {padding: 4},
-    backBtnText: {fontSize: 16, color: theme.colors.primary, fontWeight: '600'},
-    formTitle: {fontSize: 18, fontWeight: '700', color: theme.palette.onBackground},
-    statusRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-    lvRow: {marginBottom: 8},
-    fieldLabel: {fontSize: 12, color: theme.palette.muted, textTransform: 'uppercase', letterSpacing: 0.5},
-    fieldValue: {fontSize: 14, color: theme.palette.onBackground, marginTop: 2},
-    expiryWarning: {color: '#f59e0b', fontSize: 14, fontWeight: '600', textAlign: 'center', padding: 8},
-    saveBtn: {marginTop: 8},
+    listContainer: { flex: 1, paddingHorizontal: 16 },
+    content: { padding: 16, gap: 12, paddingBottom: 32 },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      marginTop: 16,
+      marginBottom: 12,
+    },
+    searchInput: {
+      backgroundColor: theme.palette.surface + '99',
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      borderRadius: 12,
+      padding: 12,
+      color: theme.palette.onBackground,
+      fontSize: 14,
+      marginBottom: 12,
+    },
+    filterRow: { maxHeight: 44, marginBottom: 8 },
+    filterContent: { gap: 8, paddingRight: 16 },
+    filterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: theme.palette.surface + '99',
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      gap: 4,
+    },
+    filterChipActive: { backgroundColor: theme.colors.softBg, borderColor: theme.colors.primary },
+    filterChipExpiring: { backgroundColor: 'rgba(245,158,11,0.15)', borderColor: '#f59e0b' },
+    filterText: { fontSize: 13, color: theme.palette.muted, fontWeight: '500' },
+    filterTextActive: { color: theme.colors.primary },
+    listContent: { paddingBottom: 80, gap: 8 },
+    card: { gap: 6 },
+    cardTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      marginBottom: 8,
+    },
+    detailHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    backBtn: { padding: 4 },
+    backBtnText: { fontSize: 16, color: theme.colors.primary, fontWeight: '600' },
+    formTitle: { fontSize: 18, fontWeight: '700', color: theme.palette.onBackground },
+    statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    lvRow: { marginBottom: 8 },
+    fieldLabel: {
+      fontSize: 12,
+      color: theme.palette.muted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    fieldValue: { fontSize: 14, color: theme.palette.onBackground, marginTop: 2 },
+    expiryWarning: {
+      color: '#f59e0b',
+      fontSize: 14,
+      fontWeight: '600',
+      textAlign: 'center',
+      padding: 8,
+    },
+    saveBtn: { marginTop: 8 },
   });
 }

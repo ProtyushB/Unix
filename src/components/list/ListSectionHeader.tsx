@@ -6,9 +6,9 @@ import type { AppTheme } from '../../theme/theme.types';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface ListSectionHeaderProps {
-  title:   string;
+  title: string;
   /** Small trailing label, e.g. count or totals. */
-  count?:  string | number;
+  count?: string | number;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -30,26 +30,26 @@ export function ListSectionHeader({ title, count }: ListSectionHeaderProps) {
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     row: {
-      flexDirection:     'row',
-      alignItems:        'center',
-      justifyContent:    'space-between',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: 16,
-      paddingVertical:   8,
-      backgroundColor:   theme.palette.background,
+      paddingVertical: 8,
+      backgroundColor: theme.palette.background,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.palette.divider,
     },
     title: {
-      fontSize:      11,
-      fontWeight:    '700',
+      fontSize: 11,
+      fontWeight: '700',
       letterSpacing: 1.1,
-      color:         theme.palette.muted,
+      color: theme.palette.muted,
       textTransform: 'uppercase',
     },
     count: {
-      fontSize:   12,
+      fontSize: 12,
       fontWeight: '600',
-      color:      theme.palette.muted,
+      color: theme.palette.muted,
     },
   });
 }

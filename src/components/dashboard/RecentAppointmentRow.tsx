@@ -29,22 +29,14 @@ interface RecentAppointmentRowProps {
 // Mockup node `sYDqN`: accent time chip | service + customer + number |
 // status pill + chevron. Note the service — not the customer — leads the row.
 
-export function RecentAppointmentRow({
-  appointment,
-  divided,
-  onPress,
-}: RecentAppointmentRowProps) {
+export function RecentAppointmentRow({ appointment, divided, onPress }: RecentAppointmentRowProps) {
   const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        divided && styles.divided,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.row, divided && styles.divided, pressed && styles.pressed]}
     >
       <TimeChip parts={formatTimeParts(appointment.when)} variant="accent" />
 

@@ -7,14 +7,14 @@ import type { AppTheme } from '../../theme/theme.types';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface ListCardProps {
-  title:      string;
-  subtitle?:  string;
-  meta?:      string;
-  amount?:    string;
-  status?:    string;
+  title: string;
+  subtitle?: string;
+  meta?: string;
+  amount?: string;
+  status?: string;
   /** SCREAMING_SNAKE status key used to pull color from theme.status, or a raw hex. */
   statusKey?: string;
-  onPress?:   () => void;
+  onPress?: () => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ export function ListCard({
   const statusColors =
     (statusKey && theme.status[statusKey]) ||
     (status && theme.status[status]) ||
-    ((statusKey || status) ? theme.status.FALLBACK : null);
+    (statusKey || status ? theme.status.FALLBACK : null);
 
   const accent = statusColors?.border ?? theme.colors.primary;
 
@@ -54,18 +54,31 @@ export function ListCard({
       <View style={[styles.accent, { backgroundColor: accent }]} />
       <View style={styles.body}>
         <View style={styles.headRow}>
-          <Text style={styles.title} numberOfLines={1}>{title}</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
           {status && statusColors && (
-            <View style={[styles.pill, { backgroundColor: statusColors.bg, borderColor: statusColors.border }]}>
+            <View
+              style={[
+                styles.pill,
+                { backgroundColor: statusColors.bg, borderColor: statusColors.border },
+              ]}
+            >
               <Text style={[styles.pillText, { color: statusColors.text }]}>{status}</Text>
             </View>
           )}
         </View>
         {subtitle && (
-          <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
         )}
         <View style={styles.footRow}>
-          {meta && <Text style={styles.meta} numberOfLines={1}>{meta}</Text>}
+          {meta && (
+            <Text style={styles.meta} numberOfLines={1}>
+              {meta}
+            </Text>
+          )}
           {amount && <Text style={styles.amount}>{amount}</Text>}
         </View>
       </View>
@@ -78,14 +91,14 @@ export function ListCard({
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     card: {
-      flexDirection:     'row',
-      backgroundColor:   theme.palette.surface,
-      borderWidth:       1,
-      borderColor:       theme.palette.divider,
-      borderRadius:      14,
-      marginHorizontal:  16,
-      marginBottom:      8,
-      overflow:          'hidden',
+      flexDirection: 'row',
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+      borderRadius: 14,
+      marginHorizontal: 16,
+      marginBottom: 8,
+      overflow: 'hidden',
       ...theme.elevation.low,
     },
     cardPressed: {
@@ -95,57 +108,57 @@ function createStyles(theme: AppTheme) {
       width: 4,
     },
     body: {
-      flex:              1,
+      flex: 1,
       paddingHorizontal: 14,
-      paddingVertical:   12,
-      gap:               4,
+      paddingVertical: 12,
+      gap: 4,
     },
     headRow: {
-      flexDirection:  'row',
-      alignItems:     'center',
+      flexDirection: 'row',
+      alignItems: 'center',
       justifyContent: 'space-between',
-      gap:            8,
+      gap: 8,
     },
     title: {
-      flex:       1,
-      fontSize:   15,
+      flex: 1,
+      fontSize: 15,
       fontWeight: '700',
-      color:      theme.palette.onBackground,
+      color: theme.palette.onBackground,
     },
     subtitle: {
       fontSize: 13,
-      color:    theme.palette.muted,
+      color: theme.palette.muted,
     },
     footRow: {
-      flexDirection:  'row',
-      alignItems:     'center',
+      flexDirection: 'row',
+      alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop:      4,
-      gap:            8,
+      marginTop: 4,
+      gap: 8,
     },
     meta: {
-      flex:     1,
+      flex: 1,
       fontSize: 12,
-      color:    theme.palette.muted,
+      color: theme.palette.muted,
     },
     amount: {
       // marginLeft:auto keeps the amount flush right even when `meta` is absent. space-between
       // alone left-aligns a lone child, which is why Subscriptions' prices sat on the wrong side
       // while every other list screen's sat on the right.
       marginLeft: 'auto',
-      fontSize:   15,
+      fontSize: 15,
       fontWeight: '700',
-      color:      theme.palette.onBackground,
+      color: theme.palette.onBackground,
     },
     pill: {
       paddingHorizontal: 8,
-      paddingVertical:   2,
-      borderRadius:      6,
-      borderWidth:       1,
+      paddingVertical: 2,
+      borderRadius: 6,
+      borderWidth: 1,
     },
     pillText: {
-      fontSize:      10,
-      fontWeight:    '700',
+      fontSize: 10,
+      fontWeight: '700',
       letterSpacing: 0.4,
     },
   });

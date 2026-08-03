@@ -21,7 +21,7 @@ export function AuthBarMask() {
   const insets = useSafeAreaInsets();
   const { palette } = useTheme();
 
-  const topH = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0);
+  const topH = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0);
   const bottomH = insets.bottom;
   const bg = palette.background;
 
@@ -39,10 +39,16 @@ export function AuthBarMask() {
       {/* Side strips for landscape display cutouts — the top/bottom strips alone leave scrolled
           content visible beside the notch when the device is rotated. */}
       {insets.left > 0 && (
-        <View pointerEvents="none" style={[styles.left, { width: insets.left, backgroundColor: bg }]} />
+        <View
+          pointerEvents="none"
+          style={[styles.left, { width: insets.left, backgroundColor: bg }]}
+        />
       )}
       {insets.right > 0 && (
-        <View pointerEvents="none" style={[styles.right, { width: insets.right, backgroundColor: bg }]} />
+        <View
+          pointerEvents="none"
+          style={[styles.right, { width: insets.right, backgroundColor: bg }]}
+        />
       )}
     </>
   );

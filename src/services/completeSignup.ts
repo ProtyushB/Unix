@@ -81,13 +81,13 @@ export async function completeSignup(input: CompleteSignupInput): Promise<Comple
     if (userRootFolderId) {
       await folderService
         .deleteFolder(userRootFolderId)
-        .catch(e => console.warn('[completeSignup] rollback folder delete failed:', e?.message));
+        .catch((e) => console.warn('[completeSignup] rollback folder delete failed:', e?.message));
     }
     if (signupCompleted) {
       if (authUserId !== null) {
         await authService
           .deleteUser(authUserId)
-          .catch(e => console.warn('[completeSignup] rollback auth delete failed:', e?.message));
+          .catch((e) => console.warn('[completeSignup] rollback auth delete failed:', e?.message));
       }
       await authService.logout();
     }

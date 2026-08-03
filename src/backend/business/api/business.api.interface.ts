@@ -13,7 +13,10 @@ import { BusinessDto, UpdateBusinessFlags } from '../../person/api/person.api.in
 
 export abstract class BusinessApiInterface {
   abstract createBusiness(businessData: BusinessDto): Promise<ApiResponse<BusinessDto>>;
-  abstract updateBusiness(businessData: BusinessDto, flags?: UpdateBusinessFlags): Promise<ApiResponse<BusinessDto>>;
+  abstract updateBusiness(
+    businessData: BusinessDto,
+    flags?: UpdateBusinessFlags,
+  ): Promise<ApiResponse<BusinessDto>>;
   abstract getBusinessById(businessId: number): Promise<ApiResponse<BusinessDto>>;
   abstract getAllBusinesses(): Promise<ApiResponse<BusinessDto[]>>;
   abstract deleteBusiness(businessId: number): Promise<ApiResponse<BusinessDto>>;

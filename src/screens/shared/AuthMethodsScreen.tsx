@@ -1,23 +1,16 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Switch,
-  ActivityIndicator,
-} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-import {ChevronLeft, KeyRound, Fingerprint} from 'lucide-react-native';
-import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
-import {useBiometric} from '../../hooks/useBiometric';
+import { View, Text, TouchableOpacity, StyleSheet, Switch, ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { ChevronLeft, KeyRound, Fingerprint } from 'lucide-react-native';
+import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { useBiometric } from '../../hooks/useBiometric';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
 
 export function AuthMethodsScreen() {
   const navigation = useNavigation();
-  const {available, biometryLabel, enabled, loading, enable, disable} = useBiometric();
+  const { available, biometryLabel, enabled, loading, enable, disable } = useBiometric();
 
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -39,7 +32,8 @@ export function AuthMethodsScreen() {
             onPress={() => navigation.goBack()}
             style={styles.backBtn}
             activeOpacity={0.7}
-            hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <ChevronLeft size={24} color={palette.onBackground} />
           </TouchableOpacity>
           <Text style={styles.title}>Authentication Methods</Text>
@@ -63,7 +57,7 @@ export function AuthMethodsScreen() {
         </View>
 
         {/* Biometric */}
-        <View style={[styles.sectionLabel, {marginTop: 24}]}>
+        <View style={[styles.sectionLabel, { marginTop: 24 }]}>
           <Text style={styles.sectionText}>BIOMETRIC</Text>
         </View>
         <View style={styles.methodRow}>
@@ -76,8 +70,8 @@ export function AuthMethodsScreen() {
               {!available
                 ? 'Not available on this device'
                 : enabled
-                ? 'Tap the fingerprint sensor to log in'
-                : 'Enable for faster login'}
+                  ? 'Tap the fingerprint sensor to log in'
+                  : 'Enable for faster login'}
             </Text>
           </View>
           {loading ? (
@@ -86,7 +80,7 @@ export function AuthMethodsScreen() {
             <Switch
               value={enabled}
               onValueChange={handleToggle}
-              trackColor={{false: palette.divider, true: colors.border}}
+              trackColor={{ false: palette.divider, true: colors.border }}
               thumbColor={enabled ? colors.primary : palette.muted}
             />
           ) : (
@@ -108,12 +102,18 @@ export function AuthMethodsScreen() {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    container: {flex: 1, paddingHorizontal: 16},
-    header: {flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 24, gap: 12},
-    backBtn: {padding: 4},
-    title: {fontSize: 24, fontWeight: '700', color: theme.palette.onBackground, flex: 1},
-    sectionLabel: {marginBottom: 8, paddingHorizontal: 4},
-    sectionText: {fontSize: 11, fontWeight: '700', color: theme.palette.muted, letterSpacing: 1},
+    container: { flex: 1, paddingHorizontal: 16 },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 16,
+      marginBottom: 24,
+      gap: 12,
+    },
+    backBtn: { padding: 4 },
+    title: { fontSize: 24, fontWeight: '700', color: theme.palette.onBackground, flex: 1 },
+    sectionLabel: { marginBottom: 8, paddingHorizontal: 4 },
+    sectionText: { fontSize: 11, fontWeight: '700', color: theme.palette.muted, letterSpacing: 1 },
     methodRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -132,10 +132,10 @@ function createStyles(theme: AppTheme) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    methodIconMuted: {backgroundColor: theme.palette.divider + '80'},
-    methodContent: {flex: 1},
-    methodLabel: {fontSize: 16, fontWeight: '600', color: theme.palette.onBackground},
-    methodSub: {fontSize: 13, color: theme.palette.muted, marginTop: 2},
+    methodIconMuted: { backgroundColor: theme.palette.divider + '80' },
+    methodContent: { flex: 1 },
+    methodLabel: { fontSize: 16, fontWeight: '600', color: theme.palette.onBackground },
+    methodSub: { fontSize: 13, color: theme.palette.muted, marginTop: 2 },
     activeBadge: {
       backgroundColor: 'rgba(34,197,94,0.15)',
       borderRadius: 8,
@@ -144,8 +144,8 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: 'rgba(34,197,94,0.3)',
     },
-    activeBadgeText: {fontSize: 12, fontWeight: '600', color: '#22c55e'},
-    unavailableText: {fontSize: 16, color: theme.palette.muted},
+    activeBadgeText: { fontSize: 12, fontWeight: '600', color: '#22c55e' },
+    unavailableText: { fontSize: 16, color: theme.palette.muted },
     hint: {
       fontSize: 13,
       color: theme.palette.muted,
