@@ -19,22 +19,21 @@ import {
   Plus,
   List as ListIcon,
   LayoutGrid,
-  ArrowDownUp,
+  ArrowUpDown,
   ChevronDown,
   Check,
-  Package,
-  PackageOpen,
+  Clock,
+  Layers,
+  Scissors,
+  Sparkles,
   Droplet,
   Droplets,
-  FlaskConical,
-  SprayCan,
-  Sparkles,
-  Sun,
-  Leaf,
   Wind,
+  Hand,
+  Flower2,
   Pencil,
-  EyeOff,
-  Eye,
+  CircleSlash2,
+  CalendarPlus,
   Trash2,
   CircleX,
 } from 'lucide-react-native';
@@ -51,38 +50,33 @@ import type { AppTheme } from '../../../theme/theme.types';
 import { useAppContext } from '../../../context/AppContext';
 import { useParlour } from '../../../backend/modules/parlour';
 import { usePharmacy } from '../../../backend/modules/pharmacy';
-import type {
-  ProductListOptions,
-  ProductListMeta,
-} from '../../../backend/modules/shared/hook/useModuleService';
+import type { ServiceListOptions } from '../../../backend/modules/shared/hook/useModuleService';
 import {
-  toProductRow,
-  stockStateFor,
-  stockDetail,
+  toServiceRow,
+  availabilityStateFor,
+  formatDuration,
   formatPrice,
-  productsHeaderLine,
-  productsResultLine,
-  productTintIndex,
-  STOCK_BADGE_LABEL,
-  STOCK_BADGE_LABEL_SHORT,
-  STOCK_TINT,
-  type ProductRow,
-  type StockState,
-} from './product.model';
+  servicesHeaderLine,
+  servicesResultLine,
+  serviceTintIndex,
+  AVAILABILITY_LABEL,
+  AVAILABILITY_TINT,
+  type ServiceRow,
+  type AvailabilityState,
+} from './service.model';
 import {
-  deriveProductView,
-  showsProductAdd,
-  productHeaderCollapses,
-  isProductSearchView,
-  showsCatalogPanel,
+  deriveServiceView,
+  showsServiceAdd,
+  serviceHeaderCollapses,
+  showsServiceMenuPanel,
   quickActionsFor,
   sortTriggerLabel,
   sortOptionFor,
   SORT_OPTIONS,
   DEFAULT_SORT_KEY,
-  type ProductAction,
-  type ProductView,
-} from './product.view';
+  type ServiceAction,
+  type ServiceView,
+} from './service.view';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -92,29 +86,30 @@ const PAGE_SIZE = 20;
  *  up flush against the search field. */
 const LIST_TOP_PAD = 12;
 const LIST_BOTTOM_PAD = 32;
-/** Debounce before a keystroke becomes a request. */
 const SEARCH_DEBOUNCE_MS = 300;
-/** Remembered so the catalog reopens in the view the owner last used. */
-const VIEW_MODE_KEY = 'session:products:view';
-/** Fallback until the first response tells us what the server actually used. */
-const FALLBACK_LOW_STOCK_THRESHOLD = 10;
+/** Remembered so the menu reopens in the view the owner last used. */
+const VIEW_MODE_KEY = 'session:services:view';
 
 /**
  * Decorative thumbnail glyphs.
  *
- * The mockup gives every product a semantic icon — a droplet for shampoo, a leaf for aloe. Nothing
- * in the data supports that: parlour has no category API, and the mapper never populates category
- * names, so a product arrives with category ids at best. Picking from this pool by a hash of the
- * name keeps a product's glyph stable and the list visually varied, which is what the mockup's
- * thumbnails communicate at a glance — without pretending to know what the product is.
+ * The mockup gives each service a semantic icon — scissors for threading, a droplet for a hair spa.
+ * The only signal that could drive that is categories, and those arrive as bare IDs because the
+ * mappers never populate names. Picking from this pool by a hash of the name keeps a service's
+ * glyph stable and the list visually varied, which is what the thumbnails communicate at a glance.
  */
-const THUMB_ICONS = [Droplet, Droplets, FlaskConical, SprayCan, Sparkles, Sun, Leaf, Wind];
+const THUMB_ICONS = [Sparkles, Droplet, Droplets, Scissors, Wind, Hand, Flower2, Layers];
 
 type ViewMode = 'list' | 'grid';
 
+/** `accent` is not a palette role — it lives on `colors.primary`. Everything else is. */
+function tintOf(theme: AppTheme, tint: ServiceAction['tint']): string {
+  return tint === 'accent' ? theme.colors.primary : theme.palette[tint];
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-export function ProductsScreen() {
+export function ServicesScreen() {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { palette, colors } = theme;
@@ -127,8 +122,7 @@ export function ProductsScreen() {
   // Two-way. Parlour and pharmacy are the only modules Modulex implements.
   const activeModule = selectedModule === 'PHARMACY' ? pharmacy : parlour;
 
-  const [rows, setRows] = useState<ProductRow[]>([]);
-  const [meta, setMeta] = useState<ProductListMeta | null>(null);
+  const [rows, setRows] = useState<ServiceRow[]>([]);
   const [searching, setSearching] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -138,18 +132,18 @@ export function ProductsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [sheet, setSheet] = useState<null | 'actions' | 'sort'>(null);
-  const [activeProduct, setActiveProduct] = useState<ProductRow | null>(null);
+  const [activeService, setActiveService] = useState<ServiceRow | null>(null);
   const [dialog, setDialog] = useState<null | 'delete'>(null);
 
   const pageRef = useRef(1);
   const loadingMoreRef = useRef(false);
   const sawLoadingRef = useRef(false);
 
-  const threshold = meta?.lowStockThreshold ?? FALLBACK_LOW_STOCK_THRESHOLD;
+  const totalElements = activeModule.servicesTotalElements;
 
   // ── View state ─────────────────────────────────────────────────────────────
 
-  const view: ProductView = deriveProductView({
+  const view: ServiceView = deriveServiceView({
     mode: searching ? 'search' : 'browse',
     query: debouncedSearch,
     rowCount: rows.length,
@@ -191,7 +185,7 @@ export function ProductsScreen() {
    * browsing cannot silently reorder a search — and so the server's `id asc` default (oldest first)
    * is never inherited by accident.
    */
-  const listOpts = useMemo<ProductListOptions>(() => {
+  const listOpts = useMemo<ServiceListOptions>(() => {
     const sort = sortOptionFor(sortKey);
     if (searching) {
       return debouncedSearch ? { search: debouncedSearch } : {};
@@ -202,7 +196,7 @@ export function ProductsScreen() {
   const load = useCallback(
     (page: number) => {
       pageRef.current = page;
-      activeModule.loadProducts(page, PAGE_SIZE, listOpts);
+      activeModule.loadServices(page, PAGE_SIZE, listOpts);
     },
     [activeModule, listOpts],
   );
@@ -225,12 +219,11 @@ export function ProductsScreen() {
 
   // Map the hook's raw rows, appending on page 2+.
   useEffect(() => {
-    const mapped = (activeModule.products as any[]).map(toProductRow);
+    const mapped = (activeModule.services as any[]).map(toServiceRow);
     setRows(prev => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
-    if (activeModule.productMeta) setMeta(activeModule.productMeta);
     loadingMoreRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeModule.products, activeModule.productMeta]);
+  }, [activeModule.services]);
 
   // `loading` is false on the very first render, so a plain `!loading` marks the screen loaded
   // before any request exists and flashes the empty hero. Track the true→false transition instead.
@@ -247,7 +240,7 @@ export function ProductsScreen() {
 
   const onEndReached = useCallback(() => {
     if (loadingMoreRef.current || activeModule.loading) return;
-    if (pageRef.current >= (activeModule.productsTotalPages ?? 1)) return;
+    if (pageRef.current >= (activeModule.servicesTotalPages ?? 1)) return;
     loadingMoreRef.current = true;
     load(pageRef.current + 1);
   }, [activeModule, load]);
@@ -256,19 +249,39 @@ export function ProductsScreen() {
 
   const closeSheets = useCallback(() => {
     setSheet(null);
-    setActiveProduct(null);
+    setActiveService(null);
     setDialog(null);
   }, []);
 
-  const openActions = useCallback((row: ProductRow) => {
-    setActiveProduct(row);
+  const openActions = useCallback((row: ServiceRow) => {
+    setActiveService(row);
     setSheet('actions');
   }, []);
 
+  const runAvailability = useCallback(
+    async (row: ServiceRow) => {
+      const next = !row.availability;
+      const res = await activeModule.updateServiceAvailability?.(row.id, next);
+      closeSheets();
+      if (res?.success) {
+        showToast(next ? 'Marked available' : 'Marked unavailable', 'success');
+        load(1);
+      } else {
+        showToast(res?.error || "Couldn't update availability", 'error');
+      }
+    },
+    [activeModule, closeSheets, load, showToast],
+  );
+
   const onPickAction = useCallback(
-    (action: ProductAction) => {
+    (action: ServiceAction) => {
       if (action.todo) {
-        showToast('Editing a product is coming soon', 'info');
+        showToast(
+          action.key === 'book'
+            ? 'Booking from a service is coming soon'
+            : 'Editing a service is coming soon',
+          'info',
+        );
         closeSheets();
         return;
       }
@@ -279,51 +292,35 @@ export function ProductsScreen() {
         setDialog(action.confirm);
         return;
       }
-      if (action.key === 'tracking' && activeProduct) runTracking(activeProduct);
+      if (action.key === 'availability' && activeService) runAvailability(activeService);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeProduct, closeSheets, showToast],
-  );
-
-  const runTracking = useCallback(
-    async (row: ProductRow) => {
-      const next = !row.trackInventory;
-      const res = await activeModule.updateProductTracking?.(row.id, next);
-      closeSheets();
-      if (res?.success) {
-        showToast(next ? 'Tracking turned on' : 'Tracking turned off', 'success');
-        load(1);
-      } else {
-        showToast(res?.error || "Couldn't update tracking", 'error');
-      }
-    },
-    [activeModule, closeSheets, load, showToast],
+    [activeService, closeSheets, runAvailability, showToast],
   );
 
   const runDelete = useCallback(async () => {
-    if (!activeProduct) return;
-    const name = activeProduct.name;
-    const res = await activeModule.deleteProduct(activeProduct.id);
+    if (!activeService) return;
+    const name = activeService.name;
+    const res = await activeModule.deleteService(activeService.id);
     closeSheets();
     if (res?.success) {
       showToast(`${name} deleted`, 'success');
       load(1);
     } else {
-      // The server blocks a delete that would orphan history; surface its reason rather than a
-      // generic failure.
-      showToast(res?.error || "Couldn't delete product", 'error');
+      // A service delete is routinely refused because appointments, packages or bills still
+      // reference it. That reason is the whole message — surface it, don't flatten it.
+      showToast(res?.error || "Couldn't delete service", 'error');
     }
-  }, [activeProduct, activeModule, closeSheets, load, showToast]);
+  }, [activeService, activeModule, closeSheets, load, showToast]);
 
   const onAdd = useCallback(() => {
-    /* TODO: navigate to product create — the mockup set contains no form screen yet. */
-    showToast('Adding a product is coming soon', 'info');
+    /* TODO: navigate to service create — the mockup set contains no form screen yet. */
+    showToast('Adding a service is coming soon', 'info');
   }, [showToast]);
 
   // ── Layout ─────────────────────────────────────────────────────────────────
 
   const { headerProps, listProps, headerHeight } = useCollapsingHeader({
-    pinned: !productHeaderCollapses(view),
+    pinned: !serviceHeaderCollapses(view),
     refreshing,
     contentBottomPadding: LIST_BOTTOM_PAD,
   });
@@ -336,16 +333,14 @@ export function ProductsScreen() {
     setDebouncedSearch('');
   }, []);
 
-  // ── Rows ───────────────────────────────────────────────────────────────────
-
   const renderRow = useCallback(
-    (row: ProductRow) =>
+    (row: ServiceRow) =>
       viewMode === 'grid' ? (
-        <GridCard row={row} styles={styles} theme={theme} threshold={threshold} onPress={openActions} />
+        <GridCard row={row} styles={styles} theme={theme} onPress={openActions} />
       ) : (
-        <ListRow row={row} styles={styles} theme={theme} threshold={threshold} onPress={openActions} />
+        <ListRow row={row} styles={styles} theme={theme} onPress={openActions} />
       ),
-    [viewMode, styles, theme, threshold, openActions],
+    [viewMode, styles, theme, openActions],
   );
 
   // ── Body ───────────────────────────────────────────────────────────────────
@@ -358,7 +353,7 @@ export function ProductsScreen() {
         styles={styles}
         style={bodyInset}
         icon={<CircleX size={40} color={palette.muted} />}
-        headline="Couldn't load products"
+        headline="Couldn't load services"
         sub="Something went wrong while loading. Check your connection and try again."
         ctaLabel="Retry"
         onCta={reload}
@@ -377,8 +372,8 @@ export function ProductsScreen() {
         styles={styles}
         style={bodyInset}
         icon={<Search size={40} color={palette.muted} />}
-        headline="Search your catalog"
-        sub="Find a product by its name or brand."
+        headline="Search your menu"
+        sub="Find a service by its name."
         colors={colors}
       />
     );
@@ -387,9 +382,9 @@ export function ProductsScreen() {
       <HeroBlock
         styles={styles}
         style={bodyInset}
-        icon={<PackageOpen size={40} color={palette.muted} />}
-        headline="No products found"
-        sub={`No products match '${debouncedSearch}'. Try a different name or brand.`}
+        icon={<Layers size={40} color={palette.muted} />}
+        headline="No services found"
+        sub={`No services match '${debouncedSearch}'. Try a different name.`}
         colors={colors}
       />
     );
@@ -398,25 +393,25 @@ export function ProductsScreen() {
       <HeroBlock
         styles={styles}
         style={bodyInset}
-        icon={<Package size={40} color={palette.muted} />}
-        headline="No products yet"
-        sub="Add your first product to start building your catalog."
-        ctaLabel="Add Product"
+        icon={<Layers size={40} color={palette.muted} />}
+        headline="No services yet"
+        sub="Add your first service to start building your menu."
+        ctaLabel="Add Service"
         onCta={onAdd}
         colors={colors}
       />
     );
   } else {
     body = (
-      <AnimatedFlatList<ProductRow>
+      <AnimatedFlatList<ServiceRow>
         data={rows}
         // Remounting on a column change is mandatory: FlatList caches cell layout by index and
         // silently keeps the old geometry otherwise.
         key={viewMode}
         numColumns={viewMode === 'grid' ? 2 : 1}
         columnWrapperStyle={viewMode === 'grid' ? styles.gridRow : undefined}
-        keyExtractor={(item: ProductRow) => String(item.id)}
-        renderItem={({ item }: { item: ProductRow }) => renderRow(item)}
+        keyExtractor={(item: ServiceRow) => String(item.id)}
+        renderItem={({ item }: { item: ServiceRow }) => renderRow(item)}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
@@ -440,8 +435,8 @@ export function ProductsScreen() {
       <View style={styles.headerRow}>
         <View style={styles.titleBlock}>
           <Text style={styles.eyebrow}>CATALOG</Text>
-          <Text style={styles.title}>Products</Text>
-          <Text style={styles.subtitle}>Manage inventory &amp; pricing</Text>
+          <Text style={styles.title}>Services</Text>
+          <Text style={styles.subtitle}>Manage your service menu</Text>
         </View>
 
         <View style={styles.viewToggle}>
@@ -472,7 +467,7 @@ export function ProductsScreen() {
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
-              placeholder="Search products..."
+              placeholder="Search services..."
               placeholderTextColor={palette.muted}
               autoFocus
               returnKeyType="search"
@@ -486,19 +481,20 @@ export function ProductsScreen() {
             style={styles.searchField}
             onPress={openSearch}
             accessibilityRole="button"
-            accessibilityLabel="Search products"
+            accessibilityLabel="Search services"
           >
             <Search size={17} color={palette.muted} />
-            <Text style={styles.searchPlaceholder}>Search products...</Text>
+            {/* Name only — that is all the server matches, and the no-results copy says so too. */}
+            <Text style={styles.searchPlaceholder}>Search services...</Text>
           </Pressable>
         )}
 
-        {showsProductAdd(view) && (
+        {showsServiceAdd(view) && (
           <Pressable
             style={[styles.addBtn, { backgroundColor: colors.primary }]}
             onPress={onAdd}
             accessibilityRole="button"
-            accessibilityLabel="Add product"
+            accessibilityLabel="Add service"
           >
             <Plus size={22} color="#FFFFFF" />
           </Pressable>
@@ -508,14 +504,14 @@ export function ProductsScreen() {
   );
 
   /**
-   * The catalog band sits below the collapsing header and rides up with it, coming to rest at the
-   * top of the screen once the header is fully hidden — which is exactly where the mockup's Scroll
-   * Down screen draws it, with the title and search row gone but this band still present.
+   * The menu band sits below the collapsing header and rides up with it, coming to rest at the top
+   * once the header is hidden — which is exactly where the set's Scroll Down screen draws it, with
+   * the title and search gone but this band still present.
    *
-   * It carries the header's OWN animated style, so the two translate in lockstep. Anchoring it at a
-   * static `top: headerHeight` instead leaves it stranded mid-list with rows scrolling both behind
-   * and in front of it. `headerProps.onLayout` is deliberately NOT spread here — that measures the
-   * header, and letting this band report its height too would corrupt the list inset.
+   * It carries the header's OWN animated style so the two translate in lockstep. A static
+   * `top: headerHeight` instead leaves it stranded mid-list with rows scrolling both behind and in
+   * front of it. `headerProps.onLayout` is deliberately NOT spread here — that measures the header,
+   * and letting this band report its height too would corrupt the list inset.
    */
   const band = (children: React.ReactNode, style: object) => (
     <Animated.View
@@ -526,18 +522,16 @@ export function ProductsScreen() {
     </Animated.View>
   );
 
-  const panel = showsCatalogPanel(view)
+  const panel = showsServiceMenuPanel(view)
     ? band(
         <>
           <View style={styles.panelTitles}>
-            <Text style={styles.panelTitle}>Product Catalog</Text>
-            {/* Only when the server actually sent the totals. Falling back to the loaded row count
-                would print "20 items" for a 142-product catalog and tick upward as you scrolled —
-                a wrong number is worse than no number. Absent on a backend without the meta field. */}
-            {!!meta && (
-              <Text style={styles.panelSub}>
-                {productsHeaderLine(meta.totalItems, meta.lowStockCount)}
-              </Text>
+            <Text style={styles.panelTitle}>Service Menu</Text>
+            {/* Only when the server actually sent the count. Falling back to the loaded row count
+                would print "20 services" for a 30-service menu and tick upward as you scrolled — a
+                wrong number is worse than no number. Absent on a backend without totalElements. */}
+            {totalElements != null && (
+              <Text style={styles.panelSub}>{servicesHeaderLine(totalElements)}</Text>
             )}
           </View>
           <Pressable
@@ -546,7 +540,7 @@ export function ProductsScreen() {
             accessibilityRole="button"
             accessibilityLabel={`Sort by ${sortTriggerLabel(sortKey)}`}
           >
-            <ArrowDownUp size={14} color={palette.muted} />
+            <ArrowUpDown size={14} color={palette.muted} />
             <Text style={styles.sortLabel}>{sortTriggerLabel(sortKey)}</Text>
             <ChevronDown size={14} color={palette.muted} />
           </Pressable>
@@ -558,13 +552,13 @@ export function ProductsScreen() {
   const resultLine =
     view === 'SEARCH_RESULTS'
       ? band(
-          <Text style={styles.resultLine}>{productsResultLine(rows.length, debouncedSearch)}</Text>,
+          <Text style={styles.resultLine}>{servicesResultLine(rows.length, debouncedSearch)}</Text>,
           styles.resultBand,
         )
       : null;
 
   // The band is an overlay, so the list needs to start below it or the first row hides underneath.
-  const bandHeight = panel ? 62 : resultLine ? 30 : 0;
+  const bandHeight = panel ? 58 : resultLine ? 30 : 0;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -577,13 +571,12 @@ export function ProductsScreen() {
       {/* Gated at render level rather than on Modal's `visible` prop alone: react-native-web keeps a
           Modal's portal mounted after `visible` flips false, which leaves stale sheets stacked on
           screen intercepting taps. */}
-      {sheet === 'actions' && activeProduct && (
+      {sheet === 'actions' && activeService && (
         <ActionsSheet
-          row={activeProduct}
+          row={activeService}
           styles={styles}
           theme={theme}
           insets={insets}
-          threshold={threshold}
           onClose={closeSheets}
           onPick={onPickAction}
         />
@@ -605,13 +598,13 @@ export function ProductsScreen() {
 
       <ConfirmDialog
         visible={dialog === 'delete'}
-        title="Delete this product?"
+        title="Delete this service?"
         message={
-          activeProduct
-            ? `“${activeProduct.name}” will be permanently removed from your catalog. This can’t be undone.`
+          activeService
+            ? `“${activeService.name}” will be removed from your service menu. This can’t be undone.`
             : ''
         }
-        confirmLabel="Delete product"
+        confirmLabel="Delete service"
         cancelLabel="Keep"
         danger
         onConfirm={runDelete}
@@ -623,37 +616,33 @@ export function ProductsScreen() {
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
-function StockBadge({
+function AvailabilityBadge({
   state,
   styles,
   theme,
-  short,
 }: {
-  state: StockState;
+  state: AvailabilityState;
   styles: any;
   theme: AppTheme;
-  short?: boolean;
 }) {
-  const tint = theme.palette[STOCK_TINT[state]];
-  const label = short ? STOCK_BADGE_LABEL_SHORT[state] : STOCK_BADGE_LABEL[state];
+  const tint = theme.palette[AVAILABILITY_TINT[state]];
   return (
     <View style={[styles.badge, { backgroundColor: tint + '22' }]}>
       <View style={[styles.badgeDot, { backgroundColor: tint }]} />
       <Text style={[styles.badgeLabel, { color: tint }]} numberOfLines={1}>
-        {label}
+        {AVAILABILITY_LABEL[state]}
       </Text>
     </View>
   );
 }
 
-function Thumb({ row, theme, size }: { row: ProductRow; theme: AppTheme; size: 'sm' | 'lg' }) {
+function Thumb({ row, theme, size }: { row: ServiceRow; theme: AppTheme; size: 'sm' | 'lg' }) {
   // The avatar pool gives a vivid hue in `bg` and a contrast colour in `text` — right for a filled
   // initials circle, wrong here. The mockup tints the tile with the hue at ~13% and draws the glyph
   // in the hue itself, so the hue is taken from `bg` and used for both.
   const hue = theme.avatar.forName(row.name).bg;
-  // Hashed separately from the hue so colour and glyph vary independently down the list, the way
-  // the mockup's do — a shared index would pin every orange tile to the same icon.
-  const Icon = THUMB_ICONS[productTintIndex(row.name, THUMB_ICONS.length)];
+  // Hashed separately from the hue so colour and glyph vary independently down the list.
+  const Icon = THUMB_ICONS[serviceTintIndex(row.name, THUMB_ICONS.length)];
   const box = size === 'lg' ? 72 : 44;
   return (
     <View
@@ -671,23 +660,28 @@ function Thumb({ row, theme, size }: { row: ProductRow; theme: AppTheme; size: '
   );
 }
 
+function Duration({ row, styles, theme }: { row: ServiceRow; styles: any; theme: AppTheme }) {
+  const text = formatDuration(row.duration);
+  if (!text) return null;
+  return (
+    <View style={styles.durRow}>
+      <Clock size={12} color={theme.palette.muted} />
+      <Text style={styles.durText}>{text}</Text>
+    </View>
+  );
+}
+
 function ListRow({
   row,
   styles,
   theme,
-  threshold,
   onPress,
 }: {
-  row: ProductRow;
+  row: ServiceRow;
   styles: any;
   theme: AppTheme;
-  threshold: number;
-  onPress: (row: ProductRow) => void;
+  onPress: (row: ServiceRow) => void;
 }) {
-  const state = stockStateFor(row, threshold);
-  const detail = stockDetail(row, threshold);
-  const detailTint = state === 'LOW' || state === 'OUT' ? theme.palette[STOCK_TINT[state]] : theme.palette.muted;
-
   return (
     <Pressable
       style={styles.row}
@@ -700,19 +694,20 @@ function ListRow({
         <Text style={styles.rowName} numberOfLines={1}>
           {row.name}
         </Text>
-        {!!row.brand && (
-          <Text style={styles.rowBrand} numberOfLines={1}>
-            {row.brand}
+        {/* The mockup puts categories here; they arrive as bare IDs, so the description takes the
+            slot and the line simply goes away when there is none. */}
+        {!!row.description && (
+          <Text style={styles.rowSub} numberOfLines={1}>
+            {row.description}
           </Text>
         )}
         <View style={styles.badgeRow}>
-          <StockBadge state={state} styles={styles} theme={theme} />
-          {!!detail && <Text style={[styles.rowDetail, { color: detailTint }]}>{detail}</Text>}
+          <AvailabilityBadge state={availabilityStateFor(row)} styles={styles} theme={theme} />
+          <Duration row={row} styles={styles} theme={theme} />
         </View>
       </View>
       <View style={styles.rowRight}>
         <Text style={styles.rowPrice}>{formatPrice(row.price)}</Text>
-        {!!row.size && <Text style={styles.rowSize}>{row.size}</Text>}
       </View>
     </Pressable>
   );
@@ -722,16 +717,13 @@ function GridCard({
   row,
   styles,
   theme,
-  threshold,
   onPress,
 }: {
-  row: ProductRow;
+  row: ServiceRow;
   styles: any;
   theme: AppTheme;
-  threshold: number;
-  onPress: (row: ProductRow) => void;
+  onPress: (row: ServiceRow) => void;
 }) {
-  const state = stockStateFor(row, threshold);
   return (
     <Pressable
       style={styles.card}
@@ -744,21 +736,22 @@ function GridCard({
         <Text style={styles.cardName} numberOfLines={1}>
           {row.name}
         </Text>
-        <Text style={styles.cardBrand} numberOfLines={1}>
-          {row.brand || row.size}
+        <Text style={styles.cardSub} numberOfLines={1}>
+          {row.description}
         </Text>
       </View>
       <View style={styles.cardFoot}>
         <Text style={styles.cardPrice}>{formatPrice(row.price)}</Text>
-        <StockBadge state={state} styles={styles} theme={theme} short />
+        <Duration row={row} styles={styles} theme={theme} />
       </View>
     </Pressable>
   );
 }
 
-const ACTION_ICON: Record<ProductAction['key'], React.ComponentType<any>> = {
+const ACTION_ICON: Record<ServiceAction['key'], React.ComponentType<any>> = {
   edit: Pencil,
-  tracking: EyeOff,
+  availability: CircleSlash2,
+  book: CalendarPlus,
   delete: Trash2,
 };
 
@@ -767,21 +760,20 @@ function ActionsSheet({
   styles,
   theme,
   insets,
-  threshold,
   onClose,
   onPick,
 }: {
-  row: ProductRow;
+  row: ServiceRow;
   styles: any;
   theme: AppTheme;
   insets: { bottom: number };
-  threshold: number;
   onClose: () => void;
-  onPick: (action: ProductAction) => void;
+  onPick: (action: ServiceAction) => void;
 }) {
   const actions = quickActionsFor(row);
-  const detail = stockDetail(row, threshold);
-  const sub = [row.brand, detail, formatPrice(row.price)].filter(Boolean).join(' · ');
+  const sub = [row.description, formatDuration(row.duration), formatPrice(row.price)]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -802,12 +794,10 @@ function ActionsSheet({
         </View>
 
         {actions.map(a => {
-          // The tracking row is the one action whose icon depends on state, so it can't come from
-          // the static map alone.
-          const Icon = a.key === 'tracking' && !row.trackInventory ? Eye : ACTION_ICON[a.key];
+          const Icon = ACTION_ICON[a.key];
           return (
             <Pressable key={a.key} style={styles.actionRow} onPress={() => onPick(a)}>
-              <Icon size={19} color={theme.palette[a.tint]} />
+              <Icon size={19} color={tintOf(theme, a.tint)} />
               <Text style={[styles.actionLabel, a.danger && { color: theme.palette.error }]}>
                 {a.label}
               </Text>
@@ -894,9 +884,9 @@ function HeroBlock({
 const createStyles = (theme: AppTheme) => {
   const dim = theme.palette.muted + '8A';
   return StyleSheet.create({
-    // Opaque, matching Billing and Appointments. The tab navigator sets `sceneStyle` transparent
-    // and keeps every tab mounted, so a transparent screen lets the previously-focused tab show
-    // through the gaps between rows.
+    // Opaque, matching Products, Billing and Appointments. The tab navigator sets `sceneStyle`
+    // transparent and keeps every tab mounted, so a transparent screen lets the previously-focused
+    // tab show through the gaps between rows.
     screen: { flex: 1, backgroundColor: theme.palette.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
@@ -909,12 +899,7 @@ const createStyles = (theme: AppTheme) => {
       paddingTop: 8,
     },
     titleBlock: { flex: 1, gap: 2 },
-    eyebrow: {
-      fontSize: 11,
-      fontWeight: '600',
-      letterSpacing: 1,
-      color: dim,
-    },
+    eyebrow: { fontSize: 11, fontWeight: '600', letterSpacing: 1, color: dim },
     title: { fontSize: 27, fontWeight: '700', color: theme.palette.onBackground },
     subtitle: { fontSize: 13, color: theme.palette.muted },
 
@@ -943,12 +928,12 @@ const createStyles = (theme: AppTheme) => {
     searchPlaceholder: { flex: 1, fontSize: 14, color: theme.palette.muted },
     addBtn: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 
-    // Catalog panel — pinned below the collapsing header, present in both scroll states.
+    // Menu panel — pinned below the collapsing header, present in both scroll states.
     panelHeader: {
       position: 'absolute',
       left: 0,
       right: 0,
-      height: 62,
+      height: 58,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -957,18 +942,18 @@ const createStyles = (theme: AppTheme) => {
       zIndex: 9,
     },
     panelTitles: { gap: 3 },
-    panelTitle: { fontSize: 15, fontWeight: '600', color: theme.palette.onBackground },
-    panelSub: { fontSize: 12, color: theme.palette.muted },
+    panelTitle: { fontSize: 14, fontWeight: '600', color: theme.palette.onBackground },
+    panelSub: { fontSize: 11, color: dim },
     sortBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      height: 32,
+      height: 31,
       paddingHorizontal: 12,
       borderRadius: 9,
       backgroundColor: theme.palette.surface,
     },
-    sortLabel: { fontSize: 13, fontWeight: '500', color: theme.palette.muted },
+    sortLabel: { fontSize: 12, color: theme.palette.muted },
 
     resultBand: {
       position: 'absolute',
@@ -995,12 +980,12 @@ const createStyles = (theme: AppTheme) => {
     },
     rowMid: { flex: 1, gap: 3 },
     rowName: { fontSize: 14, fontWeight: '600', color: theme.palette.onBackground },
-    rowBrand: { fontSize: 12, color: theme.palette.muted },
-    badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
-    rowDetail: { fontSize: 12 },
-    rowRight: { alignItems: 'flex-end', gap: 3 },
+    rowSub: { fontSize: 12, color: theme.palette.muted },
+    badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
+    durRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    durText: { fontSize: 12, color: theme.palette.muted },
+    rowRight: { alignItems: 'flex-end' },
     rowPrice: { fontSize: 15, fontWeight: '600', color: theme.palette.onBackground },
-    rowSize: { fontSize: 12, color: theme.palette.muted },
 
     // Grid
     gridRow: { paddingHorizontal: 16, gap: 12 },
@@ -1014,7 +999,7 @@ const createStyles = (theme: AppTheme) => {
     },
     cardInfo: { gap: 2 },
     cardName: { fontSize: 13, fontWeight: '600', color: theme.palette.onBackground },
-    cardBrand: { fontSize: 11, color: theme.palette.muted },
+    cardSub: { fontSize: 11, color: theme.palette.muted },
     cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
     cardPrice: { fontSize: 14, fontWeight: '700', color: theme.palette.onBackground },
 

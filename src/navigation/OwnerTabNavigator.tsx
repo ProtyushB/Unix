@@ -11,15 +11,6 @@ import { TabConfigProvider } from '../backend/tab-config';
 import type { AppTheme } from '../theme/theme.types';
 import type { OwnerTabParamList, ProfileStackParamList } from './types';
 
-// Re-exports kept so orphaned composite screens (OperationsScreen, CatalogScreen,
-// and the detail screens) still type-check even though they are no longer
-// mounted here. Remove once those files are removed or rewritten.
-export type {
-  CatalogStackParamList,
-  OperationsStackParamList,
-  InventoryStackParamList,
-  PeopleStackParamList,
-} from './types';
 import DashboardScreen from '../screens/owner/DashboardScreen';
 import { InventoryScreen } from '../screens/owner/InventoryScreen';
 import { AccountScreen } from '../screens/owner/AccountScreen';
@@ -27,7 +18,7 @@ import { OrdersScreen } from '../screens/owner/OrdersScreen';
 import { AppointmentsScreen } from '../screens/owner/appointments/AppointmentsScreen';
 import { BillingScreen } from '../screens/owner/billing/BillingScreen';
 import { ProductsScreen } from '../screens/owner/products/ProductsScreen';
-import { ServicesScreen } from '../screens/owner/ServicesScreen';
+import { ServicesScreen } from '../screens/owner/services/ServicesScreen';
 import { PackagesScreen } from '../screens/owner/PackagesScreen';
 import { SubscriptionsScreen } from '../screens/owner/SubscriptionsScreen';
 import { ServicePlansScreen } from '../screens/owner/ServicePlansScreen';
