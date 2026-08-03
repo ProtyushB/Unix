@@ -172,10 +172,8 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
               <Text
                 style={[
                   styles.barTabLabel,
-                  {
-                    color: tintActive ? colors.primary : palette.muted,
-                    fontWeight: tintActive ? '600' : '500',
-                  },
+                  tintActive ? styles.barTabLabelActive : styles.barTabLabelIdle,
+                  { color: tintActive ? colors.primary : palette.muted },
                 ]}
                 numberOfLines={1}
               >
@@ -274,5 +272,8 @@ function createStyles(theme: AppTheme) {
       fontSize: 10,
       textAlign: 'center',
     },
+    // Weight only. The tint itself is themed and stays at the call site alongside these.
+    barTabLabelActive: { fontWeight: '600' },
+    barTabLabelIdle: { fontWeight: '500' },
   });
 }

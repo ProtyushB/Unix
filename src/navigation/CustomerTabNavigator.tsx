@@ -30,6 +30,34 @@ function ProfileNavigator() {
   );
 }
 
+// ─── Tab icons ───────────────────────────────────────────────────────────────
+
+/**
+ * Each tab's icon is a real component defined ONCE at module scope, not an arrow written inline in
+ * `options`. An inline arrow is a new component type on every render of the navigator, which makes
+ * React unmount and remount the icon subtree rather than update it.
+ *
+ * `color` stays inline because the navigator supplies it per state (active/inactive) — only the
+ * static half of the style belongs in the StyleSheet.
+ */
+const iconStyles = StyleSheet.create({
+  emoji: { fontSize: 20 },
+});
+
+function makeTabIcon(emoji: string) {
+  const TabIcon = ({ color }: { color: string }) => (
+    <Text style={[iconStyles.emoji, { color }]}>{emoji}</Text>
+  );
+  TabIcon.displayName = `TabIcon(${emoji})`;
+  return TabIcon;
+}
+
+const ExploreIcon = makeTabIcon('🧭');
+const BookingsIcon = makeTabIcon('📅');
+const OrdersIcon = makeTabIcon('🛍');
+const BillsIcon = makeTabIcon('🧾');
+const ProfileIcon = makeTabIcon('👤');
+
 // ─── Tab Navigator ───────────────────────────────────────────────────────────
 
 const Tab = createBottomTabNavigator<CustomerTabParamList>();
@@ -60,27 +88,19 @@ export function CustomerTabNavigator() {
         <Tab.Screen
           name="Explore"
           component={ExploreScreen}
-          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🧭</Text> }}
+          options={{ tabBarIcon: ExploreIcon }}
         />
         <Tab.Screen
           name="Bookings"
           component={BookingsScreen}
-          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📅</Text> }}
+          options={{ tabBarIcon: BookingsIcon }}
         />
-        <Tab.Screen
-          name="Orders"
-          component={OrdersScreen}
-          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🛍</Text> }}
-        />
-        <Tab.Screen
-          name="Bills"
-          component={BillsScreen}
-          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🧾</Text> }}
-        />
+        <Tab.Screen name="Orders" component={OrdersScreen} options={{ tabBarIcon: OrdersIcon }} />
+        <Tab.Screen name="Bills" component={BillsScreen} options={{ tabBarIcon: BillsIcon }} />
         <Tab.Screen
           name="Profile"
           component={ProfileNavigator}
-          options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text> }}
+          options={{ tabBarIcon: ProfileIcon }}
         />
       </Tab.Navigator>
       <BiometricOnboardingModal />
