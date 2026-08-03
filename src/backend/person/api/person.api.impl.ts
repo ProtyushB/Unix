@@ -30,9 +30,11 @@ export class PersonApiImpl extends PersonApiInterface {
    * signup to decide whether an in-store profile already exists for this
    * person.
    */
-  async lookupCustomers(params: { email?: string; phone?: string; businessId?: number }): Promise<
-    ApiResponse<CustomerLookupMatch[]>
-  > {
+  async lookupCustomers(params: {
+    email?: string;
+    phone?: string;
+    businessId?: number;
+  }): Promise<ApiResponse<CustomerLookupMatch[]>> {
     const query = new URLSearchParams();
     if (params.email?.trim()) query.append('email', params.email.trim());
     if (params.phone?.trim()) query.append('phone', params.phone.trim());
@@ -65,14 +67,14 @@ export class PersonApiImpl extends PersonApiInterface {
       body.business = payload.businesses;
     }
 
-    const response = await personApiClient.post(
-      PERSON_API_CONFIG.ENDPOINTS.CUSTOMERS_CLAIM,
-      body,
-    );
+    const response = await personApiClient.post(PERSON_API_CONFIG.ENDPOINTS.CUSTOMERS_CLAIM, body);
     return response.data;
   }
 
-  async updatePerson(personData: PersonDto, flags: UpdatePersonFlags = {}): Promise<ApiResponse<PersonDto>> {
+  async updatePerson(
+    personData: PersonDto,
+    flags: UpdatePersonFlags = {},
+  ): Promise<ApiResponse<PersonDto>> {
     const params = new URLSearchParams();
     if (flags.updatePhone) params.append('updatePhone', 'true');
     if (flags.updateEmail) params.append('updateEmail', 'true');
@@ -93,7 +95,9 @@ export class PersonApiImpl extends PersonApiInterface {
   }
 
   async getPersonByUsername(username: string): Promise<ApiResponse<PersonDto>> {
-    const response = await personApiClient.get(PERSON_API_CONFIG.ENDPOINTS.PERSONS_BY_USERNAME(username));
+    const response = await personApiClient.get(
+      PERSON_API_CONFIG.ENDPOINTS.PERSONS_BY_USERNAME(username),
+    );
     return response.data;
   }
 
@@ -103,8 +107,9 @@ export class PersonApiImpl extends PersonApiInterface {
   }
 
   async deletePerson(personId: number): Promise<ApiResponse<PersonDto>> {
-    const response = await personApiClient.delete(PERSON_API_CONFIG.ENDPOINTS.PERSONS_BY_ID(personId));
+    const response = await personApiClient.delete(
+      PERSON_API_CONFIG.ENDPOINTS.PERSONS_BY_ID(personId),
+    );
     return response.data;
   }
-
 }

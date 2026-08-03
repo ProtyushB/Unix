@@ -1,19 +1,13 @@
-import React, {useEffect, useState} from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-} from 'react-native';
-import {biometricStorage} from '../../storage/biometric.storage';
-import {useBiometric} from '../../hooks/useBiometric';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { biometricStorage } from '../../storage/biometric.storage';
+import { useBiometric } from '../../hooks/useBiometric';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
 
 export function BiometricOnboardingModal() {
   const [visible, setVisible] = useState(false);
-  const {available, biometryLabel, loading, enable} = useBiometric();
+  const { available, biometryLabel, loading, enable } = useBiometric();
   const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
@@ -45,14 +39,14 @@ export function BiometricOnboardingModal() {
       animationType="fade"
       statusBarTranslucent
       navigationBarTranslucent
-      onRequestClose={handleSkip}>
+      onRequestClose={handleSkip}
+    >
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Text style={styles.icon}>🔒</Text>
           <Text style={styles.title}>Enable Quick Access</Text>
           <Text style={styles.subtitle}>
-            Use {biometryLabel} to log in faster next time instead of typing your
-            password.
+            Use {biometryLabel} to log in faster next time instead of typing your password.
           </Text>
 
           <TouchableOpacity style={styles.primaryBtn} onPress={handleEnable} activeOpacity={0.8}>
@@ -86,7 +80,7 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: theme.palette.divider,
     },
-    icon: {fontSize: 48, marginBottom: 16},
+    icon: { fontSize: 48, marginBottom: 16 },
     title: {
       fontSize: 20,
       fontWeight: '700',
@@ -109,8 +103,8 @@ function createStyles(theme: AppTheme) {
       alignItems: 'center',
       marginBottom: 12,
     },
-    primaryBtnText: {fontSize: 16, fontWeight: '700', color: '#fff'},
-    skipBtn: {paddingVertical: 8},
-    skipBtnText: {fontSize: 14, color: theme.palette.muted, fontWeight: '500'},
+    primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+    skipBtn: { paddingVertical: 8 },
+    skipBtnText: { fontSize: 14, color: theme.palette.muted, fontWeight: '500' },
   });
 }

@@ -26,9 +26,7 @@ export function PasswordChecklist({ password }: PasswordChecklistProps) {
             ) : (
               <Text style={styles.iconPending}>○</Text>
             )}
-            <Text style={[styles.label, passes && styles.labelPassing]}>
-              {rule.label}
-            </Text>
+            <Text style={[styles.label, passes && styles.labelPassing]}>{rule.label}</Text>
           </View>
         );
       })}

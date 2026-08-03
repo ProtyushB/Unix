@@ -8,10 +8,10 @@ import type { AppTheme } from '../../theme/theme.types';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface ListAvatarRowProps {
-  name:      string;
+  name: string;
   subtitle?: string;
   trailing?: string;
-  onPress?:  () => void;
+  onPress?: () => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -27,17 +27,12 @@ function getInitials(name: string): string {
 // Pattern E: Avatar row. Color-keyed initials bubble on the left (deterministic
 // from the name via theme.avatar.forName), name + role, chevron.
 
-export function ListAvatarRow({
-  name,
-  subtitle,
-  trailing,
-  onPress,
-}: ListAvatarRowProps) {
+export function ListAvatarRow({ name, subtitle, trailing, onPress }: ListAvatarRowProps) {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   const avatarColors = theme.avatar.forName(name);
-  const initials     = getInitials(name);
+  const initials = getInitials(name);
 
   return (
     <Pressable
@@ -50,9 +45,13 @@ export function ListAvatarRow({
       </View>
 
       <View style={styles.body}>
-        <Text style={styles.name} numberOfLines={1}>{name}</Text>
+        <Text style={styles.name} numberOfLines={1}>
+          {name}
+        </Text>
         {subtitle && (
-          <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
         )}
       </View>
 
@@ -67,45 +66,45 @@ export function ListAvatarRow({
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     row: {
-      flexDirection:     'row',
-      alignItems:        'center',
+      flexDirection: 'row',
+      alignItems: 'center',
       paddingHorizontal: 16,
-      paddingVertical:   12,
+      paddingVertical: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.palette.divider,
-      gap:               12,
+      gap: 12,
     },
     rowPressed: {
       backgroundColor: theme.palette.surface,
     },
     avatar: {
-      width:          40,
-      height:         40,
-      borderRadius:   20,
-      alignItems:     'center',
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
       justifyContent: 'center',
     },
     avatarText: {
-      fontSize:   14,
+      fontSize: 14,
       fontWeight: '700',
     },
     body: {
       flex: 1,
-      gap:  2,
+      gap: 2,
     },
     name: {
-      fontSize:   15,
+      fontSize: 15,
       fontWeight: '600',
-      color:      theme.palette.onBackground,
+      color: theme.palette.onBackground,
     },
     subtitle: {
       fontSize: 12,
-      color:    theme.palette.muted,
+      color: theme.palette.muted,
     },
     trailing: {
-      fontSize:   13,
+      fontSize: 13,
       fontWeight: '600',
-      color:      theme.palette.muted,
+      color: theme.palette.muted,
     },
   });
 }

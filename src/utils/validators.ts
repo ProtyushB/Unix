@@ -64,7 +64,7 @@ export const PASSWORD_RULES: PasswordRule[] = [
 ];
 
 export function validatePassword(password: string): boolean {
-  return PASSWORD_RULES.every(rule => rule.test(password));
+  return PASSWORD_RULES.every((rule) => rule.test(password));
 }
 
 // ─── Backend Regex (single-check equivalent) ────────────────────────────────

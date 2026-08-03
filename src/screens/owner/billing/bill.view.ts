@@ -110,17 +110,36 @@ export interface QuickAction {
 }
 
 const BILL_ACTIONS: QuickAction[] = [
-  {key: 'DRAFT', label: 'Mark as Draft', axis: 'bill', tint: 'muted'},
+  { key: 'DRAFT', label: 'Mark as Draft', axis: 'bill', tint: 'muted' },
   // The mockup set never draws this row — every sheet in it shows an already-finalized bill — so
   // amber is inherited from the lock badge on the Finalize Confirm dialog rather than specified.
-  {key: 'FINALIZED', label: 'Mark as Finalized', axis: 'bill', confirm: 'finalize', tint: 'warning'},
-  {key: 'CANCELLED', label: 'Mark as Cancelled', axis: 'bill', confirm: 'cancel', tint: 'error', danger: true},
+  {
+    key: 'FINALIZED',
+    label: 'Mark as Finalized',
+    axis: 'bill',
+    confirm: 'finalize',
+    tint: 'warning',
+  },
+  {
+    key: 'CANCELLED',
+    label: 'Mark as Cancelled',
+    axis: 'bill',
+    confirm: 'cancel',
+    tint: 'error',
+    danger: true,
+  },
 ];
 
 const PAYMENT_ACTIONS: QuickAction[] = [
-  {key: 'PAID', label: 'Mark as Paid', axis: 'payment', tint: 'success'},
-  {key: 'PARTIALLY_PAID', label: 'Mark as Partially Paid', axis: 'payment', needsAmount: true, tint: 'warning'},
-  {key: 'FAILED', label: 'Mark as Failed', axis: 'payment', tint: 'error', danger: true},
+  { key: 'PAID', label: 'Mark as Paid', axis: 'payment', tint: 'success' },
+  {
+    key: 'PARTIALLY_PAID',
+    label: 'Mark as Partially Paid',
+    axis: 'payment',
+    needsAmount: true,
+    tint: 'warning',
+  },
+  { key: 'FAILED', label: 'Mark as Failed', axis: 'payment', tint: 'error', danger: true },
 ];
 
 /**
@@ -131,11 +150,11 @@ const PAYMENT_ACTIONS: QuickAction[] = [
  * ever produce an error. Better to not present an action that cannot succeed.
  */
 export function quickActionsFor(billStatus: string, paymentStatus: string): QuickAction[] {
-  const bill = BILL_ACTIONS.filter(a => {
+  const bill = BILL_ACTIONS.filter((a) => {
     if (a.key === billStatus) return false;
     if (a.key === 'DRAFT' && billStatus === 'CANCELLED') return false;
     return true;
   });
-  const payment = PAYMENT_ACTIONS.filter(a => a.key !== paymentStatus);
+  const payment = PAYMENT_ACTIONS.filter((a) => a.key !== paymentStatus);
   return [...bill, ...payment];
 }

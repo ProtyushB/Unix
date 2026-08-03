@@ -47,9 +47,9 @@ const ProfilePersonalScreen: React.FC<Props> = ({ navigation, route }) => {
   // rather than making them retype what we matched them on.
   useEffect(() => {
     if (!claim) return;
-    setFirstName(prev => prev || claim.firstName);
-    setLastName(prev => prev || claim.lastName);
-    setPhoneNumber(prev => prev || claim.phoneNumber);
+    setFirstName((prev) => prev || claim.firstName);
+    setLastName((prev) => prev || claim.lastName);
+    setPhoneNumber((prev) => prev || claim.phoneNumber);
   }, [claim]);
 
   const validate = (): boolean => {
@@ -120,9 +120,9 @@ const ProfilePersonalScreen: React.FC<Props> = ({ navigation, route }) => {
               <AppInput
                 label="First Name *"
                 value={firstName}
-                onChangeText={v => {
+                onChangeText={(v) => {
                   setFirstName(v);
-                  setErrors(e => ({ ...e, firstName: '' }));
+                  setErrors((e) => ({ ...e, firstName: '' }));
                 }}
                 placeholder="Enter your first name"
                 error={errors.firstName}
@@ -132,9 +132,9 @@ const ProfilePersonalScreen: React.FC<Props> = ({ navigation, route }) => {
               <AppInput
                 label="Last Name *"
                 value={lastName}
-                onChangeText={v => {
+                onChangeText={(v) => {
                   setLastName(v);
-                  setErrors(e => ({ ...e, lastName: '' }));
+                  setErrors((e) => ({ ...e, lastName: '' }));
                 }}
                 placeholder="Enter your last name"
                 error={errors.lastName}
@@ -168,9 +168,9 @@ const ProfilePersonalScreen: React.FC<Props> = ({ navigation, route }) => {
               <AppInput
                 label="Phone Number *"
                 value={phoneNumber}
-                onChangeText={v => {
+                onChangeText={(v) => {
                   setPhoneNumber(v);
-                  setErrors(e => ({ ...e, phoneNumber: '' }));
+                  setErrors((e) => ({ ...e, phoneNumber: '' }));
                 }}
                 placeholder="Enter your phone number"
                 keyboardType="phone-pad"

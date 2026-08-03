@@ -10,7 +10,7 @@ import type { AppTheme } from '../../theme/theme.types';
 // component covers all of them.
 
 export function PlaceholderScreen() {
-  const route  = useRoute();
+  const route = useRoute();
   const styles = useThemedStyles(createStyles);
 
   return (
@@ -27,15 +27,15 @@ function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     container: { flex: 1, paddingHorizontal: 16 },
     title: {
-      fontSize:     28,
-      fontWeight:   '700',
-      color:        theme.palette.onBackground,
-      marginTop:    16,
+      fontSize: 28,
+      fontWeight: '700',
+      color: theme.palette.onBackground,
+      marginTop: 16,
       marginBottom: 8,
     },
     subtitle: {
       fontSize: 14,
-      color:    theme.palette.muted,
+      color: theme.palette.muted,
     },
   });
 }

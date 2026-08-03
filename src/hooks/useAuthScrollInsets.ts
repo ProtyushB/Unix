@@ -29,7 +29,7 @@ import { useKeyboardHeight } from './useKeyboardHeight';
 export function useAuthScrollInsets(): Pick<ViewStyle, 'paddingTop' | 'paddingBottom'> {
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
-  const androidStatusBar = Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0;
+  const androidStatusBar = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0;
   const top = Math.max(insets.top, androidStatusBar);
   return {
     paddingTop: top + 20,

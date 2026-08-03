@@ -34,15 +34,15 @@ export type OwnerTabParamList = {
 
 export type CatalogStackParamList = {
   CatalogMain: undefined;
-  ProductDetail: {productId?: number; mode: 'view' | 'edit' | 'add'};
-  ServiceDetail: {serviceId?: number; mode: 'view' | 'edit' | 'add'};
+  ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
+  ServiceDetail: { serviceId?: number; mode: 'view' | 'edit' | 'add' };
 };
 
 export type OperationsStackParamList = {
   OperationsMain: undefined;
-  OrderDetail: {orderId: number};
-  AppointmentDetail: {appointmentId: number};
-  BillingDetail: {billId: number};
+  OrderDetail: { orderId: number };
+  AppointmentDetail: { appointmentId: number };
+  BillingDetail: { billId: number };
 };
 
 export type InventoryStackParamList = {

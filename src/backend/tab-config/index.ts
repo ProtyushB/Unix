@@ -15,5 +15,9 @@ export {
   RELEASE_GATED_TABS,
 } from './config/api.config';
 export type { TabKey, TabMap } from './config/api.config';
-export { forceAlwaysOn, normalizeTabConfig, UNRESOLVED_SNAPSHOT } from './util/tab-config.normalize';
+export {
+  forceAlwaysOn,
+  normalizeTabConfig,
+  UNRESOLVED_SNAPSHOT,
+} from './util/tab-config.normalize';
 export type { TabConfigSnapshot, TabConfigPayload } from './util/tab-config.normalize';

@@ -29,10 +29,7 @@ import {
   Lock,
 } from 'lucide-react-native';
 import { FAB } from '../../../components/layout/FAB';
-import {
-  CollapsingHeader,
-  AnimatedSectionList,
-} from '../../../components/layout/CollapsingHeader';
+import { CollapsingHeader, AnimatedSectionList } from '../../../components/layout/CollapsingHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useTheme } from '../../../hooks/useTheme';
 import { useThemedStyles } from '../../../hooks/useThemedStyles';
@@ -124,7 +121,6 @@ export function BillingScreen() {
 
   const pageRef = useRef(1);
   const loadingMoreRef = useRef(false);
-  const [loadedPages, setLoadedPages] = useState(0);
 
   /**
    * Today, in IST.
@@ -180,10 +176,8 @@ export function BillingScreen() {
 
   useEffect(() => {
     const mapped = (activeModule.bills as any[]).map(toBillRow);
-    setRows(prev => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
-    setLoadedPages(pageRef.current);
+    setRows((prev) => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
     loadingMoreRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModule.bills]);
 
   /**
@@ -349,7 +343,9 @@ export function BillingScreen() {
           android_ripple={{ color: palette.divider }}
         >
           <View style={[styles.avatar, { backgroundColor: pair.bg }]}>
-            <Text style={[styles.avatarText, { color: pair.text }]}>{initials(item.customerName)}</Text>
+            <Text style={[styles.avatarText, { color: pair.text }]}>
+              {initials(item.customerName)}
+            </Text>
           </View>
 
           <View style={styles.cardBody}>
@@ -409,7 +405,7 @@ export function BillingScreen() {
   } else if (view === 'LOADING' || view === 'SEARCHING') {
     body = (
       <View style={[styles.skeletonWrap, bodyInset]}>
-        {[0, 1, 2, 3, 4, 5].map(i => (
+        {[0, 1, 2, 3, 4, 5].map((i) => (
           <SkeletonRow key={i} styles={styles} />
         ))}
       </View>
@@ -538,7 +534,7 @@ export function BillingScreen() {
             style={styles.titleRow}
             // Measured so the wallet popover can hang directly beneath the title, which is where
             // the mockup anchors it — deliberately over the search row and chips, not below them.
-            onLayout={e => {
+            onLayout={(e) => {
               const h = e.nativeEvent.layout.height;
               if (Math.abs(h - titleH) > 0.5) setTitleH(h);
             }}
@@ -546,12 +542,15 @@ export function BillingScreen() {
             <View style={styles.titleBlock}>
               <Text style={styles.title}>Billing</Text>
               <Text style={styles.subtitle}>
-                {billsHeaderLine(summary?.totalBills ?? rows.length, summary?.totalOutstanding ?? 0)}
+                {billsHeaderLine(
+                  summary?.totalBills ?? rows.length,
+                  summary?.totalOutstanding ?? 0,
+                )}
               </Text>
             </View>
             <Pressable
               style={[styles.walletBtn, walletOpen && { backgroundColor: colors.primary }]}
-              onPress={() => setWalletOpen(w => !w)}
+              onPress={() => setWalletOpen((w) => !w)}
               android_ripple={{ color: palette.divider }}
               accessibilityRole="button"
               accessibilityLabel={walletOpen ? 'Hide outstanding' : 'Show outstanding'}
@@ -575,7 +574,7 @@ export function BillingScreen() {
               style={styles.chipScroll}
               keyboardShouldPersistTaps="handled"
             >
-              {CHIPS.map(c => {
+              {CHIPS.map((c) => {
                 const active = chip === c.key;
                 const count = chipCount(c.key);
                 return (
@@ -675,7 +674,7 @@ export function BillingScreen() {
           styles={styles}
           theme={theme}
           onCancel={closeSheets}
-          onConfirm={amount => runAction(activeBill, pendingAction, amount)}
+          onConfirm={(amount) => runAction(activeBill, pendingAction, amount)}
         />
       )}
 
@@ -861,8 +860,8 @@ function ActionsSheet({
   onPick: (a: QuickAction) => void;
 }) {
   const actions = quickActionsFor(bill.billStatus, bill.paymentStatus);
-  const billActions = actions.filter(a => a.axis === 'bill');
-  const payActions = actions.filter(a => a.axis === 'payment');
+  const billActions = actions.filter((a) => a.axis === 'bill');
+  const payActions = actions.filter((a) => a.axis === 'payment');
   const bs = theme.status[bill.billStatus] ?? theme.status.FALLBACK;
   const ps = theme.status[bill.paymentStatus] ?? theme.status.FALLBACK;
 
@@ -1184,7 +1183,13 @@ const createStyles = (theme: AppTheme) => {
       backgroundColor: theme.palette.surface,
     },
     cardPressed: { opacity: 0.75 },
-    avatar: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    avatar: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     avatarText: { fontSize: 13, fontWeight: '700' },
     cardBody: { flex: 1, gap: 3 },
     customerName: { fontSize: 14, fontWeight: '600', color: theme.palette.onBackground },
@@ -1200,13 +1205,29 @@ const createStyles = (theme: AppTheme) => {
     // Skeleton
     skeletonWrap: { paddingTop: 10 },
     skelAvatar: { width: 38, height: 38, borderRadius: 12, backgroundColor: theme.palette.divider },
-    skelLineWide: { width: '55%', height: 11, borderRadius: 6, backgroundColor: theme.palette.divider },
-    skelLineNarrow: { width: '38%', height: 9, borderRadius: 5, backgroundColor: theme.palette.divider },
+    skelLineWide: {
+      width: '55%',
+      height: 11,
+      borderRadius: 6,
+      backgroundColor: theme.palette.divider,
+    },
+    skelLineNarrow: {
+      width: '38%',
+      height: 9,
+      borderRadius: 5,
+      backgroundColor: theme.palette.divider,
+    },
     skelPill: { width: 58, height: 18, borderRadius: 999, backgroundColor: theme.palette.divider },
 
     // Hero
     idleBody: { flex: 1 },
-    hero: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, gap: 10 },
+    hero: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 40,
+      gap: 10,
+    },
     heroIcon: {
       width: 78,
       height: 78,
@@ -1306,7 +1327,13 @@ const createStyles = (theme: AppTheme) => {
       borderColor: theme.palette.divider,
     },
     sheetGhostLabel: { fontSize: 14, fontWeight: '600', color: theme.palette.onBackground },
-    sheetPrimary: { flex: 1.4, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    sheetPrimary: {
+      flex: 1.4,
+      height: 46,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     sheetPrimaryDisabled: { opacity: 0.45 },
     sheetPrimaryLabel: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
   });

@@ -87,5 +87,4 @@ export const DMS_API_URL = readBaseUrl('DMS_API_URL');
  * returned by the DMS API; callers coerce where they need a number.
  */
 export const DMS_APP_ROOT_FOLDER_ID = Config.DMS_APP_ROOT_FOLDER_ID ?? '1';
-export const DMS_BUSINESS_APP_ROOT_FOLDER_ID =
-  Config.DMS_BUSINESS_APP_ROOT_FOLDER_ID ?? '2';
+export const DMS_BUSINESS_APP_ROOT_FOLDER_ID = Config.DMS_BUSINESS_APP_ROOT_FOLDER_ID ?? '2';

@@ -15,12 +15,7 @@ interface ProgressBarProps {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function ProgressBar({
-  progress,
-  color,
-  height = 8,
-  label,
-}: ProgressBarProps) {
+export function ProgressBar({ progress, color, height = 8, label }: ProgressBarProps) {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const fillColor = color ?? colors.primary;
@@ -42,9 +37,7 @@ export function ProgressBar({
           ]}
         />
       </View>
-      {label !== undefined ? (
-        <Text style={styles.label}>{label ?? `${percentage}%`}</Text>
-      ) : null}
+      {label !== undefined ? <Text style={styles.label}>{label ?? `${percentage}%`}</Text> : null}
     </View>
   );
 }

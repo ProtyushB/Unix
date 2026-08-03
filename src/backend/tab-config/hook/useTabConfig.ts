@@ -1,8 +1,5 @@
 import { useContext } from 'react';
-import {
-  TabConfigContext,
-  type TabConfigContextValue,
-} from '../provider/tab-config.provider';
+import { TabConfigContext, type TabConfigContextValue } from '../provider/tab-config.provider';
 
 /**
  * Read the per-business tab config.

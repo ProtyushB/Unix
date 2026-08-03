@@ -51,23 +51,23 @@ describe('toProductRow', () => {
   // Null means "no number to show"; zero means "counted, and empty". Collapsing the two is exactly
   // how an untracked product ends up rendering "Out of stock".
   it('preserves a null quantity rather than coercing it to zero', () => {
-    expect(toProductRow({availableQuantity: null}).availableQuantity).toBeNull();
+    expect(toProductRow({ availableQuantity: null }).availableQuantity).toBeNull();
     expect(toProductRow({}).availableQuantity).toBeNull();
-    expect(toProductRow({availableQuantity: 0}).availableQuantity).toBe(0);
+    expect(toProductRow({ availableQuantity: 0 }).availableQuantity).toBe(0);
   });
 
   it('coerces string amounts', () => {
     // BigDecimal can serialise as a string depending on the mapper.
-    expect(toProductRow({price: '599.99'}).price).toBeCloseTo(599.99);
+    expect(toProductRow({ price: '599.99' }).price).toBeCloseTo(599.99);
   });
 
   it('names an untitled product rather than rendering a blank row', () => {
-    expect(toProductRow({name: '   '}).name).toBe('Untitled product');
+    expect(toProductRow({ name: '   ' }).name).toBe('Untitled product');
     expect(toProductRow({}).name).toBe('Untitled product');
   });
 
   it('leaves a missing brand empty instead of inventing a placeholder', () => {
-    expect(toProductRow({brand: '  '}).brand).toBe('');
+    expect(toProductRow({ brand: '  ' }).brand).toBe('');
   });
 
   it('treats a missing trackInventory as untracked', () => {
@@ -92,32 +92,32 @@ describe('formatSize', () => {
 
 describe('stockStateFor', () => {
   it('reads a healthy quantity as tracked', () => {
-    expect(stockStateFor(row({availableQuantity: 48}), THRESHOLD)).toBe('TRACKED');
+    expect(stockStateFor(row({ availableQuantity: 48 }), THRESHOLD)).toBe('TRACKED');
   });
 
   // The boundary must agree with the server's, which counts <= threshold as low.
   it('counts exactly the threshold as low, and one above as healthy', () => {
-    expect(stockStateFor(row({availableQuantity: 10}), THRESHOLD)).toBe('LOW');
-    expect(stockStateFor(row({availableQuantity: 11}), THRESHOLD)).toBe('TRACKED');
+    expect(stockStateFor(row({ availableQuantity: 10 }), THRESHOLD)).toBe('LOW');
+    expect(stockStateFor(row({ availableQuantity: 11 }), THRESHOLD)).toBe('TRACKED');
   });
 
   it('reads zero as out, never as low', () => {
-    expect(stockStateFor(row({availableQuantity: 0}), THRESHOLD)).toBe('OUT');
+    expect(stockStateFor(row({ availableQuantity: 0 }), THRESHOLD)).toBe('OUT');
   });
 
   // A null quantity arrives two ways: the product opted out of tracking, or the business has the
   // Inventory tab off and the server nulls the quantity for everything.
   it('reads a null quantity as untracked whatever the flag says', () => {
-    expect(stockStateFor(row({trackInventory: false, availableQuantity: null}), THRESHOLD)).toBe(
+    expect(stockStateFor(row({ trackInventory: false, availableQuantity: null }), THRESHOLD)).toBe(
       'UNTRACKED',
     );
-    expect(stockStateFor(row({trackInventory: true, availableQuantity: null}), THRESHOLD)).toBe(
+    expect(stockStateFor(row({ trackInventory: true, availableQuantity: null }), THRESHOLD)).toBe(
       'UNTRACKED',
     );
   });
 
   it('reads an untracked product as untracked even when a quantity came through', () => {
-    expect(stockStateFor(row({trackInventory: false, availableQuantity: 7}), THRESHOLD)).toBe(
+    expect(stockStateFor(row({ trackInventory: false, availableQuantity: 7 }), THRESHOLD)).toBe(
       'UNTRACKED',
     );
   });
@@ -125,8 +125,8 @@ describe('stockStateFor', () => {
   // The threshold is supplied by the server so badges and the header count agree; a screen that
   // hardcoded its own would drift the moment the server's changed.
   it('honours a different threshold', () => {
-    expect(stockStateFor(row({availableQuantity: 20}), 25)).toBe('LOW');
-    expect(stockStateFor(row({availableQuantity: 20}), 10)).toBe('TRACKED');
+    expect(stockStateFor(row({ availableQuantity: 20 }), 25)).toBe('LOW');
+    expect(stockStateFor(row({ availableQuantity: 20 }), 10)).toBe('TRACKED');
   });
 });
 
@@ -141,13 +141,15 @@ describe('stock copy', () => {
   });
 
   it('tells you the count, then how few, then what to do', () => {
-    expect(stockDetail(row({availableQuantity: 48}), THRESHOLD)).toBe('48 in stock');
-    expect(stockDetail(row({availableQuantity: 5}), THRESHOLD)).toBe('5 left');
-    expect(stockDetail(row({availableQuantity: 0}), THRESHOLD)).toBe('Restock now');
+    expect(stockDetail(row({ availableQuantity: 48 }), THRESHOLD)).toBe('48 in stock');
+    expect(stockDetail(row({ availableQuantity: 5 }), THRESHOLD)).toBe('5 left');
+    expect(stockDetail(row({ availableQuantity: 0 }), THRESHOLD)).toBe('Restock now');
   });
 
   it('says nothing for an untracked product — the badge already said "Available"', () => {
-    expect(stockDetail(row({trackInventory: false, availableQuantity: null}), THRESHOLD)).toBe('');
+    expect(stockDetail(row({ trackInventory: false, availableQuantity: null }), THRESHOLD)).toBe(
+      '',
+    );
   });
 });
 

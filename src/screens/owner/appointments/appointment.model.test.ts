@@ -108,7 +108,11 @@ describe('toAppointmentRow', () => {
 describe('serviceSummary', () => {
   const row = toAppointmentRow({
     id: 1,
-    appointmentItemsWithDetails: [{ serviceName: 'Haircut' }, { serviceName: 'Shave' }, { serviceName: 'Facial' }],
+    appointmentItemsWithDetails: [
+      { serviceName: 'Haircut' },
+      { serviceName: 'Shave' },
+      { serviceName: 'Facial' },
+    ],
   });
 
   it('appends a count when there is more than one item', () => {
@@ -116,7 +120,10 @@ describe('serviceSummary', () => {
   });
 
   it('shows the bare name for a single item', () => {
-    const single = toAppointmentRow({ id: 2, appointmentItemsWithDetails: [{ serviceName: 'Haircut' }] });
+    const single = toAppointmentRow({
+      id: 2,
+      appointmentItemsWithDetails: [{ serviceName: 'Haircut' }],
+    });
     expect(serviceSummary(single)).toBe('Haircut');
   });
 });

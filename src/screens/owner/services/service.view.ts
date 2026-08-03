@@ -6,7 +6,7 @@
  * harness.
  */
 
-import type {ServiceRow} from './service.model';
+import type { ServiceRow } from './service.model';
 
 export type ServiceView =
   | 'ERROR'
@@ -107,25 +107,25 @@ export interface SortOption {
  * ascending (oldest first), which is why the screen always sends an explicit sort.
  */
 export const SORT_OPTIONS: SortOption[] = [
-  {key: 'name_asc', label: 'Name A–Z', sortBy: 'name', sortDir: 'asc'},
-  {key: 'name_desc', label: 'Name Z–A', sortBy: 'name', sortDir: 'desc'},
-  {key: 'price_asc', label: 'Price low to high', sortBy: 'price', sortDir: 'asc'},
-  {key: 'price_desc', label: 'Price high to low', sortBy: 'price', sortDir: 'desc'},
-  {key: 'duration_asc', label: 'Duration short to long', sortBy: 'duration', sortDir: 'asc'},
-  {key: 'duration_desc', label: 'Duration long to short', sortBy: 'duration', sortDir: 'desc'},
-  {key: 'created_desc', label: 'Recently added', sortBy: 'createdAt', sortDir: 'desc'},
+  { key: 'name_asc', label: 'Name A–Z', sortBy: 'name', sortDir: 'asc' },
+  { key: 'name_desc', label: 'Name Z–A', sortBy: 'name', sortDir: 'desc' },
+  { key: 'price_asc', label: 'Price low to high', sortBy: 'price', sortDir: 'asc' },
+  { key: 'price_desc', label: 'Price high to low', sortBy: 'price', sortDir: 'desc' },
+  { key: 'duration_asc', label: 'Duration short to long', sortBy: 'duration', sortDir: 'asc' },
+  { key: 'duration_desc', label: 'Duration long to short', sortBy: 'duration', sortDir: 'desc' },
+  { key: 'created_desc', label: 'Recently added', sortBy: 'createdAt', sortDir: 'desc' },
 ];
 
 export const DEFAULT_SORT_KEY = 'name_asc';
 
 /** The picker's trigger shows a short form — "Name", not "Name A–Z". */
 export function sortTriggerLabel(key: string): string {
-  const opt = SORT_OPTIONS.find(o => o.key === key) ?? SORT_OPTIONS[0];
+  const opt = SORT_OPTIONS.find((o) => o.key === key) ?? SORT_OPTIONS[0];
   return opt.label.replace(/ (A–Z|Z–A|low to high|high to low|short to long|long to short)$/, '');
 }
 
 export function sortOptionFor(key: string): SortOption {
-  return SORT_OPTIONS.find(o => o.key === key) ?? SORT_OPTIONS[0];
+  return SORT_OPTIONS.find((o) => o.key === key) ?? SORT_OPTIONS[0];
 }
 
 // ─── Quick actions ───────────────────────────────────────────────────────────
@@ -157,7 +157,7 @@ export interface ServiceAction {
  */
 export function quickActionsFor(row: ServiceRow): ServiceAction[] {
   return [
-    {key: 'edit', label: 'Edit service', tint: 'muted', todo: true},
+    { key: 'edit', label: 'Edit service', tint: 'muted', todo: true },
     {
       key: 'availability',
       label: row.availability ? 'Mark unavailable' : 'Mark available',
@@ -165,7 +165,7 @@ export function quickActionsFor(row: ServiceRow): ServiceAction[] {
     },
     // The only accent-tinted row in any sheet in the app — the mockup singles it out as the
     // forward action rather than a state change.
-    {key: 'book', label: 'Book appointment', tint: 'accent', todo: true},
-    {key: 'delete', label: 'Delete service', tint: 'error', danger: true, confirm: 'delete'},
+    { key: 'book', label: 'Book appointment', tint: 'accent', todo: true },
+    { key: 'delete', label: 'Delete service', tint: 'error', danger: true, confirm: 'delete' },
   ];
 }

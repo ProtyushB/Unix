@@ -36,19 +36,22 @@ export function RootNavigator() {
   const [isReady, setIsReady] = useState(false);
 
   // Navigation theme — reactive to accent and mode changes.
-  const navigationTheme = useMemo(() => ({
-    ...DefaultTheme,
-    dark: mode === 'dark',
-    colors: {
-      ...DefaultTheme.colors,
-      primary:      colors.primary,
-      background:   palette.background,
-      card:         palette.surface,
-      text:         palette.onBackground,
-      border:       palette.divider,
-      notification: colors.primary,
-    },
-  }), [colors, palette, mode]);
+  const navigationTheme = useMemo(
+    () => ({
+      ...DefaultTheme,
+      dark: mode === 'dark',
+      colors: {
+        ...DefaultTheme.colors,
+        primary: colors.primary,
+        background: palette.background,
+        card: palette.surface,
+        text: palette.onBackground,
+        border: palette.divider,
+        notification: colors.primary,
+      },
+    }),
+    [colors, palette, mode],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -100,9 +103,8 @@ export function RootNavigator() {
           // through to the else below, which overwrote the key with 'customer' —
           // so one unlucky launch permanently discarded the user's portal choice
           // and every subsequent launch opened the customer portal on its own.
-          route = isBusiness || !haveProfileSignal
-            ? PORTALS.business.route
-            : PORTALS.customer.route;
+          route =
+            isBusiness || !haveProfileSignal ? PORTALS.business.route : PORTALS.customer.route;
         } else {
           // No stored choice at all — derive one. This is the only path that may
           // write the key, and it only does so when the profile cache actually
@@ -138,7 +140,9 @@ export function RootNavigator() {
       }
     })();
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   if (!isReady || !initialRoute) {

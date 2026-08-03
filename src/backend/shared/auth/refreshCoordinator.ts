@@ -74,5 +74,5 @@ export const NO_REFRESH_PATHS = ['/auth/login', '/auth/signup', '/auth/refresh']
 
 export function shouldSkipRefresh(url: string | undefined): boolean {
   if (!url) return false;
-  return NO_REFRESH_PATHS.some(p => url.includes(p));
+  return NO_REFRESH_PATHS.some((p) => url.includes(p));
 }

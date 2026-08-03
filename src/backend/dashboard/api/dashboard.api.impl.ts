@@ -25,10 +25,9 @@ const TZ = 'Asia/Kolkata';
 
 export class DashboardApiImpl extends DashboardApiInterface {
   async getSummary(businessId: number | string): Promise<ApiResponse<DashboardSummary>> {
-    const response = await personApiClient.get(
-      `/businesses/${businessId}/dashboard/summary`,
-      { params: { tz: TZ } },
-    );
+    const response = await personApiClient.get(`/businesses/${businessId}/dashboard/summary`, {
+      params: { tz: TZ },
+    });
     return response.data;
   }
 

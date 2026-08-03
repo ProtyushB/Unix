@@ -37,10 +37,7 @@ import {
   Trash2,
   CircleX,
 } from 'lucide-react-native';
-import {
-  CollapsingHeader,
-  AnimatedFlatList,
-} from '../../../components/layout/CollapsingHeader';
+import { CollapsingHeader, AnimatedFlatList } from '../../../components/layout/CollapsingHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useTheme } from '../../../hooks/useTheme';
 import { useThemedStyles } from '../../../hooks/useThemedStyles';
@@ -156,7 +153,7 @@ export function ServicesScreen() {
   useEffect(() => {
     let alive = true;
     AsyncStorage.getItem(VIEW_MODE_KEY)
-      .then(stored => {
+      .then((stored) => {
         if (alive && (stored === 'list' || stored === 'grid')) setViewMode(stored);
       })
       .catch(() => {});
@@ -220,9 +217,8 @@ export function ServicesScreen() {
   // Map the hook's raw rows, appending on page 2+.
   useEffect(() => {
     const mapped = (activeModule.services as any[]).map(toServiceRow);
-    setRows(prev => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
+    setRows((prev) => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
     loadingMoreRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModule.services]);
 
   // `loading` is false on the very first render, so a plain `!loading` marks the screen loaded
@@ -440,7 +436,7 @@ export function ServicesScreen() {
         </View>
 
         <View style={styles.viewToggle}>
-          {(['list', 'grid'] as ViewMode[]).map(mode => {
+          {(['list', 'grid'] as ViewMode[]).map((mode) => {
             const Icon = mode === 'list' ? ListIcon : LayoutGrid;
             const active = viewMode === mode;
             return (
@@ -472,7 +468,11 @@ export function ServicesScreen() {
               autoFocus
               returnKeyType="search"
             />
-            <Pressable onPress={closeSearch} accessibilityRole="button" accessibilityLabel="Close search">
+            <Pressable
+              onPress={closeSearch}
+              accessibilityRole="button"
+              accessibilityLabel="Close search"
+            >
               <X size={18} color={palette.muted} />
             </Pressable>
           </View>
@@ -589,7 +589,7 @@ export function ServicesScreen() {
           insets={insets}
           current={sortKey}
           onClose={() => setSheet(null)}
-          onPick={key => {
+          onPick={(key) => {
             setSortKey(key);
             setSheet(null);
           }}
@@ -793,7 +793,7 @@ function ActionsSheet({
           </View>
         </View>
 
-        {actions.map(a => {
+        {actions.map((a) => {
           const Icon = ACTION_ICON[a.key];
           return (
             <Pressable key={a.key} style={styles.actionRow} onPress={() => onPick(a)}>
@@ -830,7 +830,7 @@ function SortSheet({
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.sheetGrip} />
         <Text style={styles.sheetSection}>SORT BY</Text>
-        {SORT_OPTIONS.map(opt => {
+        {SORT_OPTIONS.map((opt) => {
           const active = opt.key === current;
           return (
             <Pressable key={opt.key} style={styles.actionRow} onPress={() => onPick(opt.key)}>
@@ -910,10 +910,22 @@ const createStyles = (theme: AppTheme) => {
       backgroundColor: theme.palette.surface,
       marginTop: 14,
     },
-    toggleBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 9 },
+    toggleBtn: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 9,
+    },
     toggleBtnActive: { backgroundColor: theme.palette.surfaceElevated },
 
-    searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, marginTop: 12 },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 16,
+      marginTop: 12,
+    },
     searchField: {
       flex: 1,
       flexDirection: 'row',
@@ -926,7 +938,13 @@ const createStyles = (theme: AppTheme) => {
     },
     searchInput: { flex: 1, fontSize: 14, color: theme.palette.onBackground, padding: 0 },
     searchPlaceholder: { flex: 1, fontSize: 14, color: theme.palette.muted },
-    addBtn: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    addBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
     // Menu panel — pinned below the collapsing header, present in both scroll states.
     panelHeader: {
@@ -1000,7 +1018,12 @@ const createStyles = (theme: AppTheme) => {
     cardInfo: { gap: 2 },
     cardName: { fontSize: 13, fontWeight: '600', color: theme.palette.onBackground },
     cardSub: { fontSize: 11, color: theme.palette.muted },
-    cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+    cardFoot: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 6,
+    },
     cardPrice: { fontSize: 14, fontWeight: '700', color: theme.palette.onBackground },
 
     // Badge
@@ -1016,7 +1039,13 @@ const createStyles = (theme: AppTheme) => {
     badgeLabel: { fontSize: 11, fontWeight: '600' },
 
     // Hero
-    hero: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, gap: 10 },
+    hero: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 40,
+      gap: 10,
+    },
     heroIcon: {
       width: 84,
       height: 84,

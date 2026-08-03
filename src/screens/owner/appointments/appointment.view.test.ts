@@ -64,7 +64,9 @@ describe('deriveView — search', () => {
   });
 
   it('search wins over the surface — a calendar toggle does not leak into search', () => {
-    expect(v({ ...searching, surface: 'CALENDAR', query: 'x', rowCount: 2 })).toBe('SEARCH_RESULTS');
+    expect(v({ ...searching, surface: 'CALENDAR', query: 'x', rowCount: 2 })).toBe(
+      'SEARCH_RESULTS',
+    );
   });
 });
 

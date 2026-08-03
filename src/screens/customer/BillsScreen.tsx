@@ -1,17 +1,17 @@
-import React, {useState, useEffect, useCallback} from 'react';
-import {View, Text, FlatList, RefreshControl, StyleSheet} from 'react-native';
-import {Receipt} from 'lucide-react-native';
-import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
-import {BillCard} from '../../components/list/BillCard';
-import {EmptyState} from '../../components/common/EmptyState';
-import {LoadingSpinner} from '../../components/common/LoadingSpinner';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { Receipt } from 'lucide-react-native';
+import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { BillCard } from '../../components/list/BillCard';
+import { EmptyState } from '../../components/common/EmptyState';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
 
 export const BillsScreen: React.FC = () => {
-  const [bills, setBills] = useState<any[]>([]);
+  const [bills] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [personId, setPersonId] = useState<number | null>(null);
@@ -52,11 +52,11 @@ export const BillsScreen: React.FC = () => {
     setRefreshing(false);
   }, [loadBills]);
 
-  const handleBillPress = (bill: any) => {
+  const handleBillPress = (_bill: any) => {
     // TODO: navigate to bill detail (read-only for customer)
   };
 
-  const handleDownload = async (bill: any) => {
+  const handleDownload = async (_bill: any) => {
     // TODO: download bill via react-native-share
   };
 
@@ -76,8 +76,8 @@ export const BillsScreen: React.FC = () => {
         ) : (
           <FlatList
             data={bills}
-            keyExtractor={item => String(item.id)}
-            renderItem={({item}) => (
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
               <BillCard
                 bill={item}
                 onPress={() => handleBillPress(item)}

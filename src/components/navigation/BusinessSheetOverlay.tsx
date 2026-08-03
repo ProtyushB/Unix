@@ -1,13 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Pressable,
-  ScrollView,
-  Easing,
-} from 'react-native';
+import { View, Text, StyleSheet, Animated, Pressable, ScrollView, Easing } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRight, CircleCheck, Plus, X } from 'lucide-react-native';
@@ -38,10 +30,7 @@ function getBusinessLocation(biz: Business, type: string): string {
   if (parts.length) return parts.slice(0, 2).join(' · ');
   return getBusinessTypeLabel(type);
 }
-import {
-  useBusinessSheetState,
-  closeBusinessSheet,
-} from '../../navigation/businessSheetState';
+import { useBusinessSheetState, closeBusinessSheet } from '../../navigation/businessSheetState';
 
 // ─── Component ───────────────────────────────────────────────────────────────
 // Mounted at the OwnerTabNavigator root. Triggered via openBusinessSheet()
@@ -50,12 +39,8 @@ import {
 
 export function BusinessSheetOverlay() {
   const visible = useBusinessSheetState();
-  const {
-    selectedModule,
-    selectedBusiness,
-    setSelectedModule,
-    setSelectedBusiness,
-  } = useAppContext();
+  const { selectedModule, selectedBusiness, setSelectedModule, setSelectedBusiness } =
+    useAppContext();
   const theme = useTheme();
   const { palette, colors } = theme;
   const styles = useThemedStyles(createStyles);
@@ -63,10 +48,10 @@ export function BusinessSheetOverlay() {
   const { contentTarget } = useBlurTargets();
   const isDark = theme.mode === 'dark';
 
-  const slideAnim   = useRef(new Animated.Value(600)).current;
+  const slideAnim = useRef(new Animated.Value(600)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
-  const [rendered, setRendered]               = useState(false);
+  const [rendered, setRendered] = useState(false);
   const [businessTypeMap, setBusinessTypeMap] = useState<BusinessTypeMap | null>(null);
 
   useEffect(() => {
@@ -83,22 +68,22 @@ export function BusinessSheetOverlay() {
       requestAnimationFrame(() => {
         Animated.parallel([
           Animated.timing(slideAnim, {
-            toValue:         0,
-            duration:        240,
-            easing:          Easing.out(Easing.cubic),
+            toValue: 0,
+            duration: 240,
+            easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(overlayAnim, {
-            toValue:         1,
-            duration:        180,
+            toValue: 1,
+            duration: 180,
             useNativeDriver: true,
           }),
         ]).start();
       });
     } else if (rendered) {
       Animated.parallel([
-        Animated.timing(slideAnim,   { toValue: 600, duration: 200, useNativeDriver: true }),
-        Animated.timing(overlayAnim, { toValue: 0,   duration: 200, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 600, duration: 200, useNativeDriver: true }),
+        Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start(({ finished }) => {
         if (finished) setRendered(false);
       });
@@ -114,11 +99,8 @@ export function BusinessSheetOverlay() {
     [setSelectedModule, setSelectedBusiness],
   );
 
-  const types        = businessTypeMap ? Object.keys(businessTypeMap) : [];
-  const businessCount = types.reduce(
-    (sum, t) => sum + (businessTypeMap?.[t]?.length ?? 0),
-    0,
-  );
+  const types = businessTypeMap ? Object.keys(businessTypeMap) : [];
+  const businessCount = types.reduce((sum, t) => sum + (businessTypeMap?.[t]?.length ?? 0), 0);
   const summary = `${businessCount} ${businessCount === 1 ? 'business' : 'businesses'} · ${types.length} ${types.length === 1 ? 'type' : 'types'}`;
 
   // No owner-side "add business" route exists yet; closing the sheet is the
@@ -128,15 +110,9 @@ export function BusinessSheetOverlay() {
   if (!rendered) return null;
 
   return (
-    <View
-      style={StyleSheet.absoluteFillObject}
-      pointerEvents={visible ? 'box-none' : 'none'}
-    >
+    <View style={StyleSheet.absoluteFillObject} pointerEvents={visible ? 'box-none' : 'none'}>
       <Animated.View
-        style={[
-          isDark ? styles.backdropDark : styles.backdrop,
-          { opacity: overlayAnim },
-        ]}
+        style={[isDark ? styles.backdropDark : styles.backdrop, { opacity: overlayAnim }]}
       >
         {isDark && (
           <>
@@ -150,17 +126,11 @@ export function BusinessSheetOverlay() {
             />
             <View
               pointerEvents="none"
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: palette.background + 'A6' },
-              ]}
+              style={[StyleSheet.absoluteFill, { backgroundColor: palette.background + 'A6' }]}
             />
           </>
         )}
-        <Pressable
-          style={StyleSheet.absoluteFillObject}
-          onPress={() => closeBusinessSheet()}
-        />
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={() => closeBusinessSheet()} />
       </Animated.View>
 
       <Animated.View
@@ -168,17 +138,14 @@ export function BusinessSheetOverlay() {
           isDark ? styles.sheetSolidDark : styles.sheetFlat,
           {
             paddingBottom: insets.bottom + 16,
-            transform:     [{ translateY: slideAnim }],
+            transform: [{ translateY: slideAnim }],
           },
         ]}
       >
         {isDark && (
           <View
             pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: palette.surfaceElevated + '80' },
-            ]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: palette.surfaceElevated + '80' }]}
           />
         )}
         <View style={styles.sheetHandle} />
@@ -203,8 +170,8 @@ export function BusinessSheetOverlay() {
           showsVerticalScrollIndicator={false}
         >
           {businessTypeMap &&
-            Object.keys(businessTypeMap).map(type => {
-              const list     = businessTypeMap[type] || [];
+            Object.keys(businessTypeMap).map((type) => {
+              const list = businessTypeMap[type] || [];
               const TypeIcon = getBusinessTypeIcon(type);
 
               return (
@@ -217,9 +184,8 @@ export function BusinessSheetOverlay() {
                   </View>
 
                   {list.map((biz: Business) => {
-                    const bizName  = (biz as any).businessName || biz.name;
-                    const isActive =
-                      selectedBusiness === bizName && selectedModule === type;
+                    const bizName = (biz as any).businessName || biz.name;
+                    const isActive = selectedBusiness === bizName && selectedModule === type;
 
                     return (
                       <Pressable
@@ -229,21 +195,15 @@ export function BusinessSheetOverlay() {
                         style={({ pressed }) => [
                           styles.sheetRow,
                           isActive && styles.sheetRowActive,
-                          pressed  && styles.sheetRowPressed,
+                          pressed && styles.sheetRowPressed,
                         ]}
                       >
                         <View style={styles.sheetRowLogo}>
-                          <TypeIcon
-                            size={20}
-                            color={isActive ? colors.primary : palette.muted}
-                          />
+                          <TypeIcon size={20} color={isActive ? colors.primary : palette.muted} />
                         </View>
                         <View style={styles.sheetRowText}>
                           <Text
-                            style={[
-                              styles.sheetRowName,
-                              isActive && styles.sheetRowNameActive,
-                            ]}
+                            style={[styles.sheetRowName, isActive && styles.sheetRowNameActive]}
                             numberOfLines={1}
                           >
                             {bizName}
@@ -289,66 +249,66 @@ function createStyles(theme: AppTheme) {
     backdropDark: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'transparent',
-      overflow:        'hidden',
+      overflow: 'hidden',
     },
     sheetFlat: {
-      position:             'absolute',
-      left:                 0,
-      right:                0,
-      bottom:               0,
-      maxHeight:            '75%',
-      backgroundColor:      theme.palette.surfaceElevated,
-      borderTopLeftRadius:  20,
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      maxHeight: '75%',
+      backgroundColor: theme.palette.surfaceElevated,
+      borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
-      paddingTop:           8,
+      paddingTop: 8,
       ...theme.elevation.high,
     },
     sheetSolidDark: {
-      position:             'absolute',
-      left:                 0,
-      right:                0,
-      bottom:               0,
-      maxHeight:            '75%',
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      maxHeight: '75%',
       // Theme-aware midpoint: palette.surface base + 50%-alpha
       // palette.surfaceElevated overlay (rendered as a child). Same recipe
       // as GroupSheetOverlay's sheetSolidDark.
-      backgroundColor:      theme.palette.surface,
-      borderTopLeftRadius:  20,
+      backgroundColor: theme.palette.surface,
+      borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
-      paddingTop:           8,
-      overflow:             'hidden',
+      paddingTop: 8,
+      overflow: 'hidden',
       ...theme.elevation.high,
     },
     sheetGlass: {
-      position:             'absolute',
-      left:                 0,
-      right:                0,
-      bottom:               0,
-      maxHeight:            '75%',
-      backgroundColor:      'transparent',
-      borderTopLeftRadius:  20,
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      maxHeight: '75%',
+      backgroundColor: 'transparent',
+      borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
-      paddingTop:           8,
-      overflow:             'hidden',
-      borderTopWidth:       1,
-      borderColor:          theme.palette.divider + '80',
+      paddingTop: 8,
+      overflow: 'hidden',
+      borderTopWidth: 1,
+      borderColor: theme.palette.divider + '80',
     },
     sheetHandle: {
-      alignSelf:       'center',
-      width:           40,
-      height:          5,
-      borderRadius:    999,
+      alignSelf: 'center',
+      width: 40,
+      height: 5,
+      borderRadius: 999,
       backgroundColor: theme.colors.primary,
-      marginTop:       4,
-      marginBottom:    8,
+      marginTop: 4,
+      marginBottom: 8,
     },
     sheetHeader: {
-      flexDirection:     'row',
-      justifyContent:    'space-between',
-      alignItems:        'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       paddingHorizontal: 20,
-      paddingTop:        8,
-      paddingBottom:     16,
+      paddingTop: 8,
+      paddingBottom: 16,
       borderBottomWidth: 1,
       borderBottomColor: theme.palette.divider,
     },
@@ -356,111 +316,111 @@ function createStyles(theme: AppTheme) {
       gap: 3,
     },
     sheetTitle: {
-      fontSize:   18,
+      fontSize: 18,
       fontWeight: '700',
-      color:      theme.palette.onBackground,
+      color: theme.palette.onBackground,
     },
     sheetSub: {
-      fontSize:   12,
+      fontSize: 12,
       fontWeight: '400',
-      color:      theme.palette.muted,
+      color: theme.palette.muted,
     },
     closeBtn: {
-      width:           32,
-      height:          32,
-      borderRadius:    8,
-      alignItems:      'center',
-      justifyContent:  'center',
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: theme.palette.background,
-      borderWidth:     1,
-      borderColor:     theme.palette.divider,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
     },
     sheetBody: {
-      flexShrink:        1,
+      flexShrink: 1,
       paddingHorizontal: 12,
     },
     sheetBodyContent: {
-      paddingTop:    14,
+      paddingTop: 14,
       paddingBottom: 12,
     },
     sheetSection: {
       marginBottom: 16,
     },
     sheetSectionHead: {
-      flexDirection:     'row',
-      alignItems:        'center',
-      gap:               8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
       paddingHorizontal: 8,
-      marginBottom:      8,
+      marginBottom: 8,
     },
     sheetSubtitle: {
-      fontSize:      11,
-      fontWeight:    '600',
-      color:         theme.palette.muted,
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.palette.muted,
       letterSpacing: 1.2,
     },
     sheetSectionCount: {
-      fontSize:   11,
+      fontSize: 11,
       fontWeight: '500',
-      color:      theme.palette.muted,
+      color: theme.palette.muted,
     },
     sheetRow: {
-      flexDirection:     'row',
-      alignItems:        'center',
-      gap:               12,
-      paddingVertical:   11,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 11,
       paddingHorizontal: 12,
-      borderRadius:      12,
-      marginBottom:      8,
-      backgroundColor:   theme.palette.surface,
-      borderWidth:       1,
-      borderColor:       theme.palette.divider,
+      borderRadius: 12,
+      marginBottom: 8,
+      backgroundColor: theme.palette.surface,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
     },
     sheetRowActive: {
       backgroundColor: theme.colors.softBg,
-      borderColor:     theme.colors.border,
+      borderColor: theme.colors.border,
     },
     sheetRowPressed: {
       opacity: 0.7,
     },
     sheetRowLogo: {
-      width:          40,
-      height:         40,
-      borderRadius:   12,
-      alignItems:     'center',
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
       justifyContent: 'center',
     },
     sheetRowText: {
       flex: 1,
-      gap:  3,
+      gap: 3,
     },
     sheetRowName: {
-      fontSize:   15,
+      fontSize: 15,
       fontWeight: '600',
-      color:      theme.palette.onBackground,
+      color: theme.palette.onBackground,
     },
     sheetRowNameActive: {
       color: theme.colors.primary,
     },
     sheetRowSub: {
-      fontSize:   12,
+      fontSize: 12,
       fontWeight: '400',
-      color:      theme.palette.muted,
+      color: theme.palette.muted,
     },
     addBtn: {
-      flexDirection:     'row',
-      alignItems:        'center',
-      justifyContent:    'center',
-      gap:               8,
-      paddingTop:        16,
-      paddingBottom:     6,
-      borderTopWidth:    1,
-      borderTopColor:    theme.palette.divider,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingTop: 16,
+      paddingBottom: 6,
+      borderTopWidth: 1,
+      borderTopColor: theme.palette.divider,
     },
     addBtnLabel: {
-      fontSize:   14,
+      fontSize: 14,
       fontWeight: '600',
-      color:      theme.colors.primary,
+      color: theme.colors.primary,
     },
   });
 }

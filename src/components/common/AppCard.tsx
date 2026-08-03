@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  type ViewStyle,
-  type StyleProp,
-} from 'react-native';
+import { View, TouchableOpacity, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';

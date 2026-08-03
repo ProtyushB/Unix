@@ -25,12 +25,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
         <AlertTriangle size={28} color={palette.error} />
         <Text style={styles.message}>{message}</Text>
         {onRetry ? (
-          <AppButton
-            title="Retry"
-            onPress={onRetry}
-            variant="danger"
-            style={styles.button}
-          />
+          <AppButton title="Retry" onPress={onRetry} variant="danger" style={styles.button} />
         ) : null}
       </View>
     </View>

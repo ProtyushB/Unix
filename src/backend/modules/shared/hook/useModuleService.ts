@@ -8,7 +8,11 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { getSelectedBusiness, getSelectedBusinessType, getBusinessTypeMap } from '../../../../storage/session.storage';
+import {
+  getSelectedBusiness,
+  getSelectedBusinessType,
+  getBusinessTypeMap,
+} from '../../../../storage/session.storage';
 import { PersonApiImpl } from '../../../person/api/person.api.impl';
 import { DmsService } from '../../../dms/service/dms.service';
 import { createEntityFolder } from '../../../dms/util/EntityFolderUtils';
@@ -130,7 +134,7 @@ interface ModuleService {
     page: number,
     limit: number,
     options?: ProductListOptions,
-  ): Promise<ServiceResult & {meta?: ProductListMeta}>;
+  ): Promise<ServiceResult & { meta?: ProductListMeta }>;
   updateProductTracking?(id: number, trackInventory: boolean): Promise<ServiceResult>;
   createProduct(data: Record<string, unknown>): Promise<ServiceResult>;
   updateProduct(data: Record<string, unknown>): Promise<ServiceResult>;
@@ -147,28 +151,59 @@ interface ModuleService {
   updateService(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteService(id: number): Promise<ServiceResult>;
 
-  getAllOrders(businessId: number, page: number, limit: number, options?: OrderListOptions): Promise<ServiceResult>;
+  getAllOrders(
+    businessId: number,
+    page: number,
+    limit: number,
+    options?: OrderListOptions,
+  ): Promise<ServiceResult>;
   // Optional: only modules whose backend exposes /{module}Order/summary implement it (Parlour,
   // Pharmacy). Restaurant omits it, so callers must guard with `service.getOrderSummary?.(...)`.
-  getOrderSummary?(businessId: number, options?: {fromDate?: string; toDate?: string}): Promise<ServiceResult<OrderSummary>>;
+  getOrderSummary?(
+    businessId: number,
+    options?: { fromDate?: string; toDate?: string },
+  ): Promise<ServiceResult<OrderSummary>>;
   // Optional for the same reason as getOrderSummary — only Parlour and Pharmacy expose
   // PATCH /{module}Order/{id}/status. Callers must guard with `service.updateOrderStatus?.(...)`.
-  updateOrderStatus?(id: number, status: string, options?: {userId?: number; reason?: string}): Promise<ServiceResult>;
+  updateOrderStatus?(
+    id: number,
+    status: string,
+    options?: { userId?: number; reason?: string },
+  ): Promise<ServiceResult>;
   createOrder(data: Record<string, unknown>): Promise<ServiceResult>;
   updateOrder(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteOrder(id: number): Promise<ServiceResult>;
   getOrdersByCustomer(customerId: number, options: Record<string, unknown>): Promise<ServiceResult>;
 
-  getAllAppointments(businessId: number, page: number, limit: number, options?: AppointmentListOptions): Promise<ServiceResult>;
+  getAllAppointments(
+    businessId: number,
+    page: number,
+    limit: number,
+    options?: AppointmentListOptions,
+  ): Promise<ServiceResult>;
   // Optional for the same reason as getOrderSummary — only Parlour and Pharmacy expose these three.
   // Restaurant omits them, so callers must guard with `service.getAppointmentDayCounts?.(...)`.
-  getAppointmentDayCounts?(businessId: number, options: {fromDate: string; toDate: string}): Promise<ServiceResult<AppointmentDayCounts>>;
-  updateAppointmentStatus?(id: number, status: string, options?: {userId?: number; reason?: string}): Promise<ServiceResult>;
-  rescheduleAppointment?(id: number, appointmentDateTime: string, options?: {userId?: number; reason?: string}): Promise<ServiceResult>;
+  getAppointmentDayCounts?(
+    businessId: number,
+    options: { fromDate: string; toDate: string },
+  ): Promise<ServiceResult<AppointmentDayCounts>>;
+  updateAppointmentStatus?(
+    id: number,
+    status: string,
+    options?: { userId?: number; reason?: string },
+  ): Promise<ServiceResult>;
+  rescheduleAppointment?(
+    id: number,
+    appointmentDateTime: string,
+    options?: { userId?: number; reason?: string },
+  ): Promise<ServiceResult>;
   createAppointment(data: Record<string, unknown>): Promise<ServiceResult>;
   updateAppointment(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteAppointment(id: number): Promise<ServiceResult>;
-  getAppointmentsByCustomer(customerId: number, options: Record<string, unknown>): Promise<ServiceResult>;
+  getAppointmentsByCustomer(
+    customerId: number,
+    options: Record<string, unknown>,
+  ): Promise<ServiceResult>;
 
   getBillsByBusiness(
     businessId: number,
@@ -183,7 +218,7 @@ interface ModuleService {
   updateBillPayment?(
     id: number,
     paymentStatus: string,
-    options?: {paidAmount?: number; refundedAmount?: number},
+    options?: { paidAmount?: number; refundedAmount?: number },
   ): Promise<ServiceResult>;
 
   getInventoryBatchesByBusiness(businessId: number): Promise<ServiceResult>;
@@ -223,7 +258,10 @@ export const getSelectedBusinessId = async (): Promise<number | null> => {
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
-export function createModuleHook(getServiceFn: () => ModuleService, moduleName: string) {
+// `_moduleName` is not read. It stays in the signature because it is what makes the two call sites
+// self-describing — `createModuleHook(getParlourService, 'Parlour')` says which module a hook is
+// for at a glance, and there is no other label on the returned hook.
+export function createModuleHook(getServiceFn: () => ModuleService, _moduleName: string) {
   return () => {
     const [products, setProducts] = useState<unknown[]>([]);
     const [productsTotalPages, setProductsTotalPages] = useState(1);
@@ -296,11 +334,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       async (id: number, trackInventory: boolean) => {
         try {
           if (!service.updateProductTracking) {
-            return {success: false, error: 'Not supported for this module'};
+            return { success: false, error: 'Not supported for this module' };
           }
           return await service.updateProductTracking(id, trackInventory);
         } catch (err) {
-          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
           const body = e.response?.data;
           return {
             success: false,
@@ -313,7 +354,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     );
 
     const createProduct = useCallback(
-      async (productData: Record<string, unknown>, files: NativeFile[] = [], parentFolderId: number | null = null) => {
+      async (
+        productData: Record<string, unknown>,
+        files: NativeFile[] = [],
+        parentFolderId: number | null = null,
+      ) => {
         setLoading(true);
         setError(null);
         let uploadedDmsFiles: ResourceFileDto[] = [];
@@ -327,7 +372,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           throw new Error(response.error || response.message || 'Failed to create product');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
-            try { await dmsService.deleteFile(f.id!); } catch (_) {}
+            try {
+              await dmsService.deleteFile(f.id!);
+            } catch (_) {}
           }
           const message = (err as Error).message || 'Failed to create product';
           setError(message);
@@ -372,9 +419,13 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           // Same treatment as deleteService: dig the server's reason out of the axios body rather
           // than reporting "Request failed with status code 409". A product delete is refused when
           // orders or inventory still reference it, and that reason is the whole message.
-          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
           const body = e.response?.data;
-          const message = body?.error || body?.message || (err as Error).message || 'Failed to delete product';
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to delete product';
           setError(message);
           return { success: false, code: body?.code, error: message };
         } finally {
@@ -424,7 +475,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     );
 
     const createService = useCallback(
-      async (serviceData: Record<string, unknown>, files: NativeFile[] = [], parentFolderId: number | null = null) => {
+      async (
+        serviceData: Record<string, unknown>,
+        files: NativeFile[] = [],
+        parentFolderId: number | null = null,
+      ) => {
         setLoading(true);
         setError(null);
         let uploadedDmsFiles: ResourceFileDto[] = [];
@@ -438,7 +493,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           throw new Error(response.error || response.message || 'Failed to create service');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
-            try { await dmsService.deleteFile(f.id!); } catch (_) {}
+            try {
+              await dmsService.deleteFile(f.id!);
+            } catch (_) {}
           }
           const message = (err as Error).message || 'Failed to create service';
           setError(message);
@@ -476,11 +533,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       async (id: number, availability: boolean) => {
         try {
           if (!service.updateServiceAvailability) {
-            return {success: false, error: 'Not supported for this module'};
+            return { success: false, error: 'Not supported for this module' };
           }
           return await service.updateServiceAvailability(id, availability);
         } catch (err) {
-          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
           const body = e.response?.data;
           return {
             success: false,
@@ -505,9 +565,13 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           // Dig the server's reason out of the axios body rather than reporting "Request failed
           // with status code 409". A service delete is routinely refused because appointments,
           // packages or bills still reference it, and that reason is the whole message.
-          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
           const body = e.response?.data;
-          const message = body?.error || body?.message || (err as Error).message || 'Failed to delete service';
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to delete service';
           setError(message);
           return { success: false, code: body?.code, error: message };
         } finally {
@@ -587,7 +651,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
      * failure, so a missing/404 summary never blocks the screen.
      */
     const loadOrderSummary = useCallback(
-      async (options: {fromDate?: string; toDate?: string} = {}) => {
+      async (options: { fromDate?: string; toDate?: string } = {}) => {
         try {
           const businessId = await getSelectedBusinessId();
           if (!businessId || !service.getOrderSummary) {
@@ -630,7 +694,10 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           // Axios error → pull the wrapper out of the 409/400 body so callers can branch on `code`.
           const body = (err as any)?.response?.data;
           const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to update order status';
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to update order status';
           setError(message);
           return { success: false, error: message, code: body?.code, data: body?.data };
         } finally {
@@ -641,7 +708,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     );
 
     const createOrder = useCallback(
-      async (orderData: Record<string, unknown>, files: NativeFile[] = [], parentFolderId: number | null = null) => {
+      async (
+        orderData: Record<string, unknown>,
+        files: NativeFile[] = [],
+        parentFolderId: number | null = null,
+      ) => {
         setLoading(true);
         setError(null);
         let dmsFolderId: number | null = null;
@@ -652,7 +723,10 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
             orderData = { ...orderData, dmsFolderId };
           }
           if (files.length > 0) {
-            uploadedDmsFiles = await dmsService.uploadMultipleFiles(files, dmsFolderId || parentFolderId!);
+            uploadedDmsFiles = await dmsService.uploadMultipleFiles(
+              files,
+              dmsFolderId || parentFolderId!,
+            );
             orderData = { ...orderData, dmsFileIds: uploadedDmsFiles.map((f) => f.id) };
           }
           const response = await service.createOrder(orderData);
@@ -660,7 +734,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           throw new Error(response.error || response.message || 'Failed to create order');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
-            try { await dmsService.deleteFile(f.id!); } catch (_) {}
+            try {
+              await dmsService.deleteFile(f.id!);
+            } catch (_) {}
           }
           const message = (err as Error).message || 'Failed to create order';
           setError(message);
@@ -789,14 +865,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
      * window, and blanking the map first would drop every dot for a frame.
      */
     const loadAppointmentDayCounts = useCallback(
-      async (options: {fromDate: string; toDate: string}) => {
+      async (options: { fromDate: string; toDate: string }) => {
         try {
           const businessId = await getSelectedBusinessId();
           if (!businessId || !service.getAppointmentDayCounts) return;
           const response = await service.getAppointmentDayCounts(businessId, options);
           if (response.success && response.data?.counts) {
             const next = response.data.counts;
-            setAppointmentDayCounts(prev => ({ ...prev, ...next }));
+            setAppointmentDayCounts((prev) => ({ ...prev, ...next }));
           }
         } catch {
           // Swallowed on purpose — see the note above.
@@ -825,13 +901,17 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           }
           const response = await service.updateAppointmentStatus(appointmentId, status, { reason });
           if (response.success) return { success: true, data: response.data };
-          const message = response.error || response.message || 'Failed to update appointment status';
+          const message =
+            response.error || response.message || 'Failed to update appointment status';
           setError(message);
           return { success: false, error: message };
         } catch (err) {
           const body = (err as any)?.response?.data;
           const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to update appointment status';
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to update appointment status';
           setError(message);
           return { success: false, error: message, code: body?.code, data: body?.data };
         } finally {
@@ -855,7 +935,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
             setError(message);
             return { success: false, error: message };
           }
-          const response = await service.rescheduleAppointment(appointmentId, appointmentDateTime, { reason });
+          const response = await service.rescheduleAppointment(appointmentId, appointmentDateTime, {
+            reason,
+          });
           if (response.success) return { success: true, data: response.data };
           const message = response.error || response.message || 'Failed to reschedule appointment';
           setError(message);
@@ -863,7 +945,10 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
         } catch (err) {
           const body = (err as any)?.response?.data;
           const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to reschedule appointment';
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to reschedule appointment';
           setError(message);
           return { success: false, error: message, code: body?.code, data: body?.data };
         } finally {
@@ -874,7 +959,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
     );
 
     const createAppointment = useCallback(
-      async (appointmentData: Record<string, unknown>, files: NativeFile[] = [], parentFolderId: number | null = null) => {
+      async (
+        appointmentData: Record<string, unknown>,
+        files: NativeFile[] = [],
+        parentFolderId: number | null = null,
+      ) => {
         setLoading(true);
         setError(null);
         let uploadedDmsFiles: ResourceFileDto[] = [];
@@ -888,7 +977,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
           throw new Error(response.error || response.message || 'Failed to create appointment');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
-            try { await dmsService.deleteFile(f.id!); } catch (_) {}
+            try {
+              await dmsService.deleteFile(f.id!);
+            } catch (_) {}
           }
           const message = (err as Error).message || 'Failed to create appointment';
           setError(message);
@@ -991,7 +1082,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
             setBills(Array.isArray(data) ? data : []);
             // Captured for infinite scroll — the previous signature dropped it entirely, so the
             // list had no way to know whether another page existed.
-            setBillsTotalPages((response as {totalPages?: number}).totalPages || 1);
+            setBillsTotalPages((response as { totalPages?: number }).totalPages || 1);
           } else {
             setError(response.error || response.message || null);
             setBills([]);
@@ -1032,13 +1123,16 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       async (id: number, billStatus: string) => {
         try {
           if (!service.updateBillStatus) {
-            return {success: false, error: 'Not supported for this module'};
+            return { success: false, error: 'Not supported for this module' };
           }
           return await service.updateBillStatus(id, billStatus);
         } catch (err) {
           // Dig the server's `code` out of the axios error — the screen branches on it to tell a
           // state conflict (409) apart from a generic failure.
-          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
           const body = e.response?.data;
           return {
             success: false,
@@ -1054,15 +1148,18 @@ export function createModuleHook(getServiceFn: () => ModuleService, moduleName: 
       async (
         id: number,
         paymentStatus: string,
-        options: {paidAmount?: number; refundedAmount?: number} = {},
+        options: { paidAmount?: number; refundedAmount?: number } = {},
       ) => {
         try {
           if (!service.updateBillPayment) {
-            return {success: false, error: 'Not supported for this module'};
+            return { success: false, error: 'Not supported for this module' };
           }
           return await service.updateBillPayment(id, paymentStatus, options);
         } catch (err) {
-          const e = err as {response?: {data?: {code?: string; error?: string; message?: string}}; message?: string};
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
           const body = e.response?.data;
           return {
             success: false,

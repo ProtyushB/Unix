@@ -67,13 +67,8 @@ export function Toast({ toasts, colors, onDismiss }: ToastProps) {
 
   return (
     <View style={[styles.container, { top: insets.top + 10 }]} pointerEvents="box-none">
-      {toasts.map(toast => (
-        <ToastRow
-          key={toast.id}
-          toast={toast}
-          color={colors[toast.type]}
-          onDismiss={onDismiss}
-        />
+      {toasts.map((toast) => (
+        <ToastRow key={toast.id} toast={toast} color={colors[toast.type]} onDismiss={onDismiss} />
       ))}
     </View>
   );

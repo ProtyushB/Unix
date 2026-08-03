@@ -11,7 +11,7 @@ import {
   DEFAULT_SORT_KEY,
   type ProductViewInput,
 } from './product.view';
-import type {ProductRow} from './product.model';
+import type { ProductRow } from './product.model';
 
 const base: ProductViewInput = {
   mode: 'browse',
@@ -20,7 +20,7 @@ const base: ProductViewInput = {
   loadedOnce: true,
   hasError: false,
 };
-const v = (over: Partial<ProductViewInput> = {}) => deriveProductView({...base, ...over});
+const v = (over: Partial<ProductViewInput> = {}) => deriveProductView({ ...base, ...over });
 
 describe('deriveProductView', () => {
   it('shows the populated list', () => {
@@ -30,35 +30,35 @@ describe('deriveProductView', () => {
   // A failed load makes every other distinction meaningless — an empty list from a request that
   // never returned is not "no products yet".
   it('lets an error outrank everything, including an active search', () => {
-    expect(v({hasError: true})).toBe('ERROR');
-    expect(v({hasError: true, mode: 'search', query: 'aloe'})).toBe('ERROR');
-    expect(v({hasError: true, loadedOnce: false})).toBe('ERROR');
+    expect(v({ hasError: true })).toBe('ERROR');
+    expect(v({ hasError: true, mode: 'search', query: 'aloe' })).toBe('ERROR');
+    expect(v({ hasError: true, loadedOnce: false })).toBe('ERROR');
   });
 
   // `loading` is false on the very first render, so a plain `!loading` would mark the screen loaded
   // before any request exists and flash EMPTY at a business that has products.
   it('stays on LOADING until a request has actually completed', () => {
-    expect(v({loadedOnce: false, rowCount: 0})).toBe('LOADING');
+    expect(v({ loadedOnce: false, rowCount: 0 })).toBe('LOADING');
   });
 
   it('shows the empty hero only after a completed load returned nothing', () => {
-    expect(v({rowCount: 0})).toBe('EMPTY');
+    expect(v({ rowCount: 0 })).toBe('EMPTY');
   });
 
   describe('search branch', () => {
     // Rendering "0 results for ''" for a query nobody performed is the bug this state prevents.
     it('treats a focused-but-empty box as idle, not as a search', () => {
-      expect(v({mode: 'search', query: ''})).toBe('SEARCH_IDLE');
-      expect(v({mode: 'search', query: '', rowCount: 0, loadedOnce: false})).toBe('SEARCH_IDLE');
+      expect(v({ mode: 'search', query: '' })).toBe('SEARCH_IDLE');
+      expect(v({ mode: 'search', query: '', rowCount: 0, loadedOnce: false })).toBe('SEARCH_IDLE');
     });
 
     it('shows a spinner while the first search request is in flight', () => {
-      expect(v({mode: 'search', query: 'sham', loadedOnce: false})).toBe('SEARCHING');
+      expect(v({ mode: 'search', query: 'sham', loadedOnce: false })).toBe('SEARCHING');
     });
 
     it('splits results from no-results', () => {
-      expect(v({mode: 'search', query: 'shampoo', rowCount: 3})).toBe('SEARCH_RESULTS');
-      expect(v({mode: 'search', query: 'Sunscreen', rowCount: 0})).toBe('NO_RESULTS');
+      expect(v({ mode: 'search', query: 'shampoo', rowCount: 3 })).toBe('SEARCH_RESULTS');
+      expect(v({ mode: 'search', query: 'Sunscreen', rowCount: 0 })).toBe('NO_RESULTS');
     });
   });
 });
@@ -85,7 +85,14 @@ describe('productHeaderCollapses', () => {
   });
 
   it('stays pinned on every hero state', () => {
-    for (const view of ['EMPTY', 'ERROR', 'LOADING', 'NO_RESULTS', 'SEARCH_IDLE', 'SEARCHING'] as const) {
+    for (const view of [
+      'EMPTY',
+      'ERROR',
+      'LOADING',
+      'NO_RESULTS',
+      'SEARCH_IDLE',
+      'SEARCHING',
+    ] as const) {
       expect(productHeaderCollapses(view)).toBe(false);
     }
   });
@@ -122,7 +129,16 @@ describe('sort', () => {
 
   // Every option must name a field the server actually whitelists, or it silently sorts by id.
   it('only uses server-whitelisted fields', () => {
-    const whitelisted = ['name', 'price', 'brand', 'productType', 'trackInventory', 'createdAt', 'updatedAt', 'id'];
+    const whitelisted = [
+      'name',
+      'price',
+      'brand',
+      'productType',
+      'trackInventory',
+      'createdAt',
+      'updatedAt',
+      'id',
+    ];
     for (const opt of SORT_OPTIONS) {
       expect(whitelisted).toContain(opt.sortBy);
     }
@@ -155,14 +171,14 @@ describe('quickActionsFor', () => {
     ...over,
   });
 
-  it('offers the mockup\'s three rows in order', () => {
-    expect(quickActionsFor(row()).map(a => a.key)).toEqual(['edit', 'tracking', 'delete']);
+  it("offers the mockup's three rows in order", () => {
+    expect(quickActionsFor(row()).map((a) => a.key)).toEqual(['edit', 'tracking', 'delete']);
   });
 
   // The mockup only ever draws the "off" direction because every product it shows is tracked.
   it('flips the tracking label to match the product', () => {
-    expect(quickActionsFor(row({trackInventory: true}))[1].label).toBe('Turn off tracking');
-    expect(quickActionsFor(row({trackInventory: false}))[1].label).toBe('Turn on tracking');
+    expect(quickActionsFor(row({ trackInventory: true }))[1].label).toBe('Turn off tracking');
+    expect(quickActionsFor(row({ trackInventory: false }))[1].label).toBe('Turn on tracking');
   });
 
   it('marks delete as destructive and gated behind a confirm', () => {

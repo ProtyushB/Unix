@@ -33,7 +33,7 @@ export async function refreshBusinessProfile(): Promise<BusinessTypeMap | null> 
     if (businesses.length === 0) return null;
 
     const typeMap: BusinessTypeMap = {};
-    businesses.forEach(biz => {
+    businesses.forEach((biz) => {
       const type = biz.businessType || 'CUSTOM';
       if (!typeMap[type]) typeMap[type] = [];
       typeMap[type].push(biz);

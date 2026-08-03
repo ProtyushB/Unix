@@ -18,11 +18,7 @@ interface DashboardErrorCardProps {
 // Mockup node `cAY8R`: cloud-off badge, heading, copy, error-code chip,
 // primary Try Again + ghost Contact Support.
 
-export function DashboardErrorCard({
-  code,
-  onRetry,
-  onContactSupport,
-}: DashboardErrorCardProps) {
+export function DashboardErrorCard({ code, onRetry, onContactSupport }: DashboardErrorCardProps) {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -34,8 +30,7 @@ export function DashboardErrorCard({
 
       <Text style={styles.heading}>Couldn't load your dashboard</Text>
       <Text style={styles.message}>
-        Something went wrong while fetching today's data. Check your connection
-        and try again.
+        Something went wrong while fetching today's data. Check your connection and try again.
       </Text>
 
       {code ? (

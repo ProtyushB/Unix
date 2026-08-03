@@ -1,12 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Pressable,
-  Easing,
-} from 'react-native';
+import { View, Text, StyleSheet, Animated, Pressable, Easing } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../hooks/useTheme';
@@ -15,10 +8,7 @@ import { useBlurTargets } from '../common/BlurTargetContext';
 import type { AppTheme } from '../../theme/theme.types';
 import { NAV_GROUPS, filterNavGroupsByTabs } from '../../navigation/navGroups';
 import { useTabConfig } from '../../backend/tab-config';
-import {
-  useGroupSheetState,
-  closeGroupSheet,
-} from '../../navigation/groupSheetState';
+import { useGroupSheetState, closeGroupSheet } from '../../navigation/groupSheetState';
 
 // ─── Component ───────────────────────────────────────────────────────────────
 // Rendered as a sibling of <Tab.Navigator> at the OwnerTabNavigator root so it
@@ -43,12 +33,9 @@ export function GroupSheetOverlay() {
   // Same filter the bar applies, so the sheet lists exactly the items whose tab
   // the group's bar entry is claiming to hold.
   const { tabs } = useTabConfig();
-  const visibleGroups = useMemo(
-    () => filterNavGroupsByTabs(NAV_GROUPS, tabs),
-    [tabs],
-  );
+  const visibleGroups = useMemo(() => filterNavGroupsByTabs(NAV_GROUPS, tabs), [tabs]);
 
-  const slideAnim   = useRef(new Animated.Value(400)).current;
+  const slideAnim = useRef(new Animated.Value(400)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
   const [renderedGroupId, setRenderedGroupId] = useState<string | null>(null);
@@ -61,22 +48,22 @@ export function GroupSheetOverlay() {
       requestAnimationFrame(() => {
         Animated.parallel([
           Animated.timing(slideAnim, {
-            toValue:         0,
-            duration:        220,
-            easing:          Easing.out(Easing.cubic),
+            toValue: 0,
+            duration: 220,
+            easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(overlayAnim, {
-            toValue:         1,
-            duration:        180,
+            toValue: 1,
+            duration: 180,
             useNativeDriver: true,
           }),
         ]).start();
       });
     } else if (renderedGroupId !== null) {
       Animated.parallel([
-        Animated.timing(slideAnim,   { toValue: 400, duration: 200, useNativeDriver: true }),
-        Animated.timing(overlayAnim, { toValue: 0,   duration: 200, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 400, duration: 200, useNativeDriver: true }),
+        Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start(({ finished }) => {
         if (finished) setRenderedGroupId(null);
       });
@@ -89,16 +76,14 @@ export function GroupSheetOverlay() {
   // the bar tab would keep its "open" tint.
   useEffect(() => {
     if (!openGroupId) return;
-    if (visibleGroups.some(g => g.id === openGroupId)) return;
+    if (visibleGroups.some((g) => g.id === openGroupId)) return;
     closeGroupSheet();
     setRenderedGroupId(null);
     slideAnim.setValue(400);
     overlayAnim.setValue(0);
   }, [openGroupId, visibleGroups, slideAnim, overlayAnim]);
 
-  const group = renderedGroupId
-    ? visibleGroups.find(g => g.id === renderedGroupId)
-    : null;
+  const group = renderedGroupId ? visibleGroups.find((g) => g.id === renderedGroupId) : null;
   if (!group) return null;
 
   const isActive = openGroupId !== null;
@@ -109,15 +94,9 @@ export function GroupSheetOverlay() {
   };
 
   return (
-    <View
-      style={StyleSheet.absoluteFillObject}
-      pointerEvents={isActive ? 'box-none' : 'none'}
-    >
+    <View style={StyleSheet.absoluteFillObject} pointerEvents={isActive ? 'box-none' : 'none'}>
       <Animated.View
-        style={[
-          isDark ? styles.backdropDark : styles.backdrop,
-          { opacity: overlayAnim },
-        ]}
+        style={[isDark ? styles.backdropDark : styles.backdrop, { opacity: overlayAnim }]}
       >
         {isDark && (
           <>
@@ -131,17 +110,11 @@ export function GroupSheetOverlay() {
             />
             <View
               pointerEvents="none"
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: palette.background + 'A6' },
-              ]}
+              style={[StyleSheet.absoluteFill, { backgroundColor: palette.background + 'A6' }]}
             />
           </>
         )}
-        <Pressable
-          style={StyleSheet.absoluteFillObject}
-          onPress={() => closeGroupSheet()}
-        />
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={() => closeGroupSheet()} />
       </Animated.View>
 
       <Animated.View
@@ -149,17 +122,14 @@ export function GroupSheetOverlay() {
           isDark ? styles.sheetSolidDark : styles.sheetFlat,
           {
             paddingBottom: insets.bottom + 12,
-            transform:     [{ translateY: slideAnim }],
+            transform: [{ translateY: slideAnim }],
           },
         ]}
       >
         {isDark && (
           <View
             pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: palette.surfaceElevated + '80' },
-            ]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: palette.surfaceElevated + '80' }]}
           />
         )}
         <View style={styles.sheetContent}>
@@ -169,8 +139,8 @@ export function GroupSheetOverlay() {
           </View>
 
           <View style={styles.sheetItems}>
-            {group.items.map(item => {
-              const ItemIcon     = item.icon;
+            {group.items.map((item) => {
+              const ItemIcon = item.icon;
               const isActiveItem = item.route.tab === activeTabName;
 
               return (
@@ -184,16 +154,8 @@ export function GroupSheetOverlay() {
                     pressed && styles.sheetItemPressed,
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.sheetItemIcon,
-                      isActiveItem && styles.sheetItemIconActive,
-                    ]}
-                  >
-                    <ItemIcon
-                      size={19}
-                      color={isActiveItem ? colors.primary : palette.muted}
-                    />
+                  <View style={[styles.sheetItemIcon, isActiveItem && styles.sheetItemIconActive]}>
+                    <ItemIcon size={19} color={isActiveItem ? colors.primary : palette.muted} />
                   </View>
                   <Text
                     style={[
@@ -222,14 +184,14 @@ export function GroupSheetOverlay() {
 
 function createStyles(theme: AppTheme) {
   const sheetBase = {
-    position:              'absolute' as const,
-    left:                  0,
-    right:                 0,
-    bottom:                0,
-    borderTopLeftRadius:   22,
-    borderTopRightRadius:  22,
-    paddingTop:            10,
-    paddingHorizontal:     16,
+    position: 'absolute' as const,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingTop: 10,
+    paddingHorizontal: 16,
   };
 
   return StyleSheet.create({
@@ -240,7 +202,7 @@ function createStyles(theme: AppTheme) {
     backdropDark: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'transparent',
-      overflow:        'hidden',
+      overflow: 'hidden',
     },
     sheetFlat: {
       ...sheetBase,
@@ -255,88 +217,88 @@ function createStyles(theme: AppTheme) {
       // dark enough not to feel jarring. overflow:hidden clips the overlay
       // to the rounded top corners.
       backgroundColor: theme.palette.surface,
-      overflow:        'hidden',
+      overflow: 'hidden',
       ...theme.elevation.high,
     },
     sheetGlass: {
       ...sheetBase,
       backgroundColor: 'transparent',
-      overflow:        'hidden',
-      borderTopWidth:  1,
-      borderColor:     theme.palette.divider + '80',
+      overflow: 'hidden',
+      borderTopWidth: 1,
+      borderColor: theme.palette.divider + '80',
     },
     sheetContent: {
       zIndex: 1,
     },
     sheetHandle: {
-      alignSelf:       'center',
-      width:           40,
-      height:          5,
-      borderRadius:    999,
+      alignSelf: 'center',
+      width: 40,
+      height: 5,
+      borderRadius: 999,
       backgroundColor: theme.colors.primary,
-      marginBottom:    12,
+      marginBottom: 12,
     },
     sheetHeader: {
       paddingHorizontal: 4,
-      paddingBottom:     14,
+      paddingBottom: 14,
       borderBottomWidth: 1,
       borderBottomColor: theme.palette.divider,
     },
     sheetTitle: {
-      fontSize:      12,
-      fontWeight:    '700',
+      fontSize: 12,
+      fontWeight: '700',
       letterSpacing: 1.5,
-      color:         theme.colors.primary,
+      color: theme.colors.primary,
     },
     sheetItems: {
       paddingTop: 10,
     },
     sheetItem: {
-      flexDirection:     'row',
-      alignItems:        'center',
-      gap:               14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
       paddingHorizontal: 12,
-      paddingVertical:   11,
-      borderRadius:      12,
-      marginBottom:      2,
+      paddingVertical: 11,
+      borderRadius: 12,
+      marginBottom: 2,
     },
     sheetItemActive: {
       backgroundColor: theme.colors.softBg,
-      borderWidth:     1,
-      borderColor:     theme.colors.border,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
     },
     sheetItemPressed: {
       opacity: 0.7,
     },
     sheetItemIcon: {
-      width:           40,
-      height:          40,
-      borderRadius:    12,
+      width: 40,
+      height: 40,
+      borderRadius: 12,
       backgroundColor: theme.palette.background,
-      alignItems:      'center',
-      justifyContent:  'center',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     sheetItemIconActive: {
       backgroundColor: theme.colors.softBg,
     },
     sheetItemLabel: {
-      flex:       1,
-      fontSize:   15,
+      flex: 1,
+      fontSize: 15,
       fontWeight: '500',
-      color:      theme.palette.onBackground,
+      color: theme.palette.onBackground,
     },
     badge: {
       paddingHorizontal: 10,
-      paddingVertical:   3,
-      borderRadius:      999,
-      backgroundColor:   theme.palette.background,
-      borderWidth:       1,
-      borderColor:       theme.palette.divider,
+      paddingVertical: 3,
+      borderRadius: 999,
+      backgroundColor: theme.palette.background,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
     },
     badgeText: {
-      fontSize:   12,
+      fontSize: 12,
       fontWeight: '600',
-      color:      theme.palette.muted,
+      color: theme.palette.muted,
     },
   });
 }

@@ -1,12 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Animated,
-  Easing,
-  StyleSheet,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { View, Animated, Easing, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
 
@@ -55,7 +48,7 @@ export function DashboardSkeleton() {
     <View style={styles.container}>
       {/* Stats row */}
       <View style={styles.row}>
-        {[0, 1, 2, 3].map(i => (
+        {[0, 1, 2, 3].map((i) => (
           <Animated.View key={i} style={[styles.statCard, { opacity: pulse }]} />
         ))}
       </View>
@@ -64,22 +57,19 @@ export function DashboardSkeleton() {
       <View style={styles.block}>
         {bar(styles.sectionTitleBar)}
         <View style={styles.row}>
-          {[0, 1, 2, 3].map(i => (
+          {[0, 1, 2, 3].map((i) => (
             <Animated.View key={i} style={[styles.actionTile, { opacity: pulse }]} />
           ))}
         </View>
       </View>
 
       {/* Two list cards */}
-      {[0, 1].map(section => (
+      {[0, 1].map((section) => (
         <View key={section} style={styles.block}>
           {bar(styles.sectionTitleBar)}
           <View style={styles.listCard}>
-            {[0, 1, 2].map(i => (
-              <View
-                key={i}
-                style={[styles.listRow, i < 2 && styles.listRowDivided]}
-              >
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={[styles.listRow, i < 2 && styles.listRowDivided]}>
                 <Animated.View style={[styles.chip, { opacity: pulse }]} />
                 <View style={styles.listMid}>
                   {bar(styles.lineWide, 'a')}

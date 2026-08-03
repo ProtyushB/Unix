@@ -26,8 +26,11 @@ const SHOWN: HeaderScrollState = { shown: true, anchorY: 200 };
 const HIDDEN: HeaderScrollState = { shown: false, anchorY: 200 };
 
 /** Feed a sequence of offsets through the fold, starting from `from`. */
-const scroll = (from: HeaderScrollState, offsets: number[], over: Partial<HeaderScrollSample> = {}) =>
-  offsets.reduce((st, y) => nextHeaderState(st, at(y, over)), from);
+const scroll = (
+  from: HeaderScrollState,
+  offsets: number[],
+  over: Partial<HeaderScrollSample> = {},
+) => offsets.reduce((st, y) => nextHeaderState(st, at(y, over)), from);
 
 describe('precedence', () => {
   // Pinned is how search mode and every hero state opt out. A 400px drag must not move it.

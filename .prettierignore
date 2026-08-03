@@ -1,0 +1,15 @@
+# Native build trees — generated or vendor-owned, formatted by their own toolchains.
+android/
+ios/
+
+node_modules/
+coverage/
+
+# Generated / captured output.
+*.log
+*.jsbundle
+
+# Prose, not code. Prettier's only real effect on these is re-padding the cells of every markdown
+# table, which churned ~700 lines across IMPLEMENTATION_PLAN.md and THEME_PLAN.md and buys nothing —
+# these are records meant to be read in diffs later.
+*.md

@@ -14,12 +14,7 @@ interface SectionHeaderProps {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function SectionHeader({
-  icon,
-  title,
-  actionLabel,
-  onAction,
-}: SectionHeaderProps) {
+export function SectionHeader({ icon, title, actionLabel, onAction }: SectionHeaderProps) {
   const styles = useThemedStyles(createStyles);
 
   return (

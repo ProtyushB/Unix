@@ -5,7 +5,7 @@
  * break, and keeping it pure lets the plain-node jest cover every branch without a render harness.
  */
 
-import type {ProductRow} from './product.model';
+import type { ProductRow } from './product.model';
 
 export type ProductView =
   | 'ERROR'
@@ -115,24 +115,24 @@ export interface SortOption {
  * letting the endpoint choose.
  */
 export const SORT_OPTIONS: SortOption[] = [
-  {key: 'name_asc', label: 'Name A–Z', sortBy: 'name', sortDir: 'asc'},
-  {key: 'name_desc', label: 'Name Z–A', sortBy: 'name', sortDir: 'desc'},
-  {key: 'price_asc', label: 'Price low to high', sortBy: 'price', sortDir: 'asc'},
-  {key: 'price_desc', label: 'Price high to low', sortBy: 'price', sortDir: 'desc'},
-  {key: 'created_desc', label: 'Recently added', sortBy: 'createdAt', sortDir: 'desc'},
-  {key: 'brand_asc', label: 'Brand A–Z', sortBy: 'brand', sortDir: 'asc'},
+  { key: 'name_asc', label: 'Name A–Z', sortBy: 'name', sortDir: 'asc' },
+  { key: 'name_desc', label: 'Name Z–A', sortBy: 'name', sortDir: 'desc' },
+  { key: 'price_asc', label: 'Price low to high', sortBy: 'price', sortDir: 'asc' },
+  { key: 'price_desc', label: 'Price high to low', sortBy: 'price', sortDir: 'desc' },
+  { key: 'created_desc', label: 'Recently added', sortBy: 'createdAt', sortDir: 'desc' },
+  { key: 'brand_asc', label: 'Brand A–Z', sortBy: 'brand', sortDir: 'asc' },
 ];
 
 export const DEFAULT_SORT_KEY = 'name_asc';
 
 /** The picker's trigger shows a short form — "Name", not "Name A–Z". */
 export function sortTriggerLabel(key: string): string {
-  const opt = SORT_OPTIONS.find(o => o.key === key) ?? SORT_OPTIONS[0];
+  const opt = SORT_OPTIONS.find((o) => o.key === key) ?? SORT_OPTIONS[0];
   return opt.label.replace(/ (A–Z|Z–A|low to high|high to low)$/, '');
 }
 
 export function sortOptionFor(key: string): SortOption {
-  return SORT_OPTIONS.find(o => o.key === key) ?? SORT_OPTIONS[0];
+  return SORT_OPTIONS.find((o) => o.key === key) ?? SORT_OPTIONS[0];
 }
 
 // ─── Quick actions ───────────────────────────────────────────────────────────
@@ -162,12 +162,12 @@ export interface ProductAction {
  */
 export function quickActionsFor(row: ProductRow): ProductAction[] {
   return [
-    {key: 'edit', label: 'Edit product', tint: 'muted', todo: true},
+    { key: 'edit', label: 'Edit product', tint: 'muted', todo: true },
     {
       key: 'tracking',
       label: row.trackInventory ? 'Turn off tracking' : 'Turn on tracking',
       tint: 'muted',
     },
-    {key: 'delete', label: 'Delete product', tint: 'error', danger: true, confirm: 'delete'},
+    { key: 'delete', label: 'Delete product', tint: 'error', danger: true, confirm: 'delete' },
   ];
 }

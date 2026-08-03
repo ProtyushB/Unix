@@ -7,13 +7,13 @@ configureReanimatedLogger({
   strict: false,
 });
 import React from 'react';
-import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {SafeAreaProvider, initialWindowMetrics} from 'react-native-safe-area-context';
-import {StyleSheet} from 'react-native';
-import {ThemeProvider} from './src/context/ThemeContext';
-import {AppProvider} from './src/context/AppContext';
-import {ToastProvider} from './src/context/ToastContext';
-import {RootNavigator} from './src/navigation/RootNavigator';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { StyleSheet } from 'react-native';
+import { ThemeProvider } from './src/context/ThemeContext';
+import { AppProvider } from './src/context/AppContext';
+import { ToastProvider } from './src/context/ToastContext';
+import { RootNavigator } from './src/navigation/RootNavigator';
 
 const App: React.FC = () => {
   return (
@@ -39,7 +39,7 @@ const App: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {flex: 1},
+  root: { flex: 1 },
 });
 
 export default App;

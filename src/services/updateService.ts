@@ -20,10 +20,10 @@ export interface UpdateManifest {
 }
 
 export type ManifestVerdict =
-  | {status: 'update-available'; manifest: UpdateManifest}
-  | {status: 'up-to-date'}
-  | {status: 'unsupported'}
-  | {status: 'invalid'; reason: string};
+  | { status: 'update-available'; manifest: UpdateManifest }
+  | { status: 'up-to-date' }
+  | { status: 'unsupported' }
+  | { status: 'invalid'; reason: string };
 
 /** Milliseconds before a manifest fetch is abandoned. */
 const FETCH_TIMEOUT_MS = 8000;
@@ -47,7 +47,7 @@ export function evaluateManifest(
   // A build that cannot read its own version cannot judge whether a remote one
   // is newer — it would treat every release as an upgrade, forever.
   if (!Number.isInteger(currentCode) || currentCode <= 0) {
-    return {status: 'unsupported'};
+    return { status: 'unsupported' };
   }
 
   let parsed: unknown;
@@ -59,11 +59,11 @@ export function evaluateManifest(
     // "nothing to offer".
     parsed = JSON.parse(body);
   } catch {
-    return {status: 'invalid', reason: 'body is not JSON'};
+    return { status: 'invalid', reason: 'body is not JSON' };
   }
 
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    return {status: 'invalid', reason: 'body is not a JSON object'};
+    return { status: 'invalid', reason: 'body is not a JSON object' };
   }
 
   const m = parsed as Record<string, unknown>;
@@ -71,11 +71,11 @@ export function evaluateManifest(
   // Strict integer, and strictly a number: a string "1042" is a publish bug, and
   // accepting it would mean version comparison silently became lexicographic.
   if (typeof m.versionCode !== 'number' || !Number.isInteger(m.versionCode) || m.versionCode <= 0) {
-    return {status: 'invalid', reason: 'versionCode must be a positive integer'};
+    return { status: 'invalid', reason: 'versionCode must be a positive integer' };
   }
 
   if (typeof m.apkUrl !== 'string' || !m.apkUrl) {
-    return {status: 'invalid', reason: 'apkUrl missing'};
+    return { status: 'invalid', reason: 'apkUrl missing' };
   }
 
   // https only, and same origin as the manifest itself. The origin check is the
@@ -89,22 +89,22 @@ export function evaluateManifest(
     const apk = new URL(m.apkUrl);
     const manifest = new URL(manifestUrl);
     if (apk.protocol !== 'https:') {
-      return {status: 'invalid', reason: 'apkUrl must be https'};
+      return { status: 'invalid', reason: 'apkUrl must be https' };
     }
     apkOrigin = apk.origin;
     manifestOrigin = manifest.origin;
   } catch {
-    return {status: 'invalid', reason: 'apkUrl or manifestUrl is not a valid URL'};
+    return { status: 'invalid', reason: 'apkUrl or manifestUrl is not a valid URL' };
   }
   if (apkOrigin !== manifestOrigin) {
-    return {status: 'invalid', reason: 'apkUrl is not same-origin with the manifest'};
+    return { status: 'invalid', reason: 'apkUrl is not same-origin with the manifest' };
   }
 
   // Strictly greater. Equal is the steady state for every up-to-date device, and
   // lower means a rollback the client must not act on — reinstalling an older
   // build would just re-offer the newer one on next launch.
   if (m.versionCode <= currentCode) {
-    return {status: 'up-to-date'};
+    return { status: 'up-to-date' };
   }
 
   return {
@@ -130,7 +130,9 @@ export function evaluateManifest(
         typeof m.sha256 === 'string' && /^[0-9a-f]{64}$/i.test(m.sha256) ? m.sha256 : undefined,
       minSupportedVersionCode:
         typeof m.minSupportedVersionCode === 'number' ? m.minSupportedVersionCode : 0,
-      notes: Array.isArray(m.notes) ? m.notes.filter((n): n is string => typeof n === 'string') : [],
+      notes: Array.isArray(m.notes)
+        ? m.notes.filter((n): n is string => typeof n === 'string')
+        : [],
     },
   };
 }
@@ -147,7 +149,7 @@ export async function fetchManifest(
   manifestUrl: string,
   currentCode: number,
 ): Promise<ManifestVerdict> {
-  if (!manifestUrl) return {status: 'unsupported'};
+  if (!manifestUrl) return { status: 'unsupported' };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -158,11 +160,11 @@ export async function fetchManifest(
       signal: controller.signal,
       // The APK is overwritten in place and the manifest with it, so a cached
       // copy is exactly the thing that would hide a release.
-      headers: {Accept: 'application/json', 'Cache-Control': 'no-cache'},
+      headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
     });
 
     if (!res.ok) {
-      return {status: 'invalid', reason: `HTTP ${res.status}`};
+      return { status: 'invalid', reason: `HTTP ${res.status}` };
     }
 
     // The forgiving form: reject text/html rather than requiring
@@ -171,7 +173,7 @@ export async function fetchManifest(
     // actually happens and the one worth naming.
     const contentType = res.headers.get('content-type') ?? '';
     if (contentType.toLowerCase().includes('text/html')) {
-      return {status: 'invalid', reason: 'server returned HTML (manifest not published?)'};
+      return { status: 'invalid', reason: 'server returned HTML (manifest not published?)' };
     }
 
     return evaluateManifest(await res.text(), currentCode, manifestUrl);

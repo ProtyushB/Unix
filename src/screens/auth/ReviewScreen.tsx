@@ -1,12 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  StatusBar,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
 import { User, Building2, Pencil, CircleCheck, X } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppButton from '../../components/common/AppButton';
@@ -95,7 +88,9 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
     <View style={styles.kv} key={label}>
       <Text style={styles.kvLabel}>{label}</Text>
       <View style={styles.kvValueRow}>
-        <Text style={styles.kvValue} numberOfLines={1}>{value}</Text>
+        <Text style={styles.kvValue} numberOfLines={1}>
+          {value}
+        </Text>
         {verified && <CircleCheck size={15} color={palette.success} />}
       </View>
     </View>
@@ -118,7 +113,10 @@ const ReviewScreen: React.FC<Props> = ({ navigation, route }) => {
         />
         <SignupStepper active={2} />
 
-        <View style={[styles.body, saving && styles.dimmed]} pointerEvents={saving ? 'none' : 'auto'}>
+        <View
+          style={[styles.body, saving && styles.dimmed]}
+          pointerEvents={saving ? 'none' : 'auto'}
+        >
           {/* Personal */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>

@@ -62,9 +62,7 @@ function flag(value: boolean | undefined): boolean {
   return value !== false;
 }
 
-export function normalizeTabConfig(
-  raw: TabConfigPayload | null | undefined,
-): TabConfigSnapshot {
+export function normalizeTabConfig(raw: TabConfigPayload | null | undefined): TabConfigSnapshot {
   return {
     tabs: forceAlwaysOn(raw?.tabs),
     preferences: forceAlwaysOn(raw?.preferences ?? raw?.tabs),

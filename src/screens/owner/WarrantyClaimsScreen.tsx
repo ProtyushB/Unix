@@ -10,26 +10,68 @@ import { formatDate } from '../../utils/formatters';
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
 interface MockClaim {
-  id:       number;
-  product:  string;
+  id: number;
+  product: string;
   customer: string;
-  issue:    string;
-  status:   'PENDING' | 'APPROVED' | 'REJECTED' | 'RESOLVED';
-  date:     string;
+  issue: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESOLVED';
+  date: string;
 }
 
 const MOCK_CLAIMS: MockClaim[] = [
-  { id: 701, product: 'Hair Scissors Pro', customer: 'Priya Sharma', issue: 'Blade chipped',       status: 'APPROVED', date: '2026-04-22' },
-  { id: 702, product: 'Styling Comb Set',  customer: 'Aman Kumar',   issue: 'Teeth broken',        status: 'RESOLVED', date: '2026-04-20' },
-  { id: 703, product: 'Hair Scissors Pro', customer: 'Kabir Mehta',  issue: 'Screws loose',        status: 'PENDING',  date: '2026-04-19' },
-  { id: 704, product: 'Electric Clipper',  customer: 'Neha Verma',   issue: 'Motor stopped',       status: 'APPROVED', date: '2026-04-18' },
-  { id: 705, product: 'Hair Straightener', customer: 'Riya Singh',   issue: 'Plate not heating',   status: 'REJECTED', date: '2026-04-16' },
-  { id: 706, product: 'Styling Comb Set',  customer: 'Arjun Rao',    issue: 'Handle cracked',      status: 'RESOLVED', date: '2026-04-14' },
+  {
+    id: 701,
+    product: 'Hair Scissors Pro',
+    customer: 'Priya Sharma',
+    issue: 'Blade chipped',
+    status: 'APPROVED',
+    date: '2026-04-22',
+  },
+  {
+    id: 702,
+    product: 'Styling Comb Set',
+    customer: 'Aman Kumar',
+    issue: 'Teeth broken',
+    status: 'RESOLVED',
+    date: '2026-04-20',
+  },
+  {
+    id: 703,
+    product: 'Hair Scissors Pro',
+    customer: 'Kabir Mehta',
+    issue: 'Screws loose',
+    status: 'PENDING',
+    date: '2026-04-19',
+  },
+  {
+    id: 704,
+    product: 'Electric Clipper',
+    customer: 'Neha Verma',
+    issue: 'Motor stopped',
+    status: 'APPROVED',
+    date: '2026-04-18',
+  },
+  {
+    id: 705,
+    product: 'Hair Straightener',
+    customer: 'Riya Singh',
+    issue: 'Plate not heating',
+    status: 'REJECTED',
+    date: '2026-04-16',
+  },
+  {
+    id: 706,
+    product: 'Styling Comb Set',
+    customer: 'Arjun Rao',
+    issue: 'Handle cracked',
+    status: 'RESOLVED',
+    date: '2026-04-14',
+  },
 ];
 
 const FILTERS = [
-  { id: 'ALL',      label: 'All' },
-  { id: 'PENDING',  label: 'Pending' },
+  { id: 'ALL', label: 'All' },
+  { id: 'PENDING', label: 'Pending' },
   { id: 'APPROVED', label: 'Approved' },
   { id: 'REJECTED', label: 'Rejected' },
   { id: 'RESOLVED', label: 'Resolved' },
@@ -43,10 +85,10 @@ export function WarrantyClaimsScreen() {
   const [search, setSearch] = useState('');
 
   const visible = useMemo(() => {
-    return MOCK_CLAIMS.filter(c => {
+    return MOCK_CLAIMS.filter((c) => {
       const matchStatus = filter === 'ALL' || c.status === filter;
-      const q           = search.trim().toLowerCase();
-      const matchQuery  =
+      const q = search.trim().toLowerCase();
+      const matchQuery =
         !q ||
         c.product.toLowerCase().includes(q) ||
         c.customer.toLowerCase().includes(q) ||
@@ -65,7 +107,9 @@ export function WarrantyClaimsScreen() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search product, customer or issue..."
-      onAdd={() => { /* TODO */ }}
+      onAdd={() => {
+        /* TODO */
+      }}
     >
       {visible.length === 0 ? (
         <EmptyState
@@ -76,7 +120,7 @@ export function WarrantyClaimsScreen() {
       ) : (
         <FlatList
           data={visible}
-          keyExtractor={c => String(c.id)}
+          keyExtractor={(c) => String(c.id)}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <ListCard

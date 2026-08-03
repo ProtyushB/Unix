@@ -19,7 +19,7 @@ export default function DateTimePicker(props: any) {
       type={props.mode === 'time' ? 'time' : 'date'}
       defaultValue={toIso(props.value)}
       style={{ margin: 8, padding: '8px 10px', fontSize: 14, borderRadius: 8 }}
-      onChange={e => {
+      onChange={(e) => {
         const v = e.target.value ? new Date(e.target.value) : undefined;
         props.onChange?.({ type: 'set', nativeEvent: {} }, v);
       }}

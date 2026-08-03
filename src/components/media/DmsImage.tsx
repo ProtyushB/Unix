@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Image,
-  View,
-  ActivityIndicator,
-  StyleSheet,
-  type ImageStyle,
-} from 'react-native';
+import { Image, View, ActivityIndicator, StyleSheet, type ImageStyle } from 'react-native';
 import { ImageIcon } from 'lucide-react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
@@ -22,20 +16,13 @@ interface DmsImageProps {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function DmsImage({
-  dmsFileId,
-  style,
-  placeholder,
-  baseUrl = '',
-}: DmsImageProps) {
+export function DmsImage({ dmsFileId, style, placeholder, baseUrl = '' }: DmsImageProps) {
   const { colors, palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const uri = baseUrl
-    ? `${baseUrl}/api/files/${dmsFileId}/preview`
-    : '';
+  const uri = baseUrl ? `${baseUrl}/api/files/${dmsFileId}/preview` : '';
 
   if (!baseUrl || error) {
     return (

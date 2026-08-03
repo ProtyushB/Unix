@@ -23,7 +23,7 @@ interface ServiceResult<T> {
 function toResult<T>(err: unknown): ServiceResult<T> {
   const axiosErr = err as AxiosError<{ message?: string; error?: string }>;
   const status = axiosErr.response?.status;
-  const kind = status ? 'ERR_BAD_RESPONSE' : (axiosErr.code || 'ERR_NETWORK');
+  const kind = status ? 'ERR_BAD_RESPONSE' : axiosErr.code || 'ERR_NETWORK';
 
   return {
     success: false,

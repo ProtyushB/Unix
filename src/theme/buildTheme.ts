@@ -28,20 +28,20 @@ export function buildTheme(themeId: ThemeId): AppTheme {
     mode,
 
     colors: {
-      primary:      accent.primary,
-      secondary:    accent.secondary,
-      tertiary:     accent.tertiary,
+      primary: accent.primary,
+      secondary: accent.secondary,
+      tertiary: accent.tertiary,
       gradientFrom: accent.gradientFrom,
-      gradientTo:   accent.gradientTo,
-      bg:           accent.bg,
-      bgHover:      accent.bgHover,
-      text:         accent.text,
-      textHover:    accent.textHover,
-      onAccent:     accent.onAccent,
-      border:       accent.border,
-      softBg:       accent.softBg,
-      shadow:       accent.shadow,
-      glow:         accent.glow,
+      gradientTo: accent.gradientTo,
+      bg: accent.bg,
+      bgHover: accent.bgHover,
+      text: accent.text,
+      textHover: accent.textHover,
+      onAccent: accent.onAccent,
+      border: accent.border,
+      softBg: accent.softBg,
+      shadow: accent.shadow,
+      glow: accent.glow,
     },
 
     palette,
@@ -49,7 +49,7 @@ export function buildTheme(themeId: ThemeId): AppTheme {
     status: { ...statusMap, FALLBACK: FALLBACK_STATUS },
 
     avatar: {
-      pools:   AVATAR_POOLS,
+      pools: AVATAR_POOLS,
       forName: (name: string) => AVATAR_POOLS[hashName(name) % AVATAR_POOLS.length],
     },
 
@@ -57,17 +57,17 @@ export function buildTheme(themeId: ThemeId): AppTheme {
       primary: {
         colors: [accent.gradientFrom, accent.gradientTo],
         start: { x: 0, y: 0 },
-        end:   { x: 1, y: 1 },
+        end: { x: 1, y: 1 },
       },
       surface: {
         colors: [palette.surface, palette.background],
         start: { x: 0, y: 0 },
-        end:   { x: 0, y: 1 },
+        end: { x: 0, y: 1 },
       },
       hero: {
         colors: [accent.gradientFrom, accent.bg, palette.background],
         start: { x: 0, y: 0 },
-        end:   { x: 0, y: 1 },
+        end: { x: 0, y: 1 },
       },
     },
 

@@ -72,8 +72,14 @@ export interface ClaimCustomerPayload {
 
 export abstract class PersonApiInterface {
   // Person APIs
-  abstract createPerson(personData: PersonDto, hasBusiness?: boolean): Promise<ApiResponse<PersonDto>>;
-  abstract updatePerson(personData: PersonDto, flags?: UpdatePersonFlags): Promise<ApiResponse<PersonDto>>;
+  abstract createPerson(
+    personData: PersonDto,
+    hasBusiness?: boolean,
+  ): Promise<ApiResponse<PersonDto>>;
+  abstract updatePerson(
+    personData: PersonDto,
+    flags?: UpdatePersonFlags,
+  ): Promise<ApiResponse<PersonDto>>;
   abstract getPersonById(personId: number): Promise<ApiResponse<PersonDto>>;
   abstract getPersonByUsername(username: string): Promise<ApiResponse<PersonDto>>;
   abstract getAllPersons(): Promise<ApiResponse<PersonDto[]>>;
@@ -84,5 +90,4 @@ export abstract class PersonApiInterface {
     businessId?: number;
   }): Promise<ApiResponse<CustomerLookupMatch[]>>;
   abstract claimCustomer(payload: ClaimCustomerPayload): Promise<ApiResponse<PersonDto>>;
-
 }

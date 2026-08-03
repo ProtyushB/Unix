@@ -7,12 +7,11 @@ import {
   StatusBar,
   TouchableOpacity,
   Animated,
-  InteractionManager,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getLoggedInUser, LoggedInUser } from '../../storage/auth.storage';
 import { CUSTOMER_PORTAL_ENABLED } from '../../utils/portals';
-import { getUserProfile, setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
+import { getUserProfile } from '../../storage/session.storage';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import AuthBarMask from '../../components/auth/AuthBarMask';
@@ -35,7 +34,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const autoNavRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { colors, palette } = useTheme();
+  const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
 
@@ -124,15 +123,13 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
     });
   };
 
-  const firstName = user?.username
-    ? userProfile?.firstName || user.username
-    : 'User';
+  const firstName = user?.username ? userProfile?.firstName || user.username : 'User';
 
   if (loading) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={palette.background} />
-      <AuthBarMask />
+        <AuthBarMask />
         <View style={styles.centered}>
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
@@ -144,7 +141,8 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <AuthBarMask />
-      <ScrollView removeClippedSubviews={false}
+      <ScrollView
+        removeClippedSubviews={false}
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, scrollInsets]}
         showsVerticalScrollIndicator={false}
@@ -220,11 +218,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           {/* Auto-navigate hint */}
-          {hasOnlyOneRole && (
-            <Text style={styles.autoNavHint}>
-              Redirecting automatically...
-            </Text>
-          )}
+          {hasOnlyOneRole && <Text style={styles.autoNavHint}>Redirecting automatically...</Text>}
         </Animated.View>
       </ScrollView>
     </View>

@@ -11,7 +11,7 @@ import {
   DEFAULT_SORT_KEY,
   type ServiceViewInput,
 } from './service.view';
-import type {ServiceRow} from './service.model';
+import type { ServiceRow } from './service.model';
 
 const base: ServiceViewInput = {
   mode: 'browse',
@@ -20,7 +20,7 @@ const base: ServiceViewInput = {
   loadedOnce: true,
   hasError: false,
 };
-const v = (over: Partial<ServiceViewInput> = {}) => deriveServiceView({...base, ...over});
+const v = (over: Partial<ServiceViewInput> = {}) => deriveServiceView({ ...base, ...over });
 
 describe('deriveServiceView', () => {
   it('shows the populated list', () => {
@@ -30,35 +30,35 @@ describe('deriveServiceView', () => {
   // A failed load makes every other distinction meaningless — an empty list from a request that
   // never returned is not "no services yet".
   it('lets an error outrank everything, including an active search', () => {
-    expect(v({hasError: true})).toBe('ERROR');
-    expect(v({hasError: true, mode: 'search', query: 'facial'})).toBe('ERROR');
-    expect(v({hasError: true, loadedOnce: false})).toBe('ERROR');
+    expect(v({ hasError: true })).toBe('ERROR');
+    expect(v({ hasError: true, mode: 'search', query: 'facial' })).toBe('ERROR');
+    expect(v({ hasError: true, loadedOnce: false })).toBe('ERROR');
   });
 
   // `loading` is false on the very first render, so a plain `!loading` would mark the screen loaded
   // before any request exists and flash EMPTY at a business that has services.
   it('stays on LOADING until a request has actually completed', () => {
-    expect(v({loadedOnce: false, rowCount: 0})).toBe('LOADING');
+    expect(v({ loadedOnce: false, rowCount: 0 })).toBe('LOADING');
   });
 
   it('shows the empty hero only after a completed load returned nothing', () => {
-    expect(v({rowCount: 0})).toBe('EMPTY');
+    expect(v({ rowCount: 0 })).toBe('EMPTY');
   });
 
   describe('search branch', () => {
     // Rendering "0 results for ''" for a query nobody performed is the bug this state prevents.
     it('treats a focused-but-empty box as idle, not as a search', () => {
-      expect(v({mode: 'search', query: ''})).toBe('SEARCH_IDLE');
-      expect(v({mode: 'search', query: '', rowCount: 0, loadedOnce: false})).toBe('SEARCH_IDLE');
+      expect(v({ mode: 'search', query: '' })).toBe('SEARCH_IDLE');
+      expect(v({ mode: 'search', query: '', rowCount: 0, loadedOnce: false })).toBe('SEARCH_IDLE');
     });
 
     it('shows a spinner while the first search request is in flight', () => {
-      expect(v({mode: 'search', query: 'faci', loadedOnce: false})).toBe('SEARCHING');
+      expect(v({ mode: 'search', query: 'faci', loadedOnce: false })).toBe('SEARCHING');
     });
 
     it('splits results from no-results', () => {
-      expect(v({mode: 'search', query: 'Facial', rowCount: 3})).toBe('SEARCH_RESULTS');
-      expect(v({mode: 'search', query: 'Botox', rowCount: 0})).toBe('NO_RESULTS');
+      expect(v({ mode: 'search', query: 'Facial', rowCount: 3 })).toBe('SEARCH_RESULTS');
+      expect(v({ mode: 'search', query: 'Botox', rowCount: 0 })).toBe('NO_RESULTS');
     });
   });
 });
@@ -84,7 +84,14 @@ describe('serviceHeaderCollapses', () => {
   });
 
   it('stays pinned on every hero state', () => {
-    for (const view of ['EMPTY', 'ERROR', 'LOADING', 'NO_RESULTS', 'SEARCH_IDLE', 'SEARCHING'] as const) {
+    for (const view of [
+      'EMPTY',
+      'ERROR',
+      'LOADING',
+      'NO_RESULTS',
+      'SEARCH_IDLE',
+      'SEARCHING',
+    ] as const) {
       expect(serviceHeaderCollapses(view)).toBe(false);
     }
   });
@@ -122,8 +129,14 @@ describe('sort', () => {
   // Every option must name a field the server actually whitelists, or it silently sorts by id.
   it('only uses server-whitelisted fields', () => {
     const whitelisted = [
-      'id', 'name', 'price', 'duration', 'availability', 'isAppointmentRequired',
-      'createdAt', 'updatedAt',
+      'id',
+      'name',
+      'price',
+      'duration',
+      'availability',
+      'isAppointmentRequired',
+      'createdAt',
+      'updatedAt',
     ];
     for (const opt of SORT_OPTIONS) {
       expect(whitelisted).toContain(opt.sortBy);
@@ -132,8 +145,8 @@ describe('sort', () => {
 
   // Duration replaces Products' Brand — a service has no brand.
   it('offers duration and never brand', () => {
-    expect(SORT_OPTIONS.map(o => o.sortBy)).toContain('duration');
-    expect(SORT_OPTIONS.map(o => o.sortBy)).not.toContain('brand');
+    expect(SORT_OPTIONS.map((o) => o.sortBy)).toContain('duration');
+    expect(SORT_OPTIONS.map((o) => o.sortBy)).not.toContain('brand');
   });
 
   it('shortens the trigger label the way the mockup draws it', () => {
@@ -164,7 +177,7 @@ describe('quickActionsFor', () => {
 
   // One more than Products has.
   it("offers the mockup's four rows in order", () => {
-    expect(quickActionsFor(row()).map(a => a.key)).toEqual([
+    expect(quickActionsFor(row()).map((a) => a.key)).toEqual([
       'edit',
       'availability',
       'book',
@@ -174,8 +187,8 @@ describe('quickActionsFor', () => {
 
   // The mockup only ever draws the "off" direction because every service it shows is available.
   it('flips the availability label to match the service', () => {
-    expect(quickActionsFor(row({availability: true}))[1].label).toBe('Mark unavailable');
-    expect(quickActionsFor(row({availability: false}))[1].label).toBe('Mark available');
+    expect(quickActionsFor(row({ availability: true }))[1].label).toBe('Mark unavailable');
+    expect(quickActionsFor(row({ availability: false }))[1].label).toBe('Mark available');
   });
 
   it('marks delete as destructive and gated behind a confirm', () => {
