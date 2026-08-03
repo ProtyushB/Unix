@@ -223,7 +223,10 @@ export const getSelectedBusinessId = async (): Promise<number | null> => {
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
-export function createModuleHook(getServiceFn: () => ModuleService, moduleName: string) {
+// `_moduleName` is not read. It stays in the signature because it is what makes the two call sites
+// self-describing — `createModuleHook(getParlourService, 'Parlour')` says which module a hook is
+// for at a glance, and there is no other label on the returned hook.
+export function createModuleHook(getServiceFn: () => ModuleService, _moduleName: string) {
   return () => {
     const [products, setProducts] = useState<unknown[]>([]);
     const [productsTotalPages, setProductsTotalPages] = useState(1);

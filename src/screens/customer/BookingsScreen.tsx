@@ -18,7 +18,7 @@ const TABS = [
 
 export const BookingsScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState('upcoming');
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const [appointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [personId, setPersonId] = useState<number | null>(null);
@@ -68,7 +68,7 @@ export const BookingsScreen: React.FC = () => {
     return ['COMPLETED', 'CANCELLED'].includes(a.status);
   });
 
-  const handleAppointmentPress = (appointment: any) => {
+  const handleAppointmentPress = (_appointment: any) => {
     // TODO: navigate to appointment detail (read-only for customer)
   };
 

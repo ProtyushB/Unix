@@ -7,12 +7,11 @@ import {
   StatusBar,
   TouchableOpacity,
   Animated,
-  InteractionManager,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getLoggedInUser, LoggedInUser } from '../../storage/auth.storage';
 import { CUSTOMER_PORTAL_ENABLED } from '../../utils/portals';
-import { getUserProfile, setUserProfile, setBusinessTypeMap } from '../../storage/session.storage';
+import { getUserProfile } from '../../storage/session.storage';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import AuthBarMask from '../../components/auth/AuthBarMask';
@@ -35,7 +34,7 @@ const PortalSelectionScreen: React.FC<Props> = ({ navigation }) => {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const autoNavRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { colors, palette } = useTheme();
+  const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
 

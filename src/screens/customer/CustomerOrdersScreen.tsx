@@ -18,7 +18,7 @@ const TABS = [
 
 export const CustomerOrdersScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState('active');
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [personId, setPersonId] = useState<number | null>(null);
@@ -68,7 +68,7 @@ export const CustomerOrdersScreen: React.FC = () => {
     return ['COMPLETED', 'CANCELLED'].includes(o.status);
   });
 
-  const handleOrderPress = (order: any) => {
+  const handleOrderPress = (_order: any) => {
     // TODO: navigate to order detail (read-only for customer)
   };
 

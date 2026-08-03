@@ -73,7 +73,6 @@ import {
   deriveProductView,
   showsProductAdd,
   productHeaderCollapses,
-  isProductSearchView,
   showsCatalogPanel,
   quickActionsFor,
   sortTriggerLabel,
@@ -229,7 +228,7 @@ export function ProductsScreen() {
     setRows(prev => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
     if (activeModule.productMeta) setMeta(activeModule.productMeta);
     loadingMoreRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeModule.products, activeModule.productMeta]);
 
   // `loading` is false on the very first render, so a plain `!loading` marks the screen loaded

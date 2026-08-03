@@ -24,7 +24,7 @@ const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
-  const { colors, palette } = useTheme();
+  const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
 
   useEffect(() => {

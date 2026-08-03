@@ -124,7 +124,6 @@ export function BillingScreen() {
 
   const pageRef = useRef(1);
   const loadingMoreRef = useRef(false);
-  const [loadedPages, setLoadedPages] = useState(0);
 
   /**
    * Today, in IST.
@@ -181,9 +180,8 @@ export function BillingScreen() {
   useEffect(() => {
     const mapped = (activeModule.bills as any[]).map(toBillRow);
     setRows(prev => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
-    setLoadedPages(pageRef.current);
     loadingMoreRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeModule.bills]);
 
   /**

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Pressable,
-  ScrollView,
   TextInput,
   Modal,
   StyleSheet,
@@ -44,8 +43,6 @@ import type { AppTheme } from '../../../theme/theme.types';
 import {
   toYmd,
   parseYmd,
-  addDays,
-  startOfIsoWeek,
   weekDays,
   monthGrid,
   formatDayHeading,
@@ -202,7 +199,7 @@ export function AppointmentsScreen() {
     const mapped = (activeModule.appointments as any[]).map(toAppointmentRow);
     setRows(prev => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
     loadingMoreRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeModule.appointments]);
 
   /**

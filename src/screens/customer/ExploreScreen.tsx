@@ -11,7 +11,6 @@ import {
 import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
 import {AppInput} from '../../components/common/AppInput';
 import {BusinessCard} from '../../components/list/BusinessCard';
-import {SectionHeader} from '../../components/common/SectionHeader';
 import {EmptyState} from '../../components/common/EmptyState';
 import {LoadingSpinner} from '../../components/common/LoadingSpinner';
 import { useTheme } from '../../hooks/useTheme';
@@ -29,8 +28,8 @@ const CATEGORIES = [
 export const ExploreScreen: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [businesses, setBusinesses] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [businesses] = useState<any[]>([]);
+  const [loading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const { colors, palette } = useTheme();
@@ -51,7 +50,7 @@ export const ExploreScreen: React.FC = () => {
     setRefreshing(false);
   }, []);
 
-  const handleBusinessPress = (business: any) => {
+  const handleBusinessPress = (_business: any) => {
     // TODO: navigate to business detail/booking
   };
 

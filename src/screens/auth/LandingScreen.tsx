@@ -7,7 +7,6 @@ import {
   FlatList,
   StatusBar,
   Dimensions,
-  TouchableOpacity,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppButton from '../../components/common/AppButton';
@@ -47,7 +46,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const LandingScreen: React.FC<Props> = ({ navigation }) => {
-  const { colors, palette } = useTheme();
+  const { palette } = useTheme();
   const styles = useThemedStyles(createStyles);
   const scrollInsets = useAuthScrollInsets();
 

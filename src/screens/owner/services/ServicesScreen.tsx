@@ -222,7 +222,7 @@ export function ServicesScreen() {
     const mapped = (activeModule.services as any[]).map(toServiceRow);
     setRows(prev => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
     loadingMoreRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeModule.services]);
 
   // `loading` is false on the very first render, so a plain `!loading` marks the screen loaded

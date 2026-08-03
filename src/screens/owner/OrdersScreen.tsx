@@ -19,8 +19,6 @@ import {
   Ban,
   Calendar,
   Check,
-  ChevronLeft,
-  ChevronRight,
   CircleCheck,
   CircleDot,
   CircleX,
@@ -299,7 +297,7 @@ export function OrdersScreen() {
     const mapped = (activeModule.orders as any[]).map(toOrderRow);
     setRows(prev => (pageRef.current <= 1 ? mapped : [...prev, ...mapped]));
     loadingMoreRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeModule.orders]);
 
   /**

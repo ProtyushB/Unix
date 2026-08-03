@@ -8,9 +8,8 @@ import {
   ScrollView,
   RefreshControl,
   StyleSheet,
-  Alert,
 } from 'react-native';
-import {Archive, Clock, Search} from 'lucide-react-native';
+import {Archive, Clock} from 'lucide-react-native';
 import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
 import {AppCard} from '../../components/common/AppCard';
 import {AppButton} from '../../components/common/AppButton';

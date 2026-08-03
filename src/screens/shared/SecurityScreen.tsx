@@ -2,7 +2,7 @@ import React from 'react';
 import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {Shield, ChevronRight, ChevronLeft, Fingerprint} from 'lucide-react-native';
+import {ChevronRight, ChevronLeft, Fingerprint} from 'lucide-react-native';
 import {ScreenWrapper} from '../../components/layout/ScreenWrapper';
 import {ProfileStackParamList} from '../../navigation/types';
 import { useTheme } from '../../hooks/useTheme';

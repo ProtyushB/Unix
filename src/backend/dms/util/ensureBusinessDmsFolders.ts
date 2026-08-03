@@ -10,10 +10,8 @@
 import { FolderService } from '../service/folder.service';
 import {
   createBusinessDmsFolders,
-  createRoleFolders,
   ROLE_FOLDERS,
   CATEGORY_SLOT_MAP,
-  BusinessFolderResult,
 } from './BusinessFolderUtils';
 import {
   getDmsFolderMap,
