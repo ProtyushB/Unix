@@ -70,7 +70,7 @@ describe('mode → affordances', () => {
 
   it('only deletes something that exists', () => {
     expect(showsDelete('add')).toBe(false);
-    expect(showsDelete('view')).toBe(false);
+    expect(showsDelete('view')).toBe(true);
     expect(showsDelete('edit')).toBe(true);
   });
 
