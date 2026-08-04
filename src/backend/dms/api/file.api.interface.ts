@@ -27,6 +27,12 @@ export abstract class FileApiInterface {
   abstract uploadMultipleFiles(
     files: NativeFile[],
     encodedResourceFileDtoList: string,
+    /**
+     * Optional axios upload-progress callback. Optional so no existing caller changes; without it
+     * a progress bar over an image upload can only be faked, and a faked bar on a multi-second
+     * operation is worse than none.
+     */
+    onUploadProgress?: (event: { loaded: number; total?: number }) => void,
   ): Promise<ResourceFileDto[]>;
 
   abstract getResource(fileId: number): Promise<unknown>;

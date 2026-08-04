@@ -19,6 +19,11 @@ export const PARLOUR_ROUTES = {
   PRODUCTS_BASE: '/parlourProduct',
   PRODUCTS_VIEW_ALL: '/parlourProduct/viewAll',
 
+  // Common controller, not a parlour one, so the path carries no module slug. Listed here anyway
+  // because every call still rides this module's axios client and base URL — the same reason the
+  // pharmacy table carries its own identical copy.
+  DMS_ENTITY_FOLDER: '/api/dms/entity-folder',
+
   SERVICES_BASE: '/parlourService',
   SERVICES_VIEW_ALL: '/parlourService/viewAll',
 
