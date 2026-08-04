@@ -52,6 +52,16 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.PRODUCTS_BASE}/${id}`);
     return res.data;
   }
+  async ensureEntityFolder(params: {
+    businessId: number;
+    type: 'PRODUCT';
+    entityId: number;
+    entityName?: string;
+    currentFolderId?: number | null;
+  }): Promise<ApiResponse<Record<string, number>>> {
+    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.DMS_ENTITY_FOLDER, params);
+    return res.data;
+  }
   async getAllServices(
     businessId: number,
     page: number,

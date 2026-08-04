@@ -188,11 +188,12 @@ describe('quickActionsFor', () => {
     expect(del.confirm).toBe('delete');
   });
 
-  // Edit is drawn in the mockup but has nowhere to navigate — there is no form screen yet. It is
-  // rendered rather than omitted so the sheet matches the design, and flagged so the screen no-ops
-  // it deliberately instead of pushing a broken route.
-  it('marks edit as not yet implemented', () => {
-    expect(quickActionsFor(row())[0].todo).toBe(true);
+  // Edit used to be flagged `todo` because there was nowhere to send it — every detail screen had
+  // been deleted as unmounted dead code. It now routes to ProductDetail in edit mode, so the flag
+  // is gone and the screen navigates instead of raising a "coming soon" toast.
+  it('no longer marks edit as a no-op', () => {
+    expect(quickActionsFor(row())[0].key).toBe('edit');
+    expect(quickActionsFor(row())[0].todo).toBeUndefined();
   });
 
   it('leaves the non-destructive rows undangerous', () => {

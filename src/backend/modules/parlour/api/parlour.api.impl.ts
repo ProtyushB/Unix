@@ -53,6 +53,16 @@ export class ParlourApiImpl extends ParlourApiInterface {
     const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.PRODUCTS_BASE}/${id}`);
     return res.data;
   }
+  async ensureEntityFolder(params: {
+    businessId: number;
+    type: 'PRODUCT';
+    entityId: number;
+    entityName?: string;
+    currentFolderId?: number | null;
+  }): Promise<ApiResponse<Record<string, number>>> {
+    const res = await parlourApiClient.post(PARLOUR_ROUTES.DMS_ENTITY_FOLDER, params);
+    return res.data;
+  }
 
   // ── Services ───────────────────────────────────────────────────────────────
   async getAllServices(

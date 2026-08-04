@@ -1,3 +1,5 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
+
 // AuthStackParamList intentionally lives in AuthNavigator.tsx, next to the
 // routes it describes. A second copy here drifted the moment the signup screens
 // were merged — it still listed OtpVerification and SignupCredentials long after
@@ -14,7 +16,8 @@ export type OwnerTabParamList = {
   Orders: undefined;
   Appointments: undefined;
   Billing: undefined;
-  Products: undefined;
+  // The only tab with a stack behind it, so the only one whose params are not `undefined`.
+  Products: NavigatorScreenParams<CatalogStackParamList>;
   Services: undefined;
   Packages: undefined;
   Subscriptions: undefined;
@@ -32,10 +35,19 @@ export type OwnerTabParamList = {
   Account: undefined;
 };
 
+/**
+ * The Products tab's stack.
+ *
+ * The previous version of this type rotted — it described `CatalogMain` and a `ServiceDetail` that
+ * no navigator ever had, because nothing referenced it so nothing could catch the drift. This one
+ * is wired into `OwnerTabParamList.Products` below and consumed by a real navigator, so a mismatch
+ * is a type error rather than a comment nobody reads.
+ *
+ * `productId` absent means add mode: there is no record to fetch.
+ */
 export type CatalogStackParamList = {
-  CatalogMain: undefined;
+  ProductsMain: undefined;
   ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
-  ServiceDetail: { serviceId?: number; mode: 'view' | 'edit' | 'add' };
 };
 
 export type OperationsStackParamList = {

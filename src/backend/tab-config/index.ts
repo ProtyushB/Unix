@@ -6,6 +6,7 @@ export {
 export type { TabConfigContextValue } from './provider/tab-config.provider';
 export { useTabConfig } from './hook/useTabConfig';
 export { useIsTabEnabled } from './hook/useIsTabEnabled';
+export { useComboEnabled } from './hook/useComboEnabled';
 export { default as tabConfigService } from './service/tab-config.service';
 export {
   TAB_CONFIG_API_CONFIG,

@@ -110,7 +110,15 @@ type ViewMode = 'list' | 'grid';
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-export function ProductsScreen() {
+interface ProductsScreenProps {
+  /** Optional so the web preview can mount the list standalone, with no navigator around it. */
+  navigation?: {
+    navigate: (route: string, params?: Record<string, unknown>) => void;
+    addListener?: (event: string, cb: () => void) => () => void;
+  };
+}
+
+export function ProductsScreen({ navigation }: ProductsScreenProps = {}) {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { palette, colors } = theme;
@@ -219,6 +227,26 @@ export function ProductsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listOpts, searching]);
 
+  /**
+   * Refetch on RETURN from the detail screen, so an edit, a create or a delete is reflected.
+   *
+   * Skips the first focus: the effect above already fetches on mount, and firing both would send
+   * two identical requests and let the slower one overwrite the newer rows. `useNavigation`'s
+   * listener is used directly rather than `useFocusEffect` because this screen may also be mounted
+   * standalone in the web preview, with no navigator to hook into.
+   */
+  const hasFocusedRef = useRef(false);
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      if (!hasFocusedRef.current) {
+        hasFocusedRef.current = true;
+        return;
+      }
+      load(1);
+    });
+    return unsubscribe;
+  }, [navigation, load]);
+
   // Map the hook's raw rows, appending on page 2+.
   useEffect(() => {
     const mapped = (activeModule.products as any[]).map(toProductRow);
@@ -262,9 +290,12 @@ export function ProductsScreen() {
 
   const onPickAction = useCallback(
     (action: ProductAction) => {
-      if (action.todo) {
-        showToast('Editing a product is coming soon', 'info');
+      if (action.key === 'edit' && activeProduct) {
+        // Close the sheet before navigating: leaving a Modal mounted while the screen changes
+        // strands its portal over the next route on react-native-web.
+        const id = activeProduct.id;
         closeSheets();
+        navigation?.navigate('ProductDetail', { productId: id, mode: 'edit' });
         return;
       }
       if (action.confirm) {
@@ -311,9 +342,16 @@ export function ProductsScreen() {
   }, [activeProduct, activeModule, closeSheets, load, showToast]);
 
   const onAdd = useCallback(() => {
-    /* TODO: navigate to product create — the mockup set contains no form screen yet. */
-    showToast('Adding a product is coming soon', 'info');
-  }, [showToast]);
+    navigation?.navigate('ProductDetail', { mode: 'add' });
+  }, [navigation]);
+
+  /** Tapping a row opens the record; the quick-actions sheet moves to a long press. */
+  const openDetail = useCallback(
+    (row: ProductRow) => {
+      navigation?.navigate('ProductDetail', { productId: row.id, mode: 'view' });
+    },
+    [navigation],
+  );
 
   // ── Layout ─────────────────────────────────────────────────────────────────
 
@@ -341,7 +379,8 @@ export function ProductsScreen() {
           styles={styles}
           theme={theme}
           threshold={threshold}
-          onPress={openActions}
+          onPress={openDetail}
+          onLongPress={openActions}
         />
       ) : (
         <ListRow
@@ -349,10 +388,11 @@ export function ProductsScreen() {
           styles={styles}
           theme={theme}
           threshold={threshold}
-          onPress={openActions}
+          onPress={openDetail}
+          onLongPress={openActions}
         />
       ),
-    [viewMode, styles, theme, threshold, openActions],
+    [viewMode, styles, theme, threshold, openDetail, openActions],
   );
 
   // ── Body ───────────────────────────────────────────────────────────────────
@@ -697,12 +737,14 @@ function ListRow({
   theme,
   threshold,
   onPress,
+  onLongPress,
 }: {
   row: ProductRow;
   styles: any;
   theme: AppTheme;
   threshold: number;
   onPress: (row: ProductRow) => void;
+  onLongPress: (row: ProductRow) => void;
 }) {
   const state = stockStateFor(row, threshold);
   const detail = stockDetail(row, threshold);
@@ -713,6 +755,7 @@ function ListRow({
     <Pressable
       style={styles.row}
       onPress={() => onPress(row)}
+      onLongPress={() => onLongPress(row)}
       accessibilityRole="button"
       accessibilityLabel={row.name}
     >
@@ -745,18 +788,21 @@ function GridCard({
   theme,
   threshold,
   onPress,
+  onLongPress,
 }: {
   row: ProductRow;
   styles: any;
   theme: AppTheme;
   threshold: number;
   onPress: (row: ProductRow) => void;
+  onLongPress: (row: ProductRow) => void;
 }) {
   const state = stockStateFor(row, threshold);
   return (
     <Pressable
       style={styles.card}
       onPress={() => onPress(row)}
+      onLongPress={() => onLongPress(row)}
       accessibilityRole="button"
       accessibilityLabel={row.name}
     >

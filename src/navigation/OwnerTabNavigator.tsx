@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { BlurTargetView } from 'expo-blur';
@@ -9,7 +10,7 @@ import { useThemedStyles } from '../hooks/useThemedStyles';
 import { BlurTargetProvider } from '../components/common/BlurTargetContext';
 import { TabConfigProvider } from '../backend/tab-config';
 import type { AppTheme } from '../theme/theme.types';
-import type { OwnerTabParamList, ProfileStackParamList } from './types';
+import type { CatalogStackParamList, OwnerTabParamList, ProfileStackParamList } from './types';
 
 import DashboardScreen from '../screens/owner/DashboardScreen';
 import { InventoryScreen } from '../screens/owner/InventoryScreen';
@@ -18,6 +19,7 @@ import { OrdersScreen } from '../screens/owner/OrdersScreen';
 import { AppointmentsScreen } from '../screens/owner/appointments/AppointmentsScreen';
 import { BillingScreen } from '../screens/owner/billing/BillingScreen';
 import { ProductsScreen } from '../screens/owner/products/ProductsScreen';
+import { ProductDetailScreen } from '../screens/owner/products/detail/ProductDetailScreen';
 import { ServicesScreen } from '../screens/owner/services/ServicesScreen';
 import { PackagesScreen } from '../screens/owner/PackagesScreen';
 import { SubscriptionsScreen } from '../screens/owner/SubscriptionsScreen';
@@ -53,7 +55,39 @@ function AccountNavigator() {
   );
 }
 
+// ─── Catalog Stack ───────────────────────────────────────────────────────────
+
+const CatalogStack = createNativeStackNavigator<CatalogStackParamList>();
+
+/**
+ * NESTED inside the Products tab, not mounted at the root.
+ *
+ * `TabConfigProvider` wraps the tab navigator below, so a root-level detail route would fall
+ * outside it — `useTabConfig()` would hand back the unprovided default, `useIsTabEnabled('INVENTORY')`
+ * would read false, and the Inventory card would silently vanish from the detail screen.
+ */
+function CatalogNavigator() {
+  return (
+    <CatalogStack.Navigator screenOptions={{ headerShown: false }}>
+      <CatalogStack.Screen name="ProductsMain" component={ProductsScreen} />
+      <CatalogStack.Screen name="ProductDetail" component={ProductDetailScreen} />
+    </CatalogStack.Navigator>
+  );
+}
+
 // ─── Tab Navigator ──────────────────────────────────────────────────────────
+
+/**
+ * `tabBar` is a RENDER PROP, not a component slot — React Navigation invokes it as `tabBar(props)`
+ * rather than rendering `<TabBar {...props} />`. Passing `BottomGroupNav` directly therefore calls
+ * it as a plain function, outside any component instance, and the first hook inside it throws
+ * "Invalid hook call". The arrow is what turns it back into a real element with its own hooks.
+ *
+ * Declared at module scope so it is also a stable reference: an arrow written inline in the JSX is
+ * a fresh function every render, which is what `react/no-unstable-nested-components` objects to.
+ * This shape satisfies both — a real element AND one identity for the lifetime of the module.
+ */
+const renderTabBar = (props: BottomTabBarProps) => <BottomGroupNav {...props} />;
 
 const Tab = createBottomTabNavigator<OwnerTabParamList>();
 
@@ -118,11 +152,7 @@ export function OwnerTabNavigator() {
                 headerShown: false,
                 sceneStyle: { backgroundColor: 'transparent' },
               }}
-              // Passed by reference rather than wrapped in an arrow: the arrow was a new component
-              // type on every render, so React tore the whole tab bar down and rebuilt it instead
-              // of updating it. BottomGroupNav already takes BottomTabBarProps, so the spread was
-              // doing nothing the direct reference does not.
-              tabBar={BottomGroupNav}
+              tabBar={renderTabBar}
             >
               {/* Every screen stays mounted regardless of tab config, matching the
                   web portal: the route resolves, then useTabGateRedirect bounces
@@ -132,7 +162,19 @@ export function OwnerTabNavigator() {
               <Tab.Screen name="Orders" component={OrdersScreen} />
               <Tab.Screen name="Appointments" component={AppointmentsScreen} />
               <Tab.Screen name="Billing" component={BillingScreen} />
-              <Tab.Screen name="Products" component={ProductsScreen} />
+              {/*
+                The only tab with a stack behind it. `listeners` resets to the list on every tab
+                press: React Navigation restores a tab's nested state, so without this, leaving the
+                Products tab while a detail is open and coming back later lands on that detail
+                rather than on the list the user expects.
+              */}
+              <Tab.Screen
+                name="Products"
+                component={CatalogNavigator}
+                listeners={({ navigation }) => ({
+                  tabPress: () => navigation.navigate('Products', { screen: 'ProductsMain' }),
+                })}
+              />
               <Tab.Screen name="Services" component={ServicesScreen} />
               <Tab.Screen name="Packages" component={PackagesScreen} />
               <Tab.Screen name="Subscriptions" component={SubscriptionsScreen} />

@@ -31,6 +31,7 @@ export class FileApiImpl extends FileApiInterface {
   async uploadMultipleFiles(
     files: NativeFile[],
     encodedResourceFileDtoList: string,
+    onUploadProgress?: (event: { loaded: number; total?: number }) => void,
   ): Promise<ResourceFileDto[]> {
     const formData = new FormData();
     files.forEach((file) => {
@@ -40,6 +41,7 @@ export class FileApiImpl extends FileApiInterface {
 
     const response = await dmsApiClient.post('/file/create-multiple', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      ...(onUploadProgress ? { onUploadProgress } : {}),
     });
     return unwrap(response.data);
   }
