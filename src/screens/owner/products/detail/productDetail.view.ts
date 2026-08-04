@@ -38,9 +38,12 @@ export function isEditable(mode: DetailMode): boolean {
   return mode === 'edit' || mode === 'add';
 }
 
-/** Only a saved record can be deleted, so add mode has no delete affordance. */
+/**
+ * Delete is offered wherever a saved record exists — both the read screen and the form. Add mode
+ * has nothing to delete yet.
+ */
 export function showsDelete(mode: DetailMode): boolean {
-  return mode === 'edit';
+  return mode === 'view' || mode === 'edit';
 }
 
 /** The read-only screen is the only one that offers a jump into editing. */

@@ -1,9 +1,8 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
-  EllipsisVertical,
   Info,
   Package,
   Pencil,
@@ -72,8 +71,6 @@ export interface ProductDetailBaseProps {
   onRemovePack: (index: number) => void;
   onBack: () => void;
   onEdit?: () => void;
-  /** Read-mode overflow button. The mockup draws it; its menu is not specified yet. */
-  onMore?: () => void;
   onSave?: () => void;
   onDelete?: () => void;
   saving?: boolean;
@@ -108,7 +105,6 @@ export function ProductDetailBase({
   onRemovePack,
   onBack,
   onEdit,
-  onMore,
   onSave,
   onDelete,
   saving = false,
@@ -121,7 +117,11 @@ export function ProductDetailBase({
 }: ProductDetailBaseProps) {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
   const editable = isEditable(mode);
+  // The screen claims no bottom safe-area edge — the scroll should run under the home indicator —
+  // so the floating button has to clear it itself.
+  const showsFab = showsEditCta(mode) && !!onEdit;
 
   const size = formatSize(item.volume, item.volumeUnit);
   const quantity = item.availableQuantity as number | null | undefined;
@@ -155,6 +155,8 @@ export function ProductDetailBase({
           {editable && subtitle ? <Text style={styles.appBarSubtitle}>{subtitle}</Text> : null}
         </View>
 
+        {/* Read mode ends the bar with empty space the width of a button, so the title stays
+            centred between the two gutters rather than drifting left. */}
         {editable && onSave ? (
           <Pressable
             onPress={onSave}
@@ -165,19 +167,12 @@ export function ProductDetailBase({
             <Text style={styles.saveLabel}>{saveLabel(mode)}</Text>
           </Pressable>
         ) : (
-          <Pressable
-            onPress={onMore}
-            style={styles.iconButton}
-            accessibilityRole="button"
-            accessibilityLabel="More actions"
-          >
-            <EllipsisVertical size={18} color={theme.palette.onBackground} />
-          </Pressable>
+          <View style={styles.iconButtonSpacer} />
         )}
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, showsFab && { paddingBottom: insets.bottom + 102 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -419,14 +414,7 @@ export function ProductDetailBase({
           />
         </DetailCard>
 
-        {showsEditCta(mode) && onEdit ? (
-          <Pressable onPress={onEdit} style={styles.editCta} accessibilityRole="button">
-            <Pencil size={16} color={theme.colors.onAccent ?? '#FFFFFF'} />
-            <Text style={styles.editCtaLabel}>Edit product</Text>
-          </Pressable>
-        ) : null}
-
-        {/* Edit only — there is nothing to delete before the first save. */}
+        {/* Not in add mode — there is nothing to delete before the first save. */}
         {showsDelete(mode) && onDelete ? (
           <Pressable
             onPress={onDelete}
@@ -439,6 +427,22 @@ export function ProductDetailBase({
           </Pressable>
         ) : null}
       </ScrollView>
+
+      {/*
+        Outside the ScrollView, so it stays put while the page moves. Edit is the one thing you
+        might want from anywhere on a long read — pinning it beats a button that is only reachable
+        by scrolling past every section to the bottom.
+      */}
+      {showsFab ? (
+        <Pressable
+          onPress={onEdit}
+          style={[styles.editFab, { bottom: insets.bottom + 20 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Edit product"
+        >
+          <Pencil size={24} color={theme.colors.onAccent ?? '#FFFFFF'} />
+        </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -489,6 +493,7 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: theme.palette.divider,
     },
+    iconButtonSpacer: { width: 36, height: 36 },
     appBarCopy: { flex: 1 },
     // Read mode centres the title between the two buttons; edit mode left-aligns it over its
     // subtitle, which is why this is conditional rather than baked into appBarCopy.
@@ -549,16 +554,23 @@ function createStyles(theme: AppTheme) {
     segmentItemActive: { backgroundColor: theme.colors.primary },
     segmentLabel: { fontSize: 13, fontWeight: '500', color: theme.palette.muted },
     segmentLabelActive: { fontWeight: '600', color: theme.colors.onAccent ?? '#FFFFFF' },
-    editCta: {
-      flexDirection: 'row',
+    editFab: {
+      position: 'absolute',
+      right: 16,
+      width: 58,
+      height: 58,
+      borderRadius: 29,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 8,
-      height: 48,
-      borderRadius: 12,
       backgroundColor: theme.colors.primary,
+      // Accent-tinted rather than black: the button floats over cards that are themselves raised,
+      // and a neutral shadow reads as grime against them.
+      shadowColor: theme.colors.primary,
+      shadowOpacity: 0.35,
+      shadowRadius: 9,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 8,
     },
-    editCtaLabel: { fontSize: 14.5, fontWeight: '600', color: theme.colors.onAccent ?? '#FFFFFF' },
     deleteButton: {
       flexDirection: 'row',
       alignItems: 'center',
