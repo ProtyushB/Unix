@@ -77,7 +77,19 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
   }, []);
   const accountColor = avatar.forName(accountName).bg;
 
-  const activeTabName = state.routes[state.index].name;
+  const activeRoute = state.routes[state.index];
+  const activeTabName = activeRoute.name;
+
+  /**
+   * True when the focused tab has pushed something on top of its own list.
+   *
+   * The bar is the tab navigator's `tabBar`, so it survives into nested routes — harmless under
+   * Security/AuthMethods, wrong under a detail screen with its own Save bar, where it covers the
+   * bottom of the form. Only the Products tab has a stack today; this is written generally so the
+   * next one does not have to rediscover it.
+   */
+  const nestedState = activeRoute.state as { index?: number } | undefined;
+  const isNested = (nestedState?.index ?? 0) > 0;
   // Deliberately the UNFILTERED lookup: if the active group was just filtered
   // out, no tab highlights for the frame or two before the redirect lands.
   const activeGroupId = findGroupByTabName(activeTabName)?.id;
@@ -90,6 +102,9 @@ export function BottomGroupNav({ state, navigation }: BottomTabBarProps) {
     setGroupSheetNavigator((tab) => navigation.navigate(tab as never));
     return () => setGroupSheetNavigator(null);
   }, [navigation]);
+
+  // After every hook, never before — an early return above them changes hook order between renders.
+  if (isNested) return null;
 
   return (
     <View style={[isDark ? styles.barGlass : styles.barFlat, { paddingBottom: insets.bottom + 6 }]}>

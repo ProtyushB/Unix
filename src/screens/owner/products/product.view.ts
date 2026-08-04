@@ -152,17 +152,15 @@ export interface ProductAction {
 /**
  * The three rows of the quick-actions sheet.
  *
- * "Edit product" is drawn in the mockup but has nowhere to go: the set contains no create/edit
- * form, and the old ProductDetailScreen is orphaned and excluded from typechecking. It is rendered
- * rather than omitted so the sheet matches the design, and marked `todo` so the screen can no-op it
- * deliberately instead of navigating somewhere broken.
+ * "Edit product" now routes to the detail screen in edit mode. It used to be marked `todo` because
+ * there was nowhere to send it — the detail screens had all been deleted as unmounted dead code.
  *
  * The tracking row's label flips with the product's current state — the mockup only ever draws the
  * "off" direction because every product it shows is tracked.
  */
 export function quickActionsFor(row: ProductRow): ProductAction[] {
   return [
-    { key: 'edit', label: 'Edit product', tint: 'muted', todo: true },
+    { key: 'edit', label: 'Edit product', tint: 'muted' },
     {
       key: 'tracking',
       label: row.trackInventory ? 'Turn off tracking' : 'Turn on tracking',

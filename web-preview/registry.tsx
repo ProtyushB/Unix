@@ -97,6 +97,29 @@ export const REGISTRY: ScreenEntry[] = [
     load: () => import('../src/screens/owner/products/ProductsScreen'),
   },
   {
+    // The detail screen takes its mode and id from route params, so the preview registers one
+    // entry per mode rather than one screen you cannot reach the other states of.
+    id: 'owner/product-detail-view',
+    title: 'Product Detail · View',
+    group: 'Owner',
+    params: { productId: 1, mode: 'view' },
+    load: () => import('../src/screens/owner/products/detail/ProductDetailScreen'),
+  },
+  {
+    id: 'owner/product-detail-edit',
+    title: 'Product Detail · Edit',
+    group: 'Owner',
+    params: { productId: 1, mode: 'edit' },
+    load: () => import('../src/screens/owner/products/detail/ProductDetailScreen'),
+  },
+  {
+    id: 'owner/product-detail-add',
+    title: 'Product Detail · Add',
+    group: 'Owner',
+    params: { mode: 'add' },
+    load: () => import('../src/screens/owner/products/detail/ProductDetailScreen'),
+  },
+  {
     id: 'owner/services',
     title: 'Services',
     group: 'Owner',

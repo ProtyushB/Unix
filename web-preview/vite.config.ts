@@ -112,6 +112,21 @@ export default defineConfig(({ mode }) => {
           find: /^@react-native-community\/datetimepicker$/,
           replacement: path.resolve(previewRoot, 'stubs/datetimepicker.tsx'),
         },
+        // Native-only. Stubbed with a real <input type="file"> so the whole
+        // pick → pending → upload path stays exercisable in the preview; only
+        // the native uri shape differs, so uploads still need a device.
+        {
+          find: /^react-native-image-picker$/,
+          replacement: path.resolve(previewRoot, 'stubs/image-picker.ts'),
+        },
+        // Native-only, reached via useDmsImages (ZIP → cache → file://). No
+        // filesystem in a browser, so the stub fails softly. Mostly a bundling
+        // guard: src/backend/dms/index.ts re-exports useDmsImages, so importing
+        // that barrel would otherwise pull RNFS in and break the preview.
+        {
+          find: /^react-native-fs$/,
+          replacement: path.resolve(previewRoot, 'stubs/react-native-fs.ts'),
+        },
         // lucide-react-native@1.11.0 has a broken ESM build. lucide-react shares
         // the same icon names + size/color API and renders SVG that works fine
         // inside react-native-web.

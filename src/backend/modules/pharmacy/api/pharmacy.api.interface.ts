@@ -163,6 +163,17 @@ export abstract class PharmacyApiInterface {
   abstract createProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateProduct(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract deleteProduct(id: number): Promise<ApiResponse<unknown>>;
+  /**
+   * Idempotent: hands back the DMS folder for one saved entity, creating it or renaming it as
+   * needed. The BACKEND owns the folder name (`{name}_{id}`) — do not send one.
+   */
+  abstract ensureEntityFolder(params: {
+    businessId: number;
+    type: 'PRODUCT';
+    entityId: number;
+    entityName?: string;
+    currentFolderId?: number | null;
+  }): Promise<ApiResponse<Record<string, number>>>;
 
   abstract getAllServices(
     businessId: number,

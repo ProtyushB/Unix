@@ -6,6 +6,7 @@
 
 import { getFileApi } from '../provider/file.provider';
 import { FileApiInterface, ResourceFileDto, NativeFile } from '../api/file.api.interface';
+import { DMS_API_CONFIG } from '../config/api.config';
 import { AxiosError } from 'axios';
 
 export class FileService {
@@ -21,6 +22,7 @@ export class FileService {
     files: NativeFile[],
     parentFolderId: number,
     options: Array<{ fileName?: string; metadata?: Record<string, unknown> }> = [],
+    onUploadProgress?: (event: { loaded: number; total?: number }) => void,
   ): Promise<ResourceFileDto[]> {
     if (!files || files.length === 0) throw new Error('At least one file is required');
 
@@ -35,7 +37,7 @@ export class FileService {
 
     try {
       const encoded = encodeURIComponent(JSON.stringify(metadataList));
-      return await this.api.uploadMultipleFiles(files, encoded);
+      return await this.api.uploadMultipleFiles(files, encoded, onUploadProgress);
     } catch (error) {
       throw this.handleApiError(error);
     }
@@ -76,8 +78,11 @@ export class FileService {
   // ==================== UTILITIES ====================
 
   getResourceUrl(fileId: number): string {
-    const { baseURL } = require('../config/api.config').DMS_API_CONFIG;
-    return `${baseURL}/file/get-resource?fileId=${fileId}`;
+    // Static import, not `require`. This was the only CommonJS require left in src/: Metro tolerates
+    // it, but the web preview is plain ESM where `require` is simply not defined, so the first
+    // caller of this method crashed the screen. There is no import cycle to justify the lazy form —
+    // api.config only reads from config/env.
+    return `${DMS_API_CONFIG.baseURL}/file/get-resource?fileId=${fileId}`;
   }
 
   // ==================== ERROR HANDLING ====================

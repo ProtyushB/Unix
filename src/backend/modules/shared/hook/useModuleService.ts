@@ -136,9 +136,24 @@ interface ModuleService {
     options?: ProductListOptions,
   ): Promise<ServiceResult & { meta?: ProductListMeta }>;
   updateProductTracking?(id: number, trackInventory: boolean): Promise<ServiceResult>;
+  /** One product, fully hydrated. The detail screen's only read — see `loadProduct`. */
+  getProductById(id: number): Promise<ServiceResult>;
   createProduct(data: Record<string, unknown>): Promise<ServiceResult>;
   updateProduct(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteProduct(id: number): Promise<ServiceResult>;
+  /**
+   * Idempotent "give me this entity's DMS folder, creating or renaming it as needed".
+   *
+   * Optional because it is a common controller rather than a module one, so a module client that
+   * has not been given the route yet simply omits it and callers guard with `?.`.
+   */
+  ensureEntityFolder?(params: {
+    businessId: number;
+    type: 'PRODUCT';
+    entityId: number;
+    entityName?: string;
+    currentFolderId?: number | null;
+  }): Promise<ServiceResult>;
 
   getAllServices(
     businessId: number,
@@ -430,6 +445,69 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           return { success: false, code: body?.code, error: message };
         } finally {
           setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Fetch ONE product for the detail screen.
+     *
+     * Deliberately does not touch the shared `products` array or the shared `loading` flag, and
+     * that is not tidiness — the list screen and the detail screen share a single hook instance
+     * per module. Writing `products` would blow the list away behind the user, and toggling
+     * `loading` would trip ProductsScreen's `sawLoadingRef` first-load detector, which watches the
+     * true→false transition to decide when to stop showing skeletons. So this owns its own
+     * try/catch and hands the row straight back to the caller.
+     *
+     * The error is dug out of the axios body for the same reason `deleteProduct` does it: a bare
+     * "Request failed with status code 404" tells the user nothing.
+     */
+    const loadProduct = useCallback(
+      async (id: number) => {
+        try {
+          const response = await service.getProductById(id);
+          if (response.success) return { success: true, data: response.data };
+          return { success: false, error: response.error || response.message || null };
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to load product';
+          return { success: false, code: body?.code, error: message };
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Ensure the DMS folder for one entity, then hand back its id.
+     *
+     * The backend owns the folder's name (`{name}_{id}`) and the call is idempotent, so this is
+     * also the rename path when a product's name changes. NOT the same thing as
+     * `dms/util/EntityFolderUtils.createEntityFolder`, which mints a uuid-named folder under a
+     * caller-supplied parent — that is the older frontend-owns-the-name design this replaced.
+     */
+    const ensureProductFolder = useCallback(
+      async (params: {
+        businessId: number;
+        entityId: number;
+        entityName?: string;
+        currentFolderId?: number | null;
+      }) => {
+        if (!service.ensureEntityFolder) {
+          return { success: false, error: 'Entity folders are not supported for this module' };
+        }
+        try {
+          const response = await service.ensureEntityFolder({ ...params, type: 'PRODUCT' });
+          if (response.success) return { success: true, data: response.data };
+          return { success: false, error: response.error || response.message || null };
+        } catch (err) {
+          const message = (err as Error).message || 'Failed to prepare the image folder';
+          return { success: false, error: message };
         }
       },
       [service],
@@ -1354,10 +1432,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
       // Product CRUD
       loadProducts,
+      loadProduct,
       createProduct,
       updateProduct,
       updateProductTracking,
       deleteProduct,
+      ensureProductFolder,
 
       // Service CRUD
       loadServices,

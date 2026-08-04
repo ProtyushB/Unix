@@ -33,6 +33,19 @@ export class ParlourService {
   async deleteProduct(id: number) {
     return this.api.deleteProduct(id);
   }
+  async ensureEntityFolder(params: {
+    businessId: number;
+    type: 'PRODUCT';
+    entityId: number;
+    entityName?: string;
+    currentFolderId?: number | null;
+  }) {
+    // The entity must already be saved — the backend names the folder after its id.
+    if (!params?.businessId || !params?.entityId) {
+      throw new Error('Business ID and entity ID are required');
+    }
+    return this.api.ensureEntityFolder(params);
+  }
 
   // Services
   async getAllServices(businessId: number, page = 1, limit = 10, options: ServiceListOptions = {}) {
