@@ -155,6 +155,15 @@ export const REGISTRY: ScreenEntry[] = [
     load: () => import('../src/screens/owner/CustomersScreen'),
   },
   {
+    // One entry, not three: unlike the product/service detail screens the picker's three states
+    // are internal, so the gallery can walk list → results → create from a single mount. The host
+    // exists because the picker is a Modal and has nothing to render into on its own.
+    id: 'owner/customer-picker',
+    title: 'Customer Picker · Shared',
+    group: 'Shared',
+    load: () => import('./hosts/CustomerPickerHost'),
+  },
+  {
     id: 'owner/employees',
     title: 'Employees',
     group: 'Owner',
