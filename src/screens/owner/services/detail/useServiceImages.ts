@@ -14,13 +14,10 @@ function fileService(): FileService {
 /**
  * Turn the service's attached files plus anything freshly picked into URIs `<Image>` can render.
  *
- * ⚠️ UNVERIFIED against a real backend — and it inherits the doubt from `useProductImages` rather
- * than adding a second one. `getResourceUrl(id)` builds a bare `…/file/get-resource?fileId=N` with
- * no token, yet Unix's `dmsApiClient` installs auth interceptors. If service images do not load,
- * check the product screen first: it is one function shared in spirit by both, not two bugs.
- *
- * The fallback is `useDmsImages` (ZIP → RNFS cache → `file://` paths), and swapping to it should be
- * a change to this one function — which is why the strip takes resolved URIs, not file ids.
+ * VERIFIED against the live backend, same as `useProductImages`: the DMS read path is public, and
+ * an `<img>` on a freshly uploaded service image loaded with no `Authorization` header. A `fetch()`
+ * of the same URL fails from the web preview, but that is CORS rather than auth — `<Image>` does no
+ * preflight. See that hook for the full note; the two share one behaviour, not two bugs.
  */
 export function useServiceImages(files: ServiceFile[], pending: PendingFile[]): string[] {
   const attachedKey = files
