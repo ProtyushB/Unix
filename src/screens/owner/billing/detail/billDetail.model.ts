@@ -69,7 +69,9 @@ function str(v: unknown): string {
   return String(v);
 }
 
+/** Absent means absent — `Number(null)` is a finite 0. See the twin in `billLines.ts`. */
 function num(v: unknown, fallback = 0): number {
+  if (v === null || v === undefined || v === '') return fallback;
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }

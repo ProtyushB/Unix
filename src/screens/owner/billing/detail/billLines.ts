@@ -68,7 +68,17 @@ function str(v: unknown): string {
   return String(v);
 }
 
+/**
+ * Coerce to a number, treating ABSENT as absent.
+ *
+ * The null check is not defensive noise. `Number(null)` is `0`, and `0` is finite — so the obvious
+ * one-liner turns a null quantity into a quantity of ZERO rather than into the fallback. On a bare
+ * service line that is the difference between "one of these" and "none of these", and the server
+ * unboxes the Integer without a guard, so the wrong answer is a 500 or a free line depending on
+ * which side reaches it first. Caught by a regression test, not by review.
+ */
 function num(v: unknown, fallback = 0): number {
+  if (v === null || v === undefined || v === '') return fallback;
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }

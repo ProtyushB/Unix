@@ -185,17 +185,86 @@ export function errorSummary(errors: ValidationErrors): string {
   );
 }
 
+// ─── Which endpoint a save should use ────────────────────────────────────────
+
+export type SaveRoute = 'PUT' | 'PATCH_STATUS' | 'PATCH_PAYMENT';
+
+/** The fields that decide the route. A subset of the form, so this stays testable. */
+export interface SaveShape {
+  billStatus: string;
+  paymentStatus: string;
+  paidAmount: number;
+  refundedAmount: number;
+  /** Everything else the PUT would carry, hashed by the caller — see `contentKey`. */
+  content: string;
+}
+
 /**
- * Whether a status change should go through `PATCH /{id}/status` instead of the full PUT.
+ * A stable string standing for "the parts of the bill a PUT would rewrite".
  *
- * ⚠️ This is the sharpest edge on the whole screen. Sending `billStatus: "CANCELLED"` in a PUT body
- * is not a label change — it detaches every billed order and appointment and drops-and-restocks
- * every bare line, in the same request that is also trying to save the user's edits. The PATCH does
- * the cancellation cleanly and on purpose. So a save that is ONLY a cancellation must not be a PUT.
+ * Used only to answer "did anything other than the statuses change?". A hash rather than a deep
+ * compare because the answer is a yes/no and the inputs are small.
  */
-export function isCancellationOnly(
-  original: { billStatus: string },
-  form: { billStatus: string },
-): boolean {
-  return form.billStatus === 'CANCELLED' && original.billStatus !== 'CANCELLED';
+export function contentKey(form: BillFormState): string {
+  return JSON.stringify([
+    form.customerId,
+    form.lines.map((l) => [l.kind, l.refId, l.bare?.quantity ?? null]),
+    form.notes.trim(),
+    form.tips,
+    form.discount.type,
+    form.discount.value,
+    form.taxRate,
+    form.billDate,
+  ]);
+}
+
+/**
+ * Which endpoint this save should use.
+ *
+ * ⚠️ The single most important decision on this screen, and the reason it is a pure function with
+ * its own tests. Three things make the full PUT the wrong tool for a status or payment change:
+ *
+ *  1. **`billStatus: "CANCELLED"` in a PUT body is a cascade trigger, not a label.** It detaches
+ *     every billed order and appointment and drops-and-restocks every bare line — in the same
+ *     request that is trying to save the user's edits.
+ *  2. **PUT cannot express a payment at all.** `calculateFinancials` ends in
+ *     `applySettlementAmounts`, which rewrites `paidAmount` and `refundedAmount` from the
+ *     grandTotal it just recomputed. On PAID it forces `paidAmount = grandTotal`; on the two
+ *     PARTIAL states it takes the client's number, but a PUT that also touched the lines would move
+ *     the total under it. `PATCH /{id}/payment` is the only endpoint that means "money changed".
+ *  3. **A no-op PUT is not a no-op.** Bare lines are repriced from the LIVE catalog on every write,
+ *     and order-backed content re-deducts. PATCH has a no-op fast path; PUT does not.
+ *
+ * So: if nothing but the payment moved, PATCH the payment. If nothing but the bill status moved,
+ * PATCH the status. Only a genuine content edit earns the PUT.
+ */
+export function saveRoute(original: SaveShape, next: SaveShape): SaveRoute {
+  const contentChanged = original.content !== next.content;
+  if (contentChanged) return 'PUT';
+
+  const paymentChanged =
+    original.paymentStatus !== next.paymentStatus ||
+    original.paidAmount !== next.paidAmount ||
+    original.refundedAmount !== next.refundedAmount;
+  const statusChanged = original.billStatus !== next.billStatus;
+
+  // Payment first: it is the one the PUT genuinely cannot express, so when both moved it is the
+  // one that must not be folded in. The caller issues the status PATCH after.
+  if (paymentChanged) return 'PATCH_PAYMENT';
+  if (statusChanged) return 'PATCH_STATUS';
+
+  // Nothing changed. Still a PUT rather than a no-op, because the user pressed Save and expects
+  // something to happen — and with no content change there is nothing for it to damage.
+  return 'PUT';
+}
+
+/** Whether a status PATCH is also needed after a payment PATCH. Both can move in one save. */
+export function alsoNeedsStatusPatch(original: SaveShape, next: SaveShape): boolean {
+  return (
+    original.content === next.content &&
+    original.billStatus !== next.billStatus &&
+    (original.paymentStatus !== next.paymentStatus ||
+      original.paidAmount !== next.paidAmount ||
+      original.refundedAmount !== next.refundedAmount)
+  );
 }
