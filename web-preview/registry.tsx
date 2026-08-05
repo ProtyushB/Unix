@@ -231,6 +231,27 @@ export const REGISTRY: ScreenEntry[] = [
     load: () => import('../src/screens/owner/billing/BillingScreen'),
   },
   {
+    id: 'owner/bill-detail-view',
+    title: 'Bill Detail · View',
+    group: 'Owner',
+    params: { billId: 51, mode: 'view' },
+    load: () => import('../src/screens/owner/billing/detail/BillDetailScreen'),
+  },
+  {
+    id: 'owner/bill-detail-edit',
+    title: 'Bill Detail · Edit',
+    group: 'Owner',
+    params: { billId: 51, mode: 'edit' },
+    load: () => import('../src/screens/owner/billing/detail/BillDetailScreen'),
+  },
+  {
+    id: 'owner/bill-detail-add',
+    title: 'Bill Detail · Add',
+    group: 'Owner',
+    params: { mode: 'add' },
+    load: () => import('../src/screens/owner/billing/detail/BillDetailScreen'),
+  },
+  {
     id: 'owner/inventory',
     title: 'Inventory',
     group: 'Owner',

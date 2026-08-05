@@ -33,6 +33,8 @@ import {
   type Discount,
 } from './billMoney';
 
+import { istToday } from '../bill.model';
+
 export { formatAmount, BILL_STATUS_LABEL, PAYMENT_STATUS_LABEL } from '../bill.model';
 export { initialsOf } from '../../../../utils/formatters';
 
@@ -96,7 +98,10 @@ export function billDateOf(item: BillDetailItem | null): string {
 
 // ─── DTO → form ──────────────────────────────────────────────────────────────
 
-export function toFormState(item: BillDetailItem | null): BillFormState {
+/**
+ * `now` is injectable only so the tests can pin an instant. A new bill's date defaults to today.
+ */
+export function toFormState(item: BillDetailItem | null, now: Date = new Date()): BillFormState {
   const first = str(item?.customerFirstName).trim();
   const last = str(item?.customerLastName).trim();
   return {
@@ -105,7 +110,10 @@ export function toFormState(item: BillDetailItem | null): BillFormState {
     // NORMAL unless the bill already says otherwise. Preserved so an existing EMI bill is not
     // silently rewritten by a phone that has no EMI screen.
     paymentOption: str(item?.paymentOption) || 'NORMAL',
-    billDate: billDateOf(item),
+    // A new bill is dated today, in IST. Routed through `istToday` rather than reimplemented so
+    // "which day is this bill on" and "which day is it now" cannot answer in different timezones —
+    // on a device that is not on IST, slicing an ISO string would date it yesterday before 05:30.
+    billDate: item ? billDateOf(item) : istToday(now),
     notes: str(item?.notes),
     customerId: toId(item?.customerId),
     customerName: [first, last].filter(Boolean).join(' ') || str(item?.customerName),

@@ -98,6 +98,13 @@ describe('toFormState', () => {
     expect(toFormState({ ...serverBill(), taxRate: 0 }).taxRate).toBe(0);
   });
 
+  it('dates a NEW bill today in IST, not in the device timezone', () => {
+    // 20:30 UTC is already tomorrow in IST. A preview machine or a travelling owner would otherwise
+    // create a bill dated yesterday, and the bill date is what the number is stamped from.
+    expect(toFormState(null, new Date('2026-08-05T20:30:00Z')).billDate).toBe('2026-08-06');
+    expect(toFormState(null, new Date('2026-08-05T04:00:00Z')).billDate).toBe('2026-08-05');
+  });
+
   it('converts billDate through IST rather than slicing the ISO string', () => {
     // Slicing gives the UTC day, i.e. the previous one before 05:30 IST.
     expect(billDateOf({ billDate: '2026-08-05T20:30:00Z' })).toBe('2026-08-06');
