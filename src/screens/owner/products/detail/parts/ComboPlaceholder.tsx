@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useThemedStyles } from '../../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../../theme/theme.types';
-import { DetailField } from './DetailField';
+import { DetailField } from '../../../shared/detail/parts/DetailField';
 
 interface ComboPlaceholderProps {
   comboType?: string | null;

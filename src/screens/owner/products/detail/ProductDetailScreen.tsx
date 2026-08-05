@@ -12,7 +12,7 @@ import { useToast } from '../../../../hooks/useToast';
 import type { AppTheme } from '../../../../theme/theme.types';
 import { ProductDetailBase } from './ProductDetailBase';
 import { ComboPlaceholder } from './parts/ComboPlaceholder';
-import { SaveProgressOverlay } from './parts/SaveProgressOverlay';
+import { SaveProgressOverlay } from '../../shared/detail/parts/SaveProgressOverlay';
 import { parlourSlots } from './ParlourProductDetail';
 import { pharmacySlots } from './PharmacyProductDetail';
 import { type ProductDetailItem } from './productDetail.model';

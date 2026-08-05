@@ -15,11 +15,12 @@ import {
 import { useTheme } from '../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../theme/theme.types';
-import { DetailCard } from './parts/DetailCard';
-import { DetailField } from './parts/DetailField';
-import { MediaStrip } from './parts/MediaStrip';
+import { Badge } from '../../shared/detail/parts/Badge';
+import { DetailCard } from '../../shared/detail/parts/DetailCard';
+import { DetailField } from '../../shared/detail/parts/DetailField';
+import { MediaStrip } from '../../shared/detail/parts/MediaStrip';
 import { SaleUnitsEditor } from './parts/SaleUnitsEditor';
-import { SwitchRow } from './parts/SwitchRow';
+import { SwitchRow } from '../../shared/detail/parts/SwitchRow';
 import {
   formatPrice,
   formatSize,
@@ -447,30 +448,6 @@ export function ProductDetailBase({
   );
 }
 
-/**
- * Title-block badge. The mockup gives each a different weight: the product type is a plain
- * outlined chip, while Tracked and In-stock are tinted fills that carry meaning at a glance.
- */
-function Badge({ label, tone }: { label: string; tone: 'neutral' | 'info' | 'success' }) {
-  const theme = useTheme();
-  const styles = useThemedStyles(createStyles);
-  const color =
-    tone === 'info' ? theme.palette.info : tone === 'success' ? theme.palette.success : null;
-
-  if (!color) {
-    return (
-      <View style={styles.badgeNeutral}>
-        <Text style={styles.badgeNeutralLabel}>{label}</Text>
-      </View>
-    );
-  }
-  return (
-    <View style={[styles.badgeTinted, { backgroundColor: color + '22' }]}>
-      <Text style={[styles.badgeTintedLabel, { color }]}>{label}</Text>
-    </View>
-  );
-}
-
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.palette.background },
@@ -528,17 +505,6 @@ function createStyles(theme: AppTheme) {
     price: { fontSize: 22, fontWeight: '700', color: theme.colors.primary },
     perUnit: { fontSize: 12, fontWeight: '500', color: theme.palette.muted, paddingBottom: 2 },
     badges: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-    badgeNeutral: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 999,
-      backgroundColor: theme.palette.surfaceElevated,
-      borderWidth: 1,
-      borderColor: theme.palette.divider,
-    },
-    badgeNeutralLabel: { fontSize: 11, fontWeight: '600', color: theme.palette.muted },
-    badgeTinted: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
-    badgeTintedLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
     pairRow: { flexDirection: 'row', gap: 10 },
     pairCol: { flex: 1 },
     segment: {
