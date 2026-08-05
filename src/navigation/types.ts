@@ -16,9 +16,9 @@ export type OwnerTabParamList = {
   Orders: undefined;
   Appointments: undefined;
   Billing: undefined;
-  // The only tab with a stack behind it, so the only one whose params are not `undefined`.
+  // The two tabs with a stack behind them, so the only ones whose params are not `undefined`.
   Products: NavigatorScreenParams<CatalogStackParamList>;
-  Services: undefined;
+  Services: NavigatorScreenParams<ServicesStackParamList>;
   Packages: undefined;
   Subscriptions: undefined;
   ServicePlans: undefined;
@@ -38,16 +38,22 @@ export type OwnerTabParamList = {
 /**
  * The Products tab's stack.
  *
- * The previous version of this type rotted — it described `CatalogMain` and a `ServiceDetail` that
- * no navigator ever had, because nothing referenced it so nothing could catch the drift. This one
- * is wired into `OwnerTabParamList.Products` below and consumed by a real navigator, so a mismatch
- * is a type error rather than a comment nobody reads.
+ * An earlier version of this type rotted — it described a `CatalogMain` and a `ServiceDetail` that
+ * no navigator had, because nothing referenced it so nothing could catch the drift. Both of these
+ * are wired into `OwnerTabParamList` above and consumed by real navigators, so a mismatch is now a
+ * type error rather than a comment nobody reads.
  *
- * `productId` absent means add mode: there is no record to fetch.
+ * The id being absent means add mode: there is no record to fetch.
  */
 export type CatalogStackParamList = {
   ProductsMain: undefined;
   ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
+};
+
+/** The Services tab's stack. Same shape as the catalog's, for the same reasons. */
+export type ServicesStackParamList = {
+  ServicesMain: undefined;
+  ServiceDetail: { serviceId?: number; mode: 'view' | 'edit' | 'add' };
 };
 
 export type OperationsStackParamList = {

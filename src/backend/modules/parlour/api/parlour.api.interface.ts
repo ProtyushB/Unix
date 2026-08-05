@@ -177,7 +177,7 @@ export abstract class ParlourApiInterface {
    */
   abstract ensureEntityFolder(params: {
     businessId: number;
-    type: 'PRODUCT';
+    type: 'PRODUCT' | 'SERVICE';
     entityId: number;
     entityName?: string;
     currentFolderId?: number | null;

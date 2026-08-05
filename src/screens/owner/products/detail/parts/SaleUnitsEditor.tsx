@@ -4,7 +4,7 @@ import { Plus, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../../theme/theme.types';
-import { DetailField } from './DetailField';
+import { DetailField } from '../../../shared/detail/parts/DetailField';
 import { formatLadderSummary, packLevelLabel, type PackLevel } from '../productDetail.model';
 
 interface SaleUnitsEditorProps {

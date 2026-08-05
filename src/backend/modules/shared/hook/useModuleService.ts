@@ -149,7 +149,8 @@ interface ModuleService {
    */
   ensureEntityFolder?(params: {
     businessId: number;
-    type: 'PRODUCT';
+    /** Mirrors the server's `EntityFolderType`; products and services each get their own root. */
+    type: 'PRODUCT' | 'SERVICE';
     entityId: number;
     entityName?: string;
     currentFolderId?: number | null;
@@ -162,6 +163,8 @@ interface ModuleService {
     options?: ServiceListOptions,
   ): Promise<ServiceResult>;
   updateServiceAvailability?(id: number, availability: boolean): Promise<ServiceResult>;
+  /** One service, fully hydrated. The detail screen's only read — see `loadService`. */
+  getServiceById(id: number): Promise<ServiceResult>;
   createService(data: Record<string, unknown>): Promise<ServiceResult>;
   updateService(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteService(id: number): Promise<ServiceResult>;
@@ -453,12 +456,16 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     /**
      * Fetch ONE product for the detail screen.
      *
-     * Deliberately does not touch the shared `products` array or the shared `loading` flag, and
-     * that is not tidiness — the list screen and the detail screen share a single hook instance
-     * per module. Writing `products` would blow the list away behind the user, and toggling
-     * `loading` would trip ProductsScreen's `sawLoadingRef` first-load detector, which watches the
-     * true→false transition to decide when to stop showing skeletons. So this owns its own
-     * try/catch and hands the row straight back to the caller.
+     * Deliberately does not touch the shared `products` array or the shared `loading` flag. Not
+     * tidiness: within a single screen's own hook instance those cells are also written by
+     * `createProduct`, `updateProduct` and `deleteProduct`, so a read that toggled them would
+     * race the save it was fetching for — and `loading` is what the list screens' `sawLoadingRef`
+     * first-load detector watches, so a spurious true→false would end their skeletons early. This
+     * owns its own try/catch and hands the row straight back to the caller.
+     *
+     * (An earlier version of this comment claimed the list and detail screens share one hook
+     * instance. They do not — `createModuleHook` returns a plain hook with its own `useState`
+     * cells and there is no provider. Only the service singleton behind it is shared.)
      *
      * The error is dug out of the axios body for the same reason `deleteProduct` does it: a bare
      * "Request failed with status code 404" tells the user nothing.
@@ -491,18 +498,21 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
      * `dms/util/EntityFolderUtils.createEntityFolder`, which mints a uuid-named folder under a
      * caller-supplied parent — that is the older frontend-owns-the-name design this replaced.
      */
-    const ensureProductFolder = useCallback(
-      async (params: {
-        businessId: number;
-        entityId: number;
-        entityName?: string;
-        currentFolderId?: number | null;
-      }) => {
+    const ensureFolder = useCallback(
+      async (
+        type: 'PRODUCT' | 'SERVICE',
+        params: {
+          businessId: number;
+          entityId: number;
+          entityName?: string;
+          currentFolderId?: number | null;
+        },
+      ) => {
         if (!service.ensureEntityFolder) {
           return { success: false, error: 'Entity folders are not supported for this module' };
         }
         try {
-          const response = await service.ensureEntityFolder({ ...params, type: 'PRODUCT' });
+          const response = await service.ensureEntityFolder({ ...params, type });
           if (response.success) return { success: true, data: response.data };
           return { success: false, error: response.error || response.message || null };
         } catch (err) {
@@ -513,9 +523,85 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       [service],
     );
 
+    /** Products and services differ by one discriminator, so they share one body. */
+    const ensureProductFolder = useCallback(
+      (params: Parameters<typeof ensureFolder>[1]) => ensureFolder('PRODUCT', params),
+      [ensureFolder],
+    );
+
+    const ensureServiceFolder = useCallback(
+      (params: Parameters<typeof ensureFolder>[1]) => ensureFolder('SERVICE', params),
+      [ensureFolder],
+    );
+
+    /**
+     * The business's products as `{id, name}` options, for the service form's Required Products
+     * picker.
+     *
+     * A read for someone else's screen, so like `loadProduct` it writes no shared state — a picker
+     * fetch that failed must not leave an `error` the save path would mistake for its own.
+     *
+     * One page, deliberately: the list endpoint runs the batched stock enrich, which makes it the
+     * expensive call in the catalog, and the picker only needs names. The caller reports the cap
+     * to the user rather than paging silently.
+     */
+    const loadProductOptions = useCallback(
+      async (limit = 500) => {
+        try {
+          const businessId = await getSelectedBusinessId();
+          if (!businessId) return { success: false, error: 'No business selected.' };
+          const response = await service.getAllProducts(businessId, 1, limit, {});
+          if (response.success) {
+            return {
+              success: true,
+              data: Array.isArray(response.data) ? response.data : [],
+              totalPages: response.totalPages ?? 1,
+            };
+          }
+          return { success: false, error: response.error || response.message || null };
+        } catch (err) {
+          const e = err as { response?: { data?: { error?: string; message?: string } } };
+          const body = e.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to load products';
+          return { success: false, error: message };
+        }
+      },
+      [service],
+    );
+
     // ═══════════════════════════════════════════════════════════════
     // Service CRUD
     // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Fetch ONE service for the detail screen. Same contract as `loadProduct`, same reasons: no
+     * shared `services` array, no shared `loading`, its own try/catch, and the message dug out of
+     * the axios body rather than left as "Request failed with status code 404".
+     *
+     * Services have no `enrich` step, so this returns exactly what `/viewAll` returns for the same
+     * row — the detail screen could be seeded from a tapped list row and skip the loading state
+     * entirely. Not done, because a stale row raises a refresh-ordering question this does not.
+     */
+    const loadService = useCallback(
+      async (id: number) => {
+        try {
+          const response = await service.getServiceById(id);
+          if (response.success) return { success: true, data: response.data };
+          return { success: false, error: response.error || response.message || null };
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to load service';
+          return { success: false, code: body?.code, error: message };
+        }
+      },
+      [service],
+    );
 
     const loadServices = useCallback(
       async (page = 1, limit = 10, options: ServiceListOptions = {}) => {
@@ -1438,13 +1524,16 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       updateProductTracking,
       deleteProduct,
       ensureProductFolder,
+      loadProductOptions,
 
       // Service CRUD
       loadServices,
+      loadService,
       createService,
       updateService,
       updateServiceAvailability,
       deleteService,
+      ensureServiceFolder,
 
       // Order CRUD
       loadOrders,

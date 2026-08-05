@@ -106,7 +106,15 @@ function tintOf(theme: AppTheme, tint: ServiceAction['tint']): string {
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-export function ServicesScreen() {
+interface ServicesScreenProps {
+  /** Optional so the web preview can mount the list standalone, with no navigator around it. */
+  navigation?: {
+    navigate: (route: string, params?: Record<string, unknown>) => void;
+    addListener?: (event: string, cb: () => void) => () => void;
+  };
+}
+
+export function ServicesScreen({ navigation }: ServicesScreenProps = {}) {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { palette, colors } = theme;
@@ -221,6 +229,24 @@ export function ServicesScreen() {
     loadingMoreRef.current = false;
   }, [activeModule.services]);
 
+  /**
+   * Refetch when the user comes back from the detail screen, so an edit or a delete is reflected
+   * in the list. The first focus is skipped — the mount effect has already loaded, and refetching
+   * on top of it would double the request. Optional chaining throughout because the screen also
+   * mounts standalone in the web preview, with no navigator to hook into.
+   */
+  const hasFocusedRef = useRef(false);
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      if (!hasFocusedRef.current) {
+        hasFocusedRef.current = true;
+        return;
+      }
+      load(1);
+    });
+    return unsubscribe;
+  }, [navigation, load]);
+
   // `loading` is false on the very first render, so a plain `!loading` marks the screen loaded
   // before any request exists and flashes the empty hero. Track the true→false transition instead.
   useEffect(() => {
@@ -271,13 +297,16 @@ export function ServicesScreen() {
 
   const onPickAction = useCallback(
     (action: ServiceAction) => {
+      if (action.key === 'edit' && activeService) {
+        // Close the sheet BEFORE navigating. A Modal left mounted keeps its portal over the next
+        // route on react-native-web, so the detail screen would render behind a dead overlay.
+        const id = activeService.id;
+        closeSheets();
+        navigation?.navigate('ServiceDetail', { serviceId: id, mode: 'edit' });
+        return;
+      }
       if (action.todo) {
-        showToast(
-          action.key === 'book'
-            ? 'Booking from a service is coming soon'
-            : 'Editing a service is coming soon',
-          'info',
-        );
+        showToast('Booking from a service is coming soon', 'info');
         closeSheets();
         return;
       }
@@ -290,7 +319,7 @@ export function ServicesScreen() {
       }
       if (action.key === 'availability' && activeService) runAvailability(activeService);
     },
-    [activeService, closeSheets, runAvailability, showToast],
+    [activeService, closeSheets, navigation, runAvailability, showToast],
   );
 
   const runDelete = useCallback(async () => {
@@ -309,9 +338,16 @@ export function ServicesScreen() {
   }, [activeService, activeModule, closeSheets, load, showToast]);
 
   const onAdd = useCallback(() => {
-    /* TODO: navigate to service create — the mockup set contains no form screen yet. */
-    showToast('Adding a service is coming soon', 'info');
-  }, [showToast]);
+    navigation?.navigate('ServiceDetail', { mode: 'add' });
+  }, [navigation]);
+
+  /** Tapping a row opens the record; the quick-actions sheet moves to a long press. */
+  const openDetail = useCallback(
+    (row: ServiceRow) => {
+      navigation?.navigate('ServiceDetail', { serviceId: row.id, mode: 'view' });
+    },
+    [navigation],
+  );
 
   // ── Layout ─────────────────────────────────────────────────────────────────
 
@@ -332,11 +368,23 @@ export function ServicesScreen() {
   const renderRow = useCallback(
     (row: ServiceRow) =>
       viewMode === 'grid' ? (
-        <GridCard row={row} styles={styles} theme={theme} onPress={openActions} />
+        <GridCard
+          row={row}
+          styles={styles}
+          theme={theme}
+          onPress={openDetail}
+          onLongPress={openActions}
+        />
       ) : (
-        <ListRow row={row} styles={styles} theme={theme} onPress={openActions} />
+        <ListRow
+          row={row}
+          styles={styles}
+          theme={theme}
+          onPress={openDetail}
+          onLongPress={openActions}
+        />
       ),
-    [viewMode, styles, theme, openActions],
+    [viewMode, styles, theme, openDetail, openActions],
   );
 
   // ── Body ───────────────────────────────────────────────────────────────────
@@ -685,16 +733,19 @@ function ListRow({
   styles,
   theme,
   onPress,
+  onLongPress,
 }: {
   row: ServiceRow;
   styles: any;
   theme: AppTheme;
   onPress: (row: ServiceRow) => void;
+  onLongPress: (row: ServiceRow) => void;
 }) {
   return (
     <Pressable
       style={styles.row}
       onPress={() => onPress(row)}
+      onLongPress={() => onLongPress(row)}
       accessibilityRole="button"
       accessibilityLabel={row.name}
     >
@@ -727,16 +778,19 @@ function GridCard({
   styles,
   theme,
   onPress,
+  onLongPress,
 }: {
   row: ServiceRow;
   styles: any;
   theme: AppTheme;
   onPress: (row: ServiceRow) => void;
+  onLongPress: (row: ServiceRow) => void;
 }) {
   return (
     <Pressable
       style={styles.card}
       onPress={() => onPress(row)}
+      onLongPress={() => onLongPress(row)}
       accessibilityRole="button"
       accessibilityLabel={row.name}
     >
