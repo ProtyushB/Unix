@@ -176,6 +176,28 @@ export const REGISTRY: ScreenEntry[] = [
     load: () => import('../src/screens/owner/orders/OrdersScreen'),
   },
   {
+    // One entry per mode, same as the product and service detail trios.
+    id: 'owner/order-detail-view',
+    title: 'Order Detail · View',
+    group: 'Owner',
+    params: { orderId: 94, mode: 'view' },
+    load: () => import('../src/screens/owner/orders/detail/OrderDetailScreen'),
+  },
+  {
+    id: 'owner/order-detail-edit',
+    title: 'Order Detail · Edit',
+    group: 'Owner',
+    params: { orderId: 94, mode: 'edit' },
+    load: () => import('../src/screens/owner/orders/detail/OrderDetailScreen'),
+  },
+  {
+    id: 'owner/order-detail-add',
+    title: 'Order Detail · Add',
+    group: 'Owner',
+    params: { mode: 'add' },
+    load: () => import('../src/screens/owner/orders/detail/OrderDetailScreen'),
+  },
+  {
     id: 'owner/appointments',
     title: 'Appointments',
     group: 'Owner',

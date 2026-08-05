@@ -275,3 +275,30 @@ export function isBilled(item: OrderDetailItem | null): boolean {
 export function lineUnits(line: OrderLine): UnitLine[] {
   return displayUnitLines(line);
 }
+
+/**
+ * Product names and brands for the lines, taken from the response the screen already has.
+ *
+ * `orderedProductItemsWithDetails` is the enriched, read-only mirror of `orderItems` that the
+ * backend builds by joining each line to its product. It is why view mode needs no catalog fetch:
+ * a read-only order can render entirely from its own response.
+ *
+ * Worth preferring over `productSnapshot`, which is null on every order written before snapshots
+ * shipped — a real live order shows `productSnapshot: null` and
+ * `productName: "Cristiano Rolandoooooo"` side by side. The snapshot still wins where it exists,
+ * because it is frozen at order time and survives the product being renamed or deleted.
+ */
+export function enrichedDisplay(
+  item: OrderDetailItem | null,
+): Record<number, { name: string; brand: string }> {
+  const rows = Array.isArray(item?.orderedProductItemsWithDetails)
+    ? (item?.orderedProductItemsWithDetails as Record<string, unknown>[])
+    : [];
+  const map: Record<number, { name: string; brand: string }> = {};
+  for (const row of rows) {
+    const id = Number(row?.productId);
+    if (!Number.isFinite(id)) continue;
+    map[id] = { name: str(row?.productName), brand: str(row?.brand) };
+  }
+  return map;
+}
