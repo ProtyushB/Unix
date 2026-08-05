@@ -145,19 +145,17 @@ export interface ServiceAction {
 /**
  * The four rows of the quick-actions sheet — one more than Products has.
  *
- * Two of them are drawn but have nowhere to go, and are marked `todo` so the screen no-ops them
- * deliberately rather than pushing a broken route:
- *  - "Edit service" — the set contains no create/edit form, and the old ServiceDetailScreen is
- *    orphaned and excluded from typechecking.
- *  - "Book appointment" — there is no appointment-creation flow anywhere in the app; nothing calls
- *    `createAppointment`.
+ * One of them is drawn but has nowhere to go, and is marked `todo` so the screen no-ops it
+ * deliberately rather than pushing a broken route: "Book appointment" has no appointment-creation
+ * flow anywhere in the app; nothing calls `createAppointment`. "Edit service" used to be in the
+ * same state and is now a real route.
  *
  * The availability row's label flips with the service's current state — the mockup only ever draws
  * the "off" direction because every service it shows is available.
  */
 export function quickActionsFor(row: ServiceRow): ServiceAction[] {
   return [
-    { key: 'edit', label: 'Edit service', tint: 'muted', todo: true },
+    { key: 'edit', label: 'Edit service', tint: 'muted' },
     {
       key: 'availability',
       label: row.availability ? 'Mark unavailable' : 'Mark available',

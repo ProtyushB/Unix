@@ -55,7 +55,7 @@ export class ParlourApiImpl extends ParlourApiInterface {
   }
   async ensureEntityFolder(params: {
     businessId: number;
-    type: 'PRODUCT';
+    type: 'PRODUCT' | 'SERVICE';
     entityId: number;
     entityName?: string;
     currentFolderId?: number | null;
