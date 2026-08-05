@@ -894,6 +894,7 @@ export function OrdersScreen() {
 
       {showFab && (
         <FAB
+          accessibilityLabel="New order"
           onPress={() => {
             /* TODO: navigate to order create */
           }}

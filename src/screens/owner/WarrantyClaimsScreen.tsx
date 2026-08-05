@@ -107,6 +107,7 @@ export function WarrantyClaimsScreen() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search product, customer or issue..."
+      addLabel="New warranty claim"
       onAdd={() => {
         /* TODO */
       }}

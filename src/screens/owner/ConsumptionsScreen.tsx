@@ -118,6 +118,7 @@ export function ConsumptionsScreen() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search by product or service..."
+      addLabel="Record consumption"
       onAdd={() => {
         /* TODO */
       }}

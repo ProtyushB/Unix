@@ -110,6 +110,7 @@ export function WastageScreen() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search by product or reason..."
+      addLabel="Record wastage"
       onAdd={() => {
         /* TODO */
       }}

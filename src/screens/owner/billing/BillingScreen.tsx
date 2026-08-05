@@ -648,6 +648,7 @@ export function BillingScreen() {
           competing with the popover — the mockup draws no FAB in this state. */}
       {showsBillFab(view) && !walletOpen && (
         <FAB
+          accessibilityLabel="New bill"
           onPress={() => {
             /* TODO: navigate to bill create */
           }}
