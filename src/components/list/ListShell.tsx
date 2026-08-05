@@ -44,6 +44,15 @@ interface ListShellProps {
   /** Floating action button — shown only when onAdd is set. */
   onAdd?: () => void;
   addIcon?: React.ReactNode;
+  /**
+   * Screen-reader label for the FAB, e.g. "New customer".
+   *
+   * Optional only so the screens that pass no `onAdd` are not forced to invent one; every screen
+   * that DOES show the button sets it. The fallback below is a safety net, not a design — an
+   * icon-only button with no label announces nothing at all, which is how all thirteen FABs in the
+   * app shipped.
+   */
+  addLabel?: string;
 
   children: React.ReactNode;
 }
@@ -65,6 +74,7 @@ export function ListShell({
   headerActions,
   onAdd,
   addIcon,
+  addLabel,
   children,
 }: ListShellProps) {
   const { colors, palette } = useTheme();
@@ -180,7 +190,9 @@ export function ListShell({
       <View style={styles.body}>{children}</View>
 
       {/* FAB */}
-      {onAdd && <FAB onPress={onAdd} icon={addIcon} />}
+      {onAdd && (
+        <FAB onPress={onAdd} icon={addIcon} accessibilityLabel={addLabel ?? `Add ${title}`} />
+      )}
     </SafeAreaView>
   );
 }

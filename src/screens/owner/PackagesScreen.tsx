@@ -132,6 +132,7 @@ export function PackagesScreen() {
       searchPlaceholder="Search packages..."
       view={view}
       onViewChange={setView}
+      addLabel="New package"
       onAdd={() => {
         /* TODO */
       }}

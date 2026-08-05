@@ -471,7 +471,7 @@ export const InventoryScreen: React.FC = () => {
         )}
       </View>
 
-      <FAB onPress={openAdd} />
+      <FAB accessibilityLabel="Add stock batch" onPress={openAdd} />
 
       <ConfirmDialog
         visible={deleteConfirm !== null}

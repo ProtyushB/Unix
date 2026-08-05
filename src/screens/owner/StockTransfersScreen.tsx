@@ -103,6 +103,7 @@ export function StockTransfersScreen() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search by location..."
+      addLabel="New stock transfer"
       onAdd={() => {
         /* TODO */
       }}

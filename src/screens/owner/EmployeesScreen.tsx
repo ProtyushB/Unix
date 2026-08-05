@@ -137,6 +137,7 @@ export function EmployeesScreen() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search by name, role or location..."
+      addLabel="New employee"
       onAdd={() => {
         /* TODO */
       }}

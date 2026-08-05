@@ -674,6 +674,7 @@ export function AppointmentsScreen() {
 
       {showsFab(view) && (
         <FAB
+          accessibilityLabel="New appointment"
           onPress={() => {
             /* TODO: navigate to appointment create */
           }}
