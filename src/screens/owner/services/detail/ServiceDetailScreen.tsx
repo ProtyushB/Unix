@@ -6,23 +6,27 @@ import { useAppContext } from '../../../../context/AppContext';
 import { useParlour } from '../../../../backend/modules/parlour';
 import { usePharmacy } from '../../../../backend/modules/pharmacy';
 import { getSelectedBusinessId } from '../../../../backend/modules/shared/hook/useModuleService';
-import { useComboEnabled, useIsTabEnabled } from '../../../../backend/tab-config';
 import { useThemedStyles } from '../../../../hooks/useThemedStyles';
 import { useToast } from '../../../../hooks/useToast';
 import type { AppTheme } from '../../../../theme/theme.types';
-import { ProductDetailBase } from './ProductDetailBase';
-import { ComboPlaceholder } from './parts/ComboPlaceholder';
 import { SaveProgressOverlay } from '../../shared/detail/parts/SaveProgressOverlay';
-import { parlourSlots } from './ParlourProductDetail';
-import { pharmacySlots } from './PharmacyProductDetail';
-import { type ProductDetailItem } from './productDetail.model';
-import { configFor } from './productDetail.modules';
-import { deriveDetailView, detailSubtitle, type DetailMode } from './productDetail.view';
-import { useProductDetailForm } from './useProductDetailForm';
-import { useProductImages } from './useProductImages';
+import { ServiceDetailBase } from './ServiceDetailBase';
+import { parlourSlots } from './ParlourServiceDetail';
+import { pharmacySlots } from './PharmacyServiceDetail';
+import { type ServiceDetailItem } from './serviceDetail.model';
+import { configFor } from './serviceDetail.modules';
+import {
+  deriveDetailView,
+  detailSubtitle,
+  shouldLoadProductOptions,
+  type DetailMode,
+} from './serviceDetail.view';
+import { useServiceDetailForm } from './useServiceDetailForm';
+import { useServiceImages } from './useServiceImages';
+import { useServiceProducts } from './useServiceProducts';
 
-interface ProductDetailScreenProps {
-  route?: { params?: { productId?: number; mode?: DetailMode } };
+interface ServiceDetailScreenProps {
+  route?: { params?: { serviceId?: number; mode?: DetailMode } };
   navigation?: {
     goBack: () => void;
     setParams?: (p: Record<string, unknown>) => void;
@@ -34,33 +38,31 @@ interface ProductDetailScreenProps {
  *
  * The module is picked once here. Everything below receives only what it renders, which is what
  * stops "which module am I?" leaking through the screen.
+ *
+ * Simpler than its product sibling in one respect: services have no feature gates. There is no
+ * inventory tab to check and no combo flag, so nothing here has to be careful about hook order.
  */
-export function ProductDetailScreen({ route, navigation }: ProductDetailScreenProps) {
+export function ServiceDetailScreen({ route, navigation }: ServiceDetailScreenProps) {
   const styles = useThemedStyles(createStyles);
   const { showToast } = useToast();
   const { selectedModule } = useAppContext();
   const parlour = useParlour();
   const pharmacy = usePharmacy();
 
-  // Both gates read unconditionally, then combined. A hook behind `&&` changes hook order the
-  // moment the flag flips, which crashes React rather than merely hiding a card.
-  const inventoryTabEnabled = useIsTabEnabled('INVENTORY');
-  const comboEnabled = useComboEnabled();
-
   const moduleKey = (selectedModule || '').toUpperCase() === 'PHARMACY' ? 'PHARMACY' : 'PARLOUR';
   const activeModule = moduleKey === 'PHARMACY' ? pharmacy : parlour;
   const config = configFor(moduleKey);
 
-  const productId = route?.params?.productId;
+  const serviceId = route?.params?.serviceId;
   const [mode, setMode] = useState<DetailMode>(route?.params?.mode ?? 'view');
 
-  const [item, setItem] = useState<ProductDetailItem | null>(null);
+  const [item, setItem] = useState<ServiceDetailItem | null>(null);
   const [loading, setLoading] = useState(mode !== 'add');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [businessId, setBusinessId] = useState<number | null>(null);
   const [dialog, setDialog] = useState<null | 'delete'>(null);
 
-  const loadProduct = activeModule.loadProduct;
+  const loadService = activeModule.loadService;
 
   useEffect(() => {
     let alive = true;
@@ -72,30 +74,30 @@ export function ProductDetailScreen({ route, navigation }: ProductDetailScreenPr
     };
   }, []);
 
-  const fetchProduct = useCallback(async () => {
-    if (productId == null) return;
+  const fetchService = useCallback(async () => {
+    if (serviceId == null) return;
     setLoading(true);
     setLoadError(null);
-    const result = await loadProduct(productId);
+    const result = await loadService(serviceId);
     if (result.success && result.data) {
-      setItem(result.data as ProductDetailItem);
+      setItem(result.data as ServiceDetailItem);
     } else {
-      setLoadError(result.error || 'Could not load this product.');
+      setLoadError(result.error || 'Could not load this service.');
     }
     setLoading(false);
-  }, [productId, loadProduct]);
+  }, [serviceId, loadService]);
 
   useEffect(() => {
     if (mode === 'add') return;
-    fetchProduct();
-  }, [mode, fetchProduct]);
+    fetchService();
+  }, [mode, fetchService]);
 
   const onSaved = useCallback(
-    (saved: ProductDetailItem) => {
+    (saved: ServiceDetailItem) => {
       setItem(saved);
-      showToast(mode === 'add' ? 'Product created' : 'Product saved', 'success');
-      // Stay on the record after an edit — the web portal does the same, and bouncing back to the
-      // list hides the thing the user just changed. A create has nothing to stay on, so it leaves.
+      showToast(mode === 'add' ? 'Service created' : 'Service saved', 'success');
+      // Stay on the record after an edit — bouncing back to the list hides the thing the user just
+      // changed. A create has nothing to stay on, so it leaves.
       if (mode === 'add') navigation?.goBack();
       else setMode('view');
     },
@@ -103,11 +105,11 @@ export function ProductDetailScreen({ route, navigation }: ProductDetailScreenPr
   );
 
   const onDeleted = useCallback(() => {
-    showToast('Product deleted', 'success');
+    showToast('Service deleted', 'success');
     navigation?.goBack();
   }, [navigation, showToast]);
 
-  const engine = useProductDetailForm({
+  const engine = useServiceDetailForm({
     mode,
     item,
     config,
@@ -117,7 +119,13 @@ export function ProductDetailScreen({ route, navigation }: ProductDetailScreenPr
     onDeleted,
   });
 
-  const imageUris = useProductImages(engine.keptFiles, engine.pendingFiles);
+  const imageUris = useServiceImages(engine.keptFiles, engine.pendingFiles);
+
+  // Read mode fetches the product list only when there are ids to turn into names.
+  const products = useServiceProducts(
+    activeModule.loadProductOptions,
+    shouldLoadProductOptions(mode, engine.form.requiredProductIds.length),
+  );
 
   const view = deriveDetailView({
     mode,
@@ -140,36 +148,13 @@ export function ProductDetailScreen({ route, navigation }: ProductDetailScreenPr
     if (!result.success && result.error) showToast(result.error, 'error');
   }, [engine, showToast]);
 
-  const slots = useMemo(() => {
-    const moduleSlots =
+  const slots = useMemo(
+    () =>
       moduleKey === 'PHARMACY'
-        ? pharmacySlots({
-            mode,
-            form: engine.form,
-            errors: engine.errors,
-            onExtrasChange: engine.setExtras,
-          })
-        : parlourSlots({ mode, form: engine.form, onExtraChange: engine.setExtra });
-
-    if (comboEnabled && engine.form.productType === 'COMBO') {
-      moduleSlots.comboSection = (
-        <ComboPlaceholder
-          comboType={item?.comboType as string | null}
-          itemCount={Array.isArray(item?.comboItems) ? (item?.comboItems as unknown[]).length : 0}
-        />
-      );
-    }
-    return moduleSlots;
-  }, [
-    moduleKey,
-    mode,
-    engine.form,
-    engine.errors,
-    engine.setExtra,
-    engine.setExtras,
-    comboEnabled,
-    item,
-  ]);
+        ? pharmacySlots({ mode, form: engine.form, onExtraChange: engine.setExtra })
+        : parlourSlots({ mode, form: engine.form, onExtraChange: engine.setExtra }),
+    [moduleKey, mode, engine.form, engine.setExtra],
+  );
 
   if (view === 'LOADING') {
     return (
@@ -185,9 +170,9 @@ export function ProductDetailScreen({ route, navigation }: ProductDetailScreenPr
     return (
       <SafeAreaView style={styles.fill} edges={['top', 'left', 'right']}>
         <View style={styles.center}>
-          <Text style={styles.errorTitle}>Could not load this product</Text>
+          <Text style={styles.errorTitle}>Could not load this service</Text>
           <Text style={styles.errorBody}>{loadError}</Text>
-          <Pressable onPress={fetchProduct} style={styles.retry} accessibilityRole="button">
+          <Pressable onPress={fetchService} style={styles.retry} accessibilityRole="button">
             <Text style={styles.retryLabel}>Try again</Text>
           </Pressable>
         </View>
@@ -197,24 +182,24 @@ export function ProductDetailScreen({ route, navigation }: ProductDetailScreenPr
 
   return (
     <>
-      <ProductDetailBase
+      <ServiceDetailBase
         mode={mode}
-        item={item ?? {}}
         form={engine.form}
         errors={engine.errors}
         slots={slots}
-        inventoryTabEnabled={inventoryTabEnabled}
         saving={engine.saving}
         subtitle={detailSubtitle(mode, config.entityLabel)}
         imageUris={imageUris}
         onAddImage={engine.pickImages}
         onRemoveImage={engine.removeImage}
-        comboEnabled={comboEnabled}
-        onComboBlocked={() => showToast('Combo products are set up in the web portal', 'info')}
+        productOptions={products.options}
+        productOptionsLoading={products.loading}
+        productOptionsError={products.error}
+        productOptionsTruncated={products.truncated}
+        onRetryProductOptions={products.reload}
         onFieldChange={engine.setField}
-        onPackChange={engine.onPackChange}
-        onAddPack={engine.onAddPack}
-        onRemovePack={engine.onRemovePack}
+        onExtraChange={engine.setExtra}
+        onRequiredProductsChange={engine.setRequiredProducts}
         onBack={() => (mode === 'edit' ? setMode('view') : navigation?.goBack())}
         onEdit={() => setMode('edit')}
         onSave={onSave}
@@ -223,8 +208,8 @@ export function ProductDetailScreen({ route, navigation }: ProductDetailScreenPr
 
       <ConfirmDialog
         visible={dialog === 'delete'}
-        title="Delete product?"
-        message="This cannot be undone. A product still referenced by orders or inventory cannot be deleted."
+        title="Delete service?"
+        message="This cannot be undone. A service still referenced by appointments, packages or bills cannot be deleted."
         confirmLabel="Delete"
         danger
         onConfirm={onConfirmDelete}
@@ -257,4 +242,4 @@ function createStyles(theme: AppTheme) {
   });
 }
 
-export default ProductDetailScreen;
+export default ServiceDetailScreen;

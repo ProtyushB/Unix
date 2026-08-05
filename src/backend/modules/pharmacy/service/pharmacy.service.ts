@@ -34,7 +34,7 @@ export class PharmacyService {
   }
   async ensureEntityFolder(params: {
     businessId: number;
-    type: 'PRODUCT';
+    type: 'PRODUCT' | 'SERVICE';
     entityId: number;
     entityName?: string;
     currentFolderId?: number | null;

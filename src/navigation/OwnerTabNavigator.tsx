@@ -10,7 +10,12 @@ import { useThemedStyles } from '../hooks/useThemedStyles';
 import { BlurTargetProvider } from '../components/common/BlurTargetContext';
 import { TabConfigProvider } from '../backend/tab-config';
 import type { AppTheme } from '../theme/theme.types';
-import type { CatalogStackParamList, OwnerTabParamList, ProfileStackParamList } from './types';
+import type {
+  CatalogStackParamList,
+  OwnerTabParamList,
+  ProfileStackParamList,
+  ServicesStackParamList,
+} from './types';
 
 import DashboardScreen from '../screens/owner/DashboardScreen';
 import { InventoryScreen } from '../screens/owner/InventoryScreen';
@@ -21,6 +26,7 @@ import { BillingScreen } from '../screens/owner/billing/BillingScreen';
 import { ProductsScreen } from '../screens/owner/products/ProductsScreen';
 import { ProductDetailScreen } from '../screens/owner/products/detail/ProductDetailScreen';
 import { ServicesScreen } from '../screens/owner/services/ServicesScreen';
+import { ServiceDetailScreen } from '../screens/owner/services/detail/ServiceDetailScreen';
 import { PackagesScreen } from '../screens/owner/PackagesScreen';
 import { SubscriptionsScreen } from '../screens/owner/SubscriptionsScreen';
 import { ServicePlansScreen } from '../screens/owner/ServicePlansScreen';
@@ -72,6 +78,20 @@ function CatalogNavigator() {
       <CatalogStack.Screen name="ProductsMain" component={ProductsScreen} />
       <CatalogStack.Screen name="ProductDetail" component={ProductDetailScreen} />
     </CatalogStack.Navigator>
+  );
+}
+
+// ─── Services Stack ──────────────────────────────────────────────────────────
+
+const ServicesStack = createNativeStackNavigator<ServicesStackParamList>();
+
+/** Nested inside the Services tab for the same reason as the catalog's — see above. */
+function ServicesNavigator() {
+  return (
+    <ServicesStack.Navigator screenOptions={{ headerShown: false }}>
+      <ServicesStack.Screen name="ServicesMain" component={ServicesScreen} />
+      <ServicesStack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
+    </ServicesStack.Navigator>
   );
 }
 
@@ -163,10 +183,10 @@ export function OwnerTabNavigator() {
               <Tab.Screen name="Appointments" component={AppointmentsScreen} />
               <Tab.Screen name="Billing" component={BillingScreen} />
               {/*
-                The only tab with a stack behind it. `listeners` resets to the list on every tab
+                The two tabs with a stack behind them. `listeners` resets to the list on every tab
                 press: React Navigation restores a tab's nested state, so without this, leaving the
-                Products tab while a detail is open and coming back later lands on that detail
-                rather than on the list the user expects.
+                tab while a detail is open and coming back later lands on that detail rather than
+                on the list the user expects.
               */}
               <Tab.Screen
                 name="Products"
@@ -175,7 +195,13 @@ export function OwnerTabNavigator() {
                   tabPress: () => navigation.navigate('Products', { screen: 'ProductsMain' }),
                 })}
               />
-              <Tab.Screen name="Services" component={ServicesScreen} />
+              <Tab.Screen
+                name="Services"
+                component={ServicesNavigator}
+                listeners={({ navigation }) => ({
+                  tabPress: () => navigation.navigate('Services', { screen: 'ServicesMain' }),
+                })}
+              />
               <Tab.Screen name="Packages" component={PackagesScreen} />
               <Tab.Screen name="Subscriptions" component={SubscriptionsScreen} />
               <Tab.Screen name="ServicePlans" component={ServicePlansScreen} />

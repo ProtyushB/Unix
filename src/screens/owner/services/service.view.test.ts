@@ -198,10 +198,10 @@ describe('quickActionsFor', () => {
     expect(del.confirm).toBe('delete');
   });
 
-  // Both are drawn in the mockup but have nowhere to navigate — there is no create/edit form and
-  // no appointment-booking flow anywhere in the app.
-  it('marks edit and book-appointment as not yet implemented', () => {
-    expect(quickActionsFor(row())[0].todo).toBe(true);
+  // Book-appointment is drawn in the mockup but has nowhere to navigate — there is no
+  // appointment-booking flow anywhere in the app. Edit used to be in the same state.
+  it('marks book-appointment as not yet implemented, but not edit', () => {
+    expect(quickActionsFor(row())[0].todo).toBeUndefined();
     expect(quickActionsFor(row())[2].todo).toBe(true);
   });
 

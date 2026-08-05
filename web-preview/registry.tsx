@@ -126,6 +126,29 @@ export const REGISTRY: ScreenEntry[] = [
     load: () => import('../src/screens/owner/services/ServicesScreen'),
   },
   {
+    // One entry per mode, same as the product detail trio — the screen takes its mode and id from
+    // route params, so a single entry would leave the other two states unreachable.
+    id: 'owner/service-detail-view',
+    title: 'Service Detail · View',
+    group: 'Owner',
+    params: { serviceId: 70, mode: 'view' },
+    load: () => import('../src/screens/owner/services/detail/ServiceDetailScreen'),
+  },
+  {
+    id: 'owner/service-detail-edit',
+    title: 'Service Detail · Edit',
+    group: 'Owner',
+    params: { serviceId: 70, mode: 'edit' },
+    load: () => import('../src/screens/owner/services/detail/ServiceDetailScreen'),
+  },
+  {
+    id: 'owner/service-detail-add',
+    title: 'Service Detail · Add',
+    group: 'Owner',
+    params: { mode: 'add' },
+    load: () => import('../src/screens/owner/services/detail/ServiceDetailScreen'),
+  },
+  {
     id: 'owner/customers',
     title: 'Customers',
     group: 'Owner',
