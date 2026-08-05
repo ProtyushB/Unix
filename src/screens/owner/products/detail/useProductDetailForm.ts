@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { FileService } from '../../../../backend/dms/service/file.service';
+import { toDmsFiles, toPendingFiles } from '../../shared/detail/pendingFiles';
 import {
   addPack,
   buildCreatePayload,
@@ -125,17 +126,8 @@ export function useProductDetailForm({
 
   const pickImages = useCallback(async () => {
     const response = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 0 });
-    if (response.didCancel || !response.assets?.length) return;
-    setPendingFiles((prev) => [
-      ...prev,
-      ...response
-        .assets!.filter((a) => a.uri)
-        .map((a) => ({
-          uri: a.uri as string,
-          fileName: a.fileName || `image-${prev.length + 1}.jpg`,
-          type: a.type || 'image/jpeg',
-        })),
-    ]);
+    if (response.didCancel) return;
+    setPendingFiles((prev) => [...prev, ...toPendingFiles(response.assets, prev.length)]);
   }, []);
 
   /**
@@ -160,11 +152,14 @@ export function useProductDetailForm({
    * Called only AFTER the record exists, because the backend names the folder `{name}_{id}` and
    * cannot do that without an id. Returns null when there is nothing to do.
    *
-   * Verified against live end to end — ensure-folder, multipart upload, and the second write that
-   * links the file ids — but ONLY from the web preview, where the picker stub hands back a browser
-   * `File`. On a device `launchImageLibrary` returns `{uri: 'file://…'}` and React Native's
-   * FormData appends that object rather than a Blob. That one link is the last untested part of
-   * this path, and the first place to look if upload fails on a device.
+   * Verified against live end to end: ensure-folder, the multipart upload, and the second write
+   * that links the file ids.
+   *
+   * The device leg was broken on arrival and the web preview could not see it — the stub picker
+   * hands back a browser `File`, which carries `.name`, while a device hands back an object this
+   * code built with the key `fileName`. React Native reads `value.name` for the multipart
+   * filename, so the request returned 200 carrying no file. `toPendingFiles` owns that mapping now
+   * and is unit-tested.
    */
   const uploadPending = useCallback(
     async (
@@ -192,8 +187,11 @@ export function useProductDetailForm({
       if (!pendingFiles.length || folderId == null) return { files: keptFiles, folderId };
 
       setSavePercent(UPLOAD_START_PERCENT);
+      // No cast. `PendingFile` now matches `NativeFile` structurally, so the compiler checks the
+      // shape — an `as unknown as` here is exactly what let `fileName` reach FormData and made
+      // every device upload a silent no-op.
       const uploaded = await new FileService().createMultipleFiles(
-        pendingFiles as unknown as Parameters<FileService['createMultipleFiles']>[0],
+        pendingFiles,
         folderId,
         [],
         (event) => setSavePercent(uploadPercent(event.loaded, event.total)),
@@ -201,7 +199,7 @@ export function useProductDetailForm({
       setSavePercent(UPLOAD_CEIL);
 
       return {
-        files: [...keptFiles, ...uploaded.map((f) => ({ dmsFileId: f.id as number }))],
+        files: [...keptFiles, ...toDmsFiles(uploaded, pendingFiles)],
         folderId,
       };
     },
@@ -228,18 +226,69 @@ export function useProductDetailForm({
       const nameChanged = !isAdd && String(item?.name ?? '') !== form.name.trim();
       const folderBefore = (item?.dmsFolderId as number | null) ?? null;
 
-      // Phase 1 — the record. Note `createProduct` is called with NO files argument on purpose:
-      // that path sets `dmsFileIds` on the payload, a field ProductDto does not have, so Spring
-      // drops it and the images upload to DMS without ever being linked to the product.
-      const payload = isAdd
-        ? buildCreatePayload(form, businessId as number, config.extraDefaults)
-        : // Built from the DTO the server last gave us, NOT from the form alone. PUT replaces the
-          // whole record, so a key missing here is a key erased there.
-          toUpdatePayload(item as ProductDetailItem, form, keptFiles, folderBefore);
+      // Deletions first in both modes, so an image the user removed is gone even if what follows
+      // fails. They are already off `keptFiles`, so nothing downstream re-links them.
+      const gone = removedFiles(original, keptFiles);
+      if (gone.length) {
+        const service = new FileService();
+        await Promise.allSettled(gone.map((f) => service.deleteFile(f.dmsFileId as number)));
+      }
 
-      const result = isAdd
-        ? await moduleApi.createProduct(payload)
-        : await moduleApi.updateProduct(payload);
+      /**
+       * EDIT — upload FIRST, then write once.
+       *
+       * The record already exists, so there is nothing to wait for: the folder can be named and the
+       * files uploaded before the update, and their ids go into the same payload as the user's text
+       * edits. Saving first and linking afterwards would mean two full-object PUTs per save, and
+       * since PUT replaces the whole record that is twice the chance of clobbering something.
+       *
+       * An upload failure does NOT abandon the save — the text edits are still written and the
+       * image error is surfaced. The web portal bails out here instead and loses them.
+       */
+      if (!isAdd) {
+        let files = keptFiles;
+        let folderId = folderBefore;
+        try {
+          const uploaded = await uploadPending(
+            item?.id as number,
+            folderBefore,
+            form.name.trim(),
+            nameChanged,
+          );
+          if (uploaded) {
+            files = uploaded.files;
+            folderId = uploaded.folderId;
+          }
+        } catch (err) {
+          setSaveError(
+            (err as Error).message || 'The images could not be uploaded. Other changes were saved.',
+          );
+        }
+
+        setSavePercent(92);
+        // Built from the DTO the server last gave us, NOT from the form alone. PUT replaces the
+        // whole record, so a key missing here is a key erased there.
+        const edited = await moduleApi.updateProduct(
+          toUpdatePayload(item as ProductDetailItem, form, files, folderId),
+        );
+        if (!edited.success) {
+          setSaveError(edited.error || 'Could not save this product.');
+          return edited;
+        }
+        setSavePercent(100);
+        setPendingFiles([]);
+        const editedItem = (edited.data as ProductDetailItem) ?? (item as ProductDetailItem);
+        onSaved(editedItem);
+        return { success: true, data: editedItem };
+      }
+
+      // ADD — the folder is named after the record's id, so the record has to exist first.
+      //
+      // `createProduct` is called with NO files argument on purpose: that path sets `dmsFileIds` on
+      // the payload, a field ProductDto does not have, so Spring drops it and the images upload to
+      // DMS without ever being linked to the product.
+      const payload = buildCreatePayload(form, businessId as number, config.extraDefaults);
+      const result = await moduleApi.createProduct(payload);
 
       if (!result.success) {
         setSaveError(result.error || 'Could not save this product.');
@@ -247,37 +296,29 @@ export function useProductDetailForm({
       }
 
       const saved = (result.data as ProductDetailItem) ?? (payload as ProductDetailItem);
-      const savedId = (saved.id as number) ?? (item?.id as number);
-
-      // Phase 2 — images, now that there is an id to name the folder after. Deletions first, so a
-      // removed image is gone even if the upload that follows fails.
-      const gone = removedFiles(original, keptFiles);
-      if (gone.length) {
-        const service = new FileService();
-        await Promise.allSettled(gone.map((f) => service.deleteFile(f.dmsFileId as number)));
-      }
+      const savedId = saved.id as number;
 
       let finalItem = saved;
       if (savedId != null) {
         try {
           const uploadResult = await uploadPending(
             savedId,
-            (saved.dmsFolderId as number | null) ?? folderBefore,
+            (saved.dmsFolderId as number | null) ?? null,
             form.name.trim(),
-            nameChanged,
+            false,
           );
           if (uploadResult) {
             setSavePercent(92);
-            // Phase 3 — link the uploaded files to the record. A second write, because the first
-            // could not know the file ids.
+            // The second write exists only here, and only because the first could not know the
+            // file ids — there was no record to attach them to yet.
             const linked = await moduleApi.updateProduct(
               toUpdatePayload(saved, form, uploadResult.files, uploadResult.folderId),
             );
             if (linked.success && linked.data) finalItem = linked.data as ProductDetailItem;
           }
         } catch (err) {
-          // The record is already saved. Surfacing this as a hard failure would be a lie, and on
-          // an add it would strand a product the user believes was not created.
+          // The record is already created. Reporting a hard failure would strand a product the
+          // user believes was never made.
           setSaveError(
             (err as Error).message || 'The product saved, but its images could not be uploaded.',
           );
