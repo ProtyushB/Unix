@@ -141,6 +141,12 @@ export function useServiceDetailForm({
    *
    * Called only AFTER the record exists, because the backend names the folder from the entity's id
    * and cannot do that without one. Returns null when there is nothing to do.
+   *
+   * Verified against live end to end — ensure-folder (type SERVICE), multipart upload, and the
+   * second write that links the file ids — but ONLY from the web preview, where the picker stub
+   * hands back a browser `File`. On a device `launchImageLibrary` returns `{uri: 'file://…'}` and
+   * React Native's FormData appends that object rather than a Blob. That one link is the last
+   * untested part of this path, and the first place to look if upload fails on a device.
    */
   const uploadPending = useCallback(
     async (
