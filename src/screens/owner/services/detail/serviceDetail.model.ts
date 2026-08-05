@@ -89,16 +89,13 @@ export function toIntOrNull(v: unknown): number | null {
 /** One attached DMS file, as the server stores it. Loose — the strip only needs the id. */
 export interface ServiceFile {
   dmsFileId?: number;
-  fileName?: string;
+  /** Nullable, not merely optional: the column is nullable and `toDmsFiles` writes null. */
+  fileName?: string | null;
   [k: string]: unknown;
 }
 
-/** An image picked on the device but not yet uploaded. */
-export interface PendingFile {
-  uri: string;
-  fileName: string;
-  type: string;
-}
+// Same shape as the product screen's, and shared for the same reason — see the module's own note.
+export type { PendingFile } from '../../shared/detail/pendingFiles';
 
 export function serviceFiles(item: ServiceDetailItem | null): ServiceFile[] {
   return Array.isArray(item?.files) ? (item?.files as ServiceFile[]) : [];

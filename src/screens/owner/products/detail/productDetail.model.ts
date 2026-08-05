@@ -214,16 +214,16 @@ export function priceWithUnit(price: unknown, stockUnit: unknown): string {
 /** A file already attached to the product, as the DTO carries it. */
 export interface ProductFile {
   dmsFileId?: number;
-  fileName?: string;
+  /** Nullable, not merely optional: the column is nullable and `toDmsFiles` writes null. */
+  fileName?: string | null;
   [k: string]: unknown;
 }
 
 /** A file the user has picked but not yet uploaded. */
-export interface PendingFile {
-  uri: string;
-  fileName: string;
-  type: string;
-}
+// Re-exported so the detail screen keeps one import surface. Defined in the shared module because
+// the service screen needs the identical shape, and because the mapping that produces it is the
+// exact thing that broke — one copy, under test.
+export type { PendingFile } from '../../shared/detail/pendingFiles';
 
 export function productFiles(item: ProductDetailItem | null): ProductFile[] {
   return Array.isArray(item?.files) ? (item?.files as ProductFile[]) : [];
