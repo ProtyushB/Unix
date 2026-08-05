@@ -1,5 +1,6 @@
 import {
   PharmacyApiInterface,
+  BillableListOptions,
   ProductListOptions,
   ServiceListOptions,
   OrderListOptions,
@@ -104,6 +105,11 @@ export class PharmacyService {
   async getOrdersByCustomer(customerId: number, options = {}) {
     return this.api.getOrdersByCustomer(customerId, options);
   }
+  async getBillableOrders(customerId: number, options: BillableListOptions) {
+    if (!customerId) throw new Error('Customer ID is required');
+    if (!options?.businessId) throw new Error('Business ID is required');
+    return this.api.getBillableOrders(customerId, options);
+  }
 
   async getAllAppointments(
     businessId: number,
@@ -155,6 +161,11 @@ export class PharmacyService {
   }
   async getAppointmentsByCustomer(customerId: number, options = {}) {
     return this.api.getAppointmentsByCustomer(customerId, options);
+  }
+  async getBillableAppointments(customerId: number, options: BillableListOptions) {
+    if (!customerId) throw new Error('Customer ID is required');
+    if (!options?.businessId) throw new Error('Business ID is required');
+    return this.api.getBillableAppointments(customerId, options);
   }
 
   async getBillById(id: number) {

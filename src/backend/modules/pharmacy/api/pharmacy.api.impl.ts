@@ -1,6 +1,7 @@
 import {
   PharmacyApiInterface,
   ApiResponse,
+  BillableListOptions,
   ProductListOptions,
   ProductListResponse,
   ServiceListOptions,
@@ -158,6 +159,18 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     });
     return res.data;
   }
+  // `/billable` hangs off the same customer segment, so it reuses the route constant. Distinct from
+  // getOrdersByCustomer: that returns the whole history, this returns only what is not on a bill.
+  async getBillableOrders(
+    customerId: number,
+    options: BillableListOptions,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(
+      `${PHARMACY_ROUTES.ORDERS_BY_CUSTOMER}/${customerId}/billable`,
+      { params: options },
+    );
+    return res.data;
+  }
   async getAllAppointments(
     businessId: number,
     page: number,
@@ -225,6 +238,16 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
   ): Promise<ApiResponse<unknown[]>> {
     const res = await pharmacyApiClient.get(
       `${PHARMACY_ROUTES.APPOINTMENTS_BY_CUSTOMER}/${customerId}`,
+      { params: options },
+    );
+    return res.data;
+  }
+  async getBillableAppointments(
+    customerId: number,
+    options: BillableListOptions,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(
+      `${PHARMACY_ROUTES.APPOINTMENTS_BY_CUSTOMER}/${customerId}/billable`,
       { params: options },
     );
     return res.data;

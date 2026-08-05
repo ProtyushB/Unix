@@ -10,6 +10,9 @@ import {
   BusinessDto,
   UpdatePersonFlags,
   ClaimCustomerPayload,
+  CreateCustomerPayload,
+  CustomerDto,
+  CustomerLookupMatch,
 } from '../api/person.api.interface';
 import { AxiosError } from 'axios';
 
@@ -163,6 +166,89 @@ export class PersonService {
         success: false,
         data: null,
         error: this.extractErrorMessage(error, 'Failed to claim your account'),
+      };
+    }
+  }
+
+  // ===== Customer Operations =====
+
+  /**
+   * One business's customers, for the shared customer picker.
+   *
+   * Unlike `findPersonByEmail` above, failures are NOT swallowed: the picker has a visible list to
+   * populate and an empty one means "this business has no customers", which is a different and
+   * much more misleading statement than "the request failed". `totalPages` rides through so the
+   * caller can page.
+   */
+  async getCustomersByBusiness(
+    businessId: number,
+    page = 1,
+    limit = 20,
+    search?: string,
+  ): Promise<ServiceResult<CustomerDto[]> & { totalPages?: number }> {
+    if (!businessId) {
+      return { success: false, data: null, error: 'Business ID is required' };
+    }
+    try {
+      const response = await this.api.getCustomersByBusiness(businessId, page, limit, search);
+      if (response.success) {
+        return {
+          success: true,
+          data: response.data,
+          error: null,
+          totalPages: (response as { totalPages?: number }).totalPages,
+        };
+      }
+      return { success: false, data: null, error: response.error || response.message };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: this.extractErrorMessage(error, 'Failed to load customers'),
+      };
+    }
+  }
+
+  /** System-wide exact lookup by email and/or phone. At least one must be non-blank. */
+  async lookupCustomers(params: {
+    email?: string;
+    phone?: string;
+    businessId?: number;
+  }): Promise<ServiceResult<CustomerLookupMatch[]>> {
+    if (!params.email?.trim() && !params.phone?.trim()) {
+      return { success: false, data: null, error: 'Enter an email or a phone number to search' };
+    }
+    try {
+      const response = await this.api.lookupCustomers(params);
+      if (response.success) {
+        return { success: true, data: response.data, error: null };
+      }
+      return { success: false, data: null, error: response.error || response.message };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: this.extractErrorMessage(error, 'Search failed. Please try again.'),
+      };
+    }
+  }
+
+  /** Create a walk-in. All three fields are required server-side, so they are checked here first. */
+  async createCustomer(payload: CreateCustomerPayload): Promise<ServiceResult<PersonDto>> {
+    if (!payload.name?.trim() || !payload.email?.trim() || !payload.phone?.trim()) {
+      return { success: false, data: null, error: 'Name, email and phone are all required.' };
+    }
+    try {
+      const response = await this.api.createCustomer(payload);
+      if (response.success) {
+        return { success: true, data: response.data, error: null };
+      }
+      return { success: false, data: null, error: response.error || response.message };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: this.extractErrorMessage(error, 'Could not create the customer.'),
       };
     }
   }

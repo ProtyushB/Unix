@@ -11,4 +11,7 @@ export type {
   BusinessDto,
   UpdatePersonFlags,
   UpdateBusinessFlags,
+  CreateCustomerPayload,
+  CustomerDto,
+  CustomerLookupMatch,
 } from './api/person.api.interface';

@@ -1,6 +1,7 @@
 import {
   ParlourApiInterface,
   ApiResponse,
+  BillableListOptions,
   ProductListOptions,
   ProductListResponse,
   ServiceListOptions,
@@ -163,6 +164,19 @@ export class ParlourApiImpl extends ParlourApiInterface {
     });
     return res.data;
   }
+  // `/billable` hangs off the same customer segment, so it reuses the route constant rather than
+  // adding a near-duplicate one. Distinct from getOrdersByCustomer: that returns the customer's
+  // whole history, this returns only what is not already on a bill.
+  async getBillableOrders(
+    customerId: number,
+    options: BillableListOptions,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(
+      `${PARLOUR_ROUTES.ORDERS_BY_CUSTOMER}/${customerId}/billable`,
+      { params: options },
+    );
+    return res.data;
+  }
 
   // ── Appointments ───────────────────────────────────────────────────────────
   async getAllAppointments(
@@ -233,6 +247,16 @@ export class ParlourApiImpl extends ParlourApiInterface {
   ): Promise<ApiResponse<unknown[]>> {
     const res = await parlourApiClient.get(
       `${PARLOUR_ROUTES.APPOINTMENTS_BY_CUSTOMER}/${customerId}`,
+      { params: options },
+    );
+    return res.data;
+  }
+  async getBillableAppointments(
+    customerId: number,
+    options: BillableListOptions,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(
+      `${PARLOUR_ROUTES.APPOINTMENTS_BY_CUSTOMER}/${customerId}/billable`,
       { params: options },
     );
     return res.data;
