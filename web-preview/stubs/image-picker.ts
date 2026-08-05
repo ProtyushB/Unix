@@ -3,11 +3,18 @@
 // Rather than no-op, this opens a real <input type="file"> so the picker's whole downstream path
 // (pending files, the strip's Add tile, remove, the save-then-upload ordering) can be exercised in
 // the preview. The object it hands back matches the fields the app reads off an Asset: `uri`,
-// `fileName`, `type`. A browser File is a valid multipart body part, so an upload attempted from
-// the preview would even be well-formed.
+// `fileName`, `type`, `fileSize`.
 //
-// The one thing this cannot prove is the native side: a real device returns a `file://` uri rather
-// than a blob:, and RN's FormData treats the two differently. Upload still needs a device.
+// ⚠️ The one thing the preview CANNOT do is actually upload, and it is worth being precise about
+// why, because a vaguer version of this comment once claimed the opposite. The browser File picked
+// here never reaches the request: the app maps the asset to `{uri, name, type}`, which is React
+// Native's convention for a file part. The browser's FormData has no such convention — it is not a
+// Blob, so `append` falls back to `String(value)` and the part goes out as the literal text
+// "[object Object]". Verified against the live DMS endpoint.
+//
+// So saving a NEW image from the preview fails by construction, on any branch, fixed or broken.
+// That path is covered instead by `pendingFiles.formdata.test.ts`, which drives React Native's own
+// FormData — the exact file that ships in the app — over these same objects.
 
 export interface Asset {
   uri?: string;
