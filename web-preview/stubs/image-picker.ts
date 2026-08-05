@@ -5,16 +5,16 @@
 // the preview. The object it hands back matches the fields the app reads off an Asset: `uri`,
 // `fileName`, `type`, `fileSize`.
 //
-// ⚠️ The one thing the preview CANNOT do is actually upload, and it is worth being precise about
-// why, because a vaguer version of this comment once claimed the opposite. The browser File picked
-// here never reaches the request: the app maps the asset to `{uri, name, type}`, which is React
-// Native's convention for a file part. The browser's FormData has no such convention — it is not a
-// Blob, so `append` falls back to `String(value)` and the part goes out as the literal text
-// "[object Object]". Verified against the live DMS endpoint.
+// Uploading used to be impossible from here, and it is worth recording why, because a vaguer
+// version of this comment once claimed the opposite. The browser File picked here never reaches
+// the request: the app maps the asset to `{uri, name, type}`, React Native's convention for a file
+// part. The browser's FormData has no such convention — it is not a Blob, so `append` falls back
+// to `String(value)` and the part goes out as the literal text "[object Object]".
 //
-// So saving a NEW image from the preview fails by construction, on any branch, fixed or broken.
-// That path is covered instead by `pendingFiles.formdata.test.ts`, which drives React Native's own
-// FormData — the exact file that ships in the app — over these same objects.
+// `appendFiles.web.ts` closes that gap by reading the blob: uri back into a real File, so the whole
+// path — pick, upload, link, the metadata landing on the record — is now exercisable in the
+// preview against live DMS. What remains device-only is React Native's own serialiser, which
+// `pendingFiles.formdata.test.ts` drives directly.
 
 export interface Asset {
   uri?: string;

@@ -6,6 +6,7 @@
  */
 
 import { FileApiInterface, ResourceFileDto, NativeFile } from './file.api.interface';
+import { appendFiles } from './appendFiles';
 import dmsApiClient from '../config/axios.instance';
 
 interface DmsResponseWrapper<T> {
@@ -34,9 +35,9 @@ export class FileApiImpl extends FileApiInterface {
     onUploadProgress?: (event: { loaded: number; total?: number }) => void,
   ): Promise<ResourceFileDto[]> {
     const formData = new FormData();
-    files.forEach((file) => {
-      formData.append('multipartFiles', file as unknown as Blob);
-    });
+    // Platform-split — see appendFiles.ts. The two FormData implementations disagree about what a
+    // file part is, and both fail silently when given the other's shape.
+    await appendFiles(formData, files);
     formData.append('resourceFileDtoListString', encodedResourceFileDtoList);
 
     const response = await dmsApiClient.post('/file/create-multiple', formData, {
