@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { FileService } from '../../../../backend/dms/service/file.service';
+import { toDmsFiles, toPendingFiles } from '../../shared/detail/pendingFiles';
 import {
   buildCreatePayload,
   needsFolder,
@@ -107,17 +108,8 @@ export function useServiceDetailForm({
 
   const pickImages = useCallback(async () => {
     const response = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 0 });
-    if (response.didCancel || !response.assets?.length) return;
-    setPendingFiles((prev) => [
-      ...prev,
-      ...response
-        .assets!.filter((a) => a.uri)
-        .map((a) => ({
-          uri: a.uri as string,
-          fileName: a.fileName || `image-${prev.length + 1}.jpg`,
-          type: a.type || 'image/jpeg',
-        })),
-    ]);
+    if (response.didCancel) return;
+    setPendingFiles((prev) => [...prev, ...toPendingFiles(response.assets, prev.length)]);
   }, []);
 
   /**
@@ -142,11 +134,9 @@ export function useServiceDetailForm({
    * Called only AFTER the record exists, because the backend names the folder from the entity's id
    * and cannot do that without one. Returns null when there is nothing to do.
    *
-   * Verified against live end to end — ensure-folder (type SERVICE), multipart upload, and the
-   * second write that links the file ids — but ONLY from the web preview, where the picker stub
-   * hands back a browser `File`. On a device `launchImageLibrary` returns `{uri: 'file://…'}` and
-   * React Native's FormData appends that object rather than a Blob. That one link is the last
-   * untested part of this path, and the first place to look if upload fails on a device.
+   * Verified against live end to end: ensure-folder (type SERVICE), the multipart upload, and the
+   * second write that links the file ids. The device leg carried the same `fileName`/`name` bug the
+   * product form did — see the note there; `toPendingFiles` owns that mapping now.
    */
   const uploadPending = useCallback(
     async (
@@ -174,8 +164,9 @@ export function useServiceDetailForm({
       if (!pendingFiles.length || folderId == null) return { files: keptFiles, folderId };
 
       setSavePercent(UPLOAD_START_PERCENT);
+      // No cast — see the note on the product form. The compiler is the guard here.
       const uploaded = await new FileService().createMultipleFiles(
-        pendingFiles as unknown as Parameters<FileService['createMultipleFiles']>[0],
+        pendingFiles,
         folderId,
         [],
         (event) => setSavePercent(uploadPercent(event.loaded, event.total)),
@@ -183,7 +174,7 @@ export function useServiceDetailForm({
       setSavePercent(UPLOAD_CEIL);
 
       return {
-        files: [...keptFiles, ...uploaded.map((f) => ({ dmsFileId: f.id as number }))],
+        files: [...keptFiles, ...toDmsFiles(uploaded, pendingFiles)],
         folderId,
       };
     },
@@ -210,19 +201,62 @@ export function useServiceDetailForm({
       const nameChanged = !isAdd && String(item?.name ?? '') !== form.name.trim();
       const folderBefore = (item?.dmsFolderId as number | null) ?? null;
 
-      // Phase 1 — the record. `createService` is called with NO files argument on purpose: that
-      // path sets `dmsFileIds` on the payload, a field ServiceDto does not have, so Spring drops it
-      // and the images upload to DMS without ever being linked to the service.
-      const payload = isAdd
-        ? buildCreatePayload(form, businessId as number, config.extraDefaults)
-        : // Built from the DTO the server last gave us, NOT from the form alone. PUT replaces the
-          // whole record, so a key missing here is a key erased there — and for `availability`
-          // specifically it is a 500 rather than a wrong value.
-          toUpdatePayload(item as ServiceDetailItem, form, keptFiles, folderBefore);
+      // Deletions first in both modes, so an image the user removed is gone even if what follows
+      // fails. They are already off `keptFiles`, so nothing downstream re-links them.
+      const gone = removedFiles(original, keptFiles);
+      if (gone.length) {
+        const service = new FileService();
+        await Promise.allSettled(gone.map((f) => service.deleteFile(f.dmsFileId as number)));
+      }
 
-      const result = isAdd
-        ? await moduleApi.createService(payload)
-        : await moduleApi.updateService(payload);
+      /**
+       * EDIT — upload FIRST, then write once. See the product form for the full reasoning: the
+       * record already exists, so the file ids can ride in the same payload as the text edits
+       * instead of costing a second full-object PUT. That matters more here than on products,
+       * because a service PUT that drops `availability` is a 500 rather than a wrong value.
+       */
+      if (!isAdd) {
+        let files = keptFiles;
+        let folderId = folderBefore;
+        try {
+          const uploaded = await uploadPending(
+            item?.id as number,
+            folderBefore,
+            form.name.trim(),
+            nameChanged,
+          );
+          if (uploaded) {
+            files = uploaded.files;
+            folderId = uploaded.folderId;
+          }
+        } catch (err) {
+          setSaveError(
+            (err as Error).message || 'The images could not be uploaded. Other changes were saved.',
+          );
+        }
+
+        setSavePercent(92);
+        const edited = await moduleApi.updateService(
+          toUpdatePayload(item as ServiceDetailItem, form, files, folderId),
+        );
+        if (!edited.success) {
+          setSaveError(edited.error || 'Could not save this service.');
+          return edited;
+        }
+        setSavePercent(100);
+        setPendingFiles([]);
+        const editedItem = (edited.data as ServiceDetailItem) ?? (item as ServiceDetailItem);
+        onSaved(editedItem);
+        return { success: true, data: editedItem };
+      }
+
+      // ADD — the folder is named after the record's id, so the record has to exist first.
+      //
+      // `createService` is called with NO files argument on purpose: that path sets `dmsFileIds` on
+      // the payload, a field ServiceDto does not have, so Spring drops it and the images upload to
+      // DMS without ever being linked to the service.
+      const payload = buildCreatePayload(form, businessId as number, config.extraDefaults);
+      const result = await moduleApi.createService(payload);
 
       if (!result.success) {
         setSaveError(result.error || 'Could not save this service.');
@@ -230,29 +264,20 @@ export function useServiceDetailForm({
       }
 
       const saved = (result.data as ServiceDetailItem) ?? (payload as ServiceDetailItem);
-      const savedId = (saved.id as number) ?? (item?.id as number);
-
-      // Phase 2 — images, now that there is an id to name the folder after. Deletions first, so a
-      // removed image is gone even if the upload that follows fails.
-      const gone = removedFiles(original, keptFiles);
-      if (gone.length) {
-        const service = new FileService();
-        await Promise.allSettled(gone.map((f) => service.deleteFile(f.dmsFileId as number)));
-      }
+      const savedId = saved.id as number;
 
       let finalItem = saved;
       if (savedId != null) {
         try {
           const uploadResult = await uploadPending(
             savedId,
-            (saved.dmsFolderId as number | null) ?? folderBefore,
+            (saved.dmsFolderId as number | null) ?? null,
             form.name.trim(),
-            nameChanged,
+            false,
           );
           if (uploadResult) {
             setSavePercent(92);
-            // Phase 3 — link the uploaded files to the record. A second write, because the first
-            // could not know the file ids.
+            // The second write exists only here, because the first could not know the file ids.
             const linked = await moduleApi.updateService(
               toUpdatePayload(saved, form, uploadResult.files, uploadResult.folderId),
             );
