@@ -2,7 +2,11 @@ import 'react-native-get-random-values'; // crypto polyfill the app relies on (u
 import React, { Suspense, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, type Metrics } from 'react-native-safe-area-context';
+import {
+  SafeAreaFrameContext,
+  SafeAreaInsetsContext,
+  type Metrics,
+} from 'react-native-safe-area-context';
 import {
   NavigationContainer,
   DefaultTheme,
@@ -31,11 +35,61 @@ interface Device {
   h: number;
   top: number;
   bottom: number;
+  /** What to draw in the top inset: a notch, a Dynamic Island pill, or a punch-hole camera. */
+  topChrome?: 'none' | 'notch' | 'island' | 'punchhole';
+  /** What to draw in the bottom inset: iOS home indicator, or Android's three buttons. */
+  bottomChrome?: 'none' | 'indicator' | 'buttons';
 }
 
+/**
+ * `top`/`bottom` are the safe-area insets in dp/pt, and they are the whole point of this list —
+ * see `DeviceSafeArea` for why they never used to reach the app.
+ *
+ * The two realistic phones are first because they are the ones worth checking against. The older
+ * entries stay for quick width comparisons; `Small` and `Tablet` keep a zero bottom inset on
+ * purpose, so there is still one profile that proves a screen behaves when there is no inset at all.
+ */
 const DEVICES: Record<string, Device> = {
-  iphone13: { name: 'iPhone 13', w: 390, h: 844, top: 47, bottom: 34 },
-  pixel5: { name: 'Pixel 5', w: 393, h: 851, top: 24, bottom: 0 },
+  // 393×852pt. Dynamic Island: 59pt top, 34pt home indicator.
+  iphone16: {
+    name: 'iPhone 16',
+    w: 393,
+    h: 852,
+    top: 59,
+    bottom: 34,
+    topChrome: 'island',
+    bottomChrome: 'indicator',
+  },
+  // 1080×2340 at 3x → 360×780dp. Insets measured off a real screenshot from the phone this was
+  // reported on, which runs the THREE-BUTTON nav bar rather than gestures — that is the taller,
+  // less forgiving case, so it is the one to design against. Gesture nav would be nearer 24.
+  galaxys26: {
+    name: 'Galaxy S26',
+    w: 360,
+    h: 780,
+    top: 36,
+    bottom: 48,
+    topChrome: 'punchhole',
+    bottomChrome: 'buttons',
+  },
+  iphone13: {
+    name: 'iPhone 13',
+    w: 390,
+    h: 844,
+    top: 47,
+    bottom: 34,
+    topChrome: 'notch',
+    bottomChrome: 'indicator',
+  },
+  pixel5: {
+    name: 'Pixel 5',
+    w: 393,
+    h: 851,
+    top: 24,
+    bottom: 24,
+    topChrome: 'punchhole',
+    bottomChrome: 'indicator',
+  },
   small: { name: 'Small', w: 360, h: 640, top: 24, bottom: 0 },
   tablet: { name: 'Tablet', w: 768, h: 1024, top: 24, bottom: 0 },
 };
@@ -43,6 +97,161 @@ const DEVICES: Record<string, Device> = {
 // Closed select shows just the name (compact); the open list adds dimensions.
 const deviceLabel = (d: Device, withDims: boolean) =>
   withDims ? `${d.name} · ${d.w}×${d.h}` : d.name;
+
+/**
+ * The system UI a real phone paints over the app: clock and status icons at the top, home
+ * indicator or navigation buttons at the bottom.
+ *
+ * Drawn as a NON-INTERACTIVE overlay above the screen, deliberately without an opaque background.
+ * An opaque bar would hide exactly the bug this exists to reveal — content that ignores the inset
+ * would slide underneath and simply disappear, looking fine. Left transparent, it collides with the
+ * clock on screen, which is precisely how the nav-bar and status-bar bugs looked when reported.
+ *
+ * The dashed rule marks where the safe area ends. Nothing of the app's own should cross it.
+ */
+function DeviceChrome({ device }: { device: Device }) {
+  const top = device.top;
+  const bottom = device.bottom;
+
+  return (
+    <div style={chrome.root} aria-hidden>
+      {top > 0 && (
+        <div style={{ ...chrome.bar, top: 0, height: top, alignItems: 'center' }}>
+          <span style={chrome.clock}>9:41</span>
+          <span style={chrome.icons}>
+            <span style={chrome.signal} />
+            <span style={chrome.wifi} />
+            <span style={chrome.battery} />
+          </span>
+          {device.topChrome === 'island' && <div style={chrome.island} />}
+          {device.topChrome === 'notch' && <div style={chrome.notch} />}
+          {device.topChrome === 'punchhole' && <div style={chrome.punchhole} />}
+          <div style={{ ...chrome.rule, bottom: 0 }} />
+        </div>
+      )}
+
+      {bottom > 0 && (
+        <div style={{ ...chrome.bar, bottom: 0, height: bottom, alignItems: 'center' }}>
+          <div style={{ ...chrome.rule, top: 0 }} />
+          {device.bottomChrome === 'buttons' ? (
+            <div style={chrome.navButtons}>
+              <span style={chrome.navGlyph}>|||</span>
+              <span style={chrome.navCircle} />
+              <span style={chrome.navGlyph}>‹</span>
+            </div>
+          ) : (
+            <div style={chrome.indicator} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const chrome: Record<string, React.CSSProperties> = {
+  // `pointerEvents: none` is load-bearing: without it this overlay would eat every tap in the
+  // status-bar and nav-bar strips, including the app-bar buttons that legitimately sit near them.
+  root: { position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5000 },
+  bar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '0 22px',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+  },
+  // A faint dashed line, not a solid fill — it has to be legible over both light and dark themes.
+  rule: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 0,
+    borderTop: '1px dashed rgba(148,163,184,0.45)',
+  },
+  /**
+   * `mixBlendMode: difference` against white, rather than a fixed colour.
+   *
+   * The app has sixteen themes, half of them light. A white clock vanished on Sky and Pearl, which
+   * would quietly disable the very check this overlay exists for. Difference-blending inverts
+   * against whatever is behind it, so the glyphs stay legible on every theme — and a collision with
+   * app content is MORE obvious, not less, because the overlap inverts.
+   */
+  clock: {
+    color: '#fff',
+    mixBlendMode: 'difference',
+    fontSize: 14,
+    fontWeight: 600,
+    letterSpacing: 0.2,
+  },
+  icons: { display: 'flex', alignItems: 'center', gap: 5, mixBlendMode: 'difference' },
+  signal: {
+    width: 16,
+    height: 11,
+    background: '#fff',
+    clipPath:
+      'polygon(0 100%,20% 100%,20% 55%,0 55%,0 100%,40% 100%,40% 35%,60% 35%,60% 100%,80% 100%,80% 12%,100% 12%,100% 100%)',
+  },
+  wifi: { width: 14, height: 11, background: '#fff', borderRadius: '50% 50% 0 0' },
+  battery: { width: 22, height: 11, border: '1px solid #fff', borderRadius: 3, opacity: 0.9 },
+  island: {
+    position: 'absolute',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    top: 11,
+    width: 125,
+    height: 37,
+    background: '#000',
+    borderRadius: 20,
+  },
+  notch: {
+    position: 'absolute',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    top: 0,
+    width: 160,
+    height: 30,
+    background: '#000',
+    borderRadius: '0 0 18px 18px',
+  },
+  punchhole: {
+    position: 'absolute',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    top: 10,
+    width: 11,
+    height: 11,
+    background: '#000',
+    borderRadius: '50%',
+    border: '1px solid #1f2937',
+  },
+  indicator: {
+    position: 'absolute',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    bottom: 8,
+    width: 140,
+    height: 5,
+    background: '#fff',
+    mixBlendMode: 'difference',
+    borderRadius: 3,
+  },
+  navButtons: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+  },
+  navGlyph: { color: '#fff', mixBlendMode: 'difference', fontSize: 17, lineHeight: '17px' },
+  navCircle: {
+    width: 13,
+    height: 13,
+    border: '1.6px solid #fff',
+    mixBlendMode: 'difference',
+    borderRadius: '50%',
+  },
+};
 
 // ─── Themes (ids from src/theme/colors.ts) ───────────────────────────────────
 
@@ -151,6 +360,30 @@ function deviceMetrics(device: Device): Metrics {
   };
 }
 
+/**
+ * Supply the safe-area contexts DIRECTLY instead of using `<SafeAreaProvider initialMetrics>`.
+ *
+ * This is the whole reason the preview could not see a safe-area bug. `initialMetrics` only seeds
+ * the FIRST render: SafeAreaProvider then measures its own DOM element, and a div in a desktop
+ * browser has no `env(safe-area-inset-*)`, so it immediately overwrites every value with zero.
+ * The device presets carried `top: 47, bottom: 34` and the app received `0, 0` — so any screen that
+ * forgot an inset still lined up perfectly here and only broke on a real phone. Three shipped bugs
+ * came through that gap.
+ *
+ * `useSafeAreaInsets()` and `useSafeAreaFrame()` read these two contexts and nothing else, so
+ * providing them by hand pins the values for good. Nothing measures, nothing overwrites.
+ */
+function DeviceSafeArea({ device, children }: { device: Device; children: React.ReactNode }) {
+  const metrics = useMemo(() => deviceMetrics(device), [device]);
+  return (
+    <SafeAreaFrameContext.Provider value={metrics.frame}>
+      <SafeAreaInsetsContext.Provider value={metrics.insets}>
+        {children}
+      </SafeAreaInsetsContext.Provider>
+    </SafeAreaFrameContext.Provider>
+  );
+}
+
 // Runs the REAL app — the same provider stack as App.tsx wrapped around the
 // actual RootNavigator, so you get live navigation, the auth flow, and the tab
 // navigators. (RootNavigator supplies its own NavigationContainer, so we must
@@ -159,7 +392,7 @@ function deviceMetrics(device: Device): Metrics {
 function LiveApp({ device }: { device: Device }) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider initialMetrics={deviceMetrics(device)}>
+      <DeviceSafeArea device={device}>
         <ThemeProvider>
           <AppProvider>
             <ToastProvider>
@@ -167,7 +400,7 @@ function LiveApp({ device }: { device: Device }) {
             </ToastProvider>
           </AppProvider>
         </ThemeProvider>
-      </SafeAreaProvider>
+      </DeviceSafeArea>
     </GestureHandlerRootView>
   );
 }
@@ -175,11 +408,9 @@ function LiveApp({ device }: { device: Device }) {
 function Stage({ entry, device }: { entry: ScreenEntry; device: Device }) {
   const Screen = useMemo(() => lazyScreen(entry), [entry]);
 
-  const metrics = deviceMetrics(device);
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider initialMetrics={metrics}>
+      <DeviceSafeArea device={device}>
         <ThemeProvider>
           <AppProvider>
             <ToastProvider>
@@ -189,7 +420,7 @@ function Stage({ entry, device }: { entry: ScreenEntry; device: Device }) {
             </ToastProvider>
           </AppProvider>
         </ThemeProvider>
-      </SafeAreaProvider>
+      </DeviceSafeArea>
     </GestureHandlerRootView>
   );
 }
@@ -198,7 +429,7 @@ function Stage({ entry, device }: { entry: ScreenEntry; device: Device }) {
 
 export function PreviewApp() {
   const [selectedId, setSelectedId] = useState(REGISTRY[0]?.id ?? '');
-  const [deviceKey, setDeviceKey] = useState('iphone13');
+  const [deviceKey, setDeviceKey] = useState('iphone16');
   const [themeId, setThemeId] = useState('midnight');
   const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState('');
@@ -597,6 +828,7 @@ export function PreviewApp() {
                         )}
                       </Suspense>
                     </ScreenBoundary>
+                    <DeviceChrome device={device} />
                   </div>
                 </div>
               </div>
