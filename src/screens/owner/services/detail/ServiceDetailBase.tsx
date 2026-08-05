@@ -178,8 +178,16 @@ export function ServiceDetailBase({
         )}
       </View>
 
+      {/*
+        The screen claims no bottom safe-area edge, so the scroll runs under a translucent system
+        nav bar — but the LAST element still has to clear it, or Delete sits under the nav bar and
+        cannot be tapped. The inset always applies; the extra 78 is the floating button's own room.
+      */}
       <ScrollView
-        contentContainerStyle={[styles.content, showsFab && { paddingBottom: insets.bottom + 102 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + (showsFab ? 102 : 24) },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
