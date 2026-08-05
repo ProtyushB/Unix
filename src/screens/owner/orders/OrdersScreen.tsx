@@ -31,22 +31,32 @@ import {
   X,
 } from 'lucide-react-native';
 
-import { FAB } from '../../components/layout/FAB';
-import { CollapsingHeader, AnimatedSectionList } from '../../components/layout/CollapsingHeader';
-import { ConfirmDialog } from '../../components/common/ConfirmDialog';
-import { useTheme } from '../../hooks/useTheme';
-import { useThemedStyles } from '../../hooks/useThemedStyles';
-import { useCollapsingHeader } from '../../hooks/useCollapsingHeader';
-import { useToast } from '../../hooks/useToast';
+import { FAB } from '../../../components/layout/FAB';
+import { CollapsingHeader, AnimatedSectionList } from '../../../components/layout/CollapsingHeader';
+import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
+import { useTheme } from '../../../hooks/useTheme';
+import { useThemedStyles } from '../../../hooks/useThemedStyles';
+import { useCollapsingHeader } from '../../../hooks/useCollapsingHeader';
+import { useToast } from '../../../hooks/useToast';
 import { headerCollapses, type OrdersView } from './order.view';
-import type { AppTheme } from '../../theme/theme.types';
-import { formatCurrency } from '../../utils/formatters';
-import { DATE_PRESETS, rangeForPreset, toYmd, type DatePresetId } from '../../utils/dateRange';
+import {
+  STATUS_LABEL,
+  STATUS_ORDER,
+  dayKeyOf,
+  dayLabelOf,
+  formatAmount,
+  initialsOf,
+  timeOf,
+  toOrderRow,
+  type OrderRow,
+} from './order.model';
+import type { AppTheme } from '../../../theme/theme.types';
+import { DATE_PRESETS, rangeForPreset, toYmd, type DatePresetId } from '../../../utils/dateRange';
 
-import { useAppContext } from '../../context/AppContext';
-import { useParlour } from '../../backend/modules/parlour/hook/useParlour';
-import { usePharmacy } from '../../backend/modules/pharmacy/hook/usePharmacy';
-import type { OrderListOptions } from '../../backend/modules/shared/hook/useModuleService';
+import { useAppContext } from '../../../context/AppContext';
+import { useParlour } from '../../../backend/modules/parlour/hook/useParlour';
+import { usePharmacy } from '../../../backend/modules/pharmacy/hook/usePharmacy';
+import type { OrderListOptions } from '../../../backend/modules/shared/hook/useModuleService';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -59,39 +69,6 @@ const PAGE_SIZE = 20;
 const LIST_TOP_PAD = 12;
 /** FAB clearance, so the last card is never trapped under it. */
 const LIST_BOTTOM_PAD = 100;
-
-const MONTHS = [
-  'JAN',
-  'FEB',
-  'MAR',
-  'APR',
-  'MAY',
-  'JUN',
-  'JUL',
-  'AUG',
-  'SEP',
-  'OCT',
-  'NOV',
-  'DEC',
-] as const;
-
-const STATUS_ORDER = [
-  'PENDING',
-  'CONFIRMED',
-  'PROCESSING',
-  'COMPLETED',
-  'CANCELLED',
-  'REJECTED',
-] as const;
-
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'Pending',
-  CONFIRMED: 'Confirmed',
-  PROCESSING: 'Processing',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-  REJECTED: 'Rejected',
-};
 
 /** Statuses offered in the filter sheet (2×2 grid), per the mockup. */
 const FILTER_STATUSES = ['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
@@ -129,89 +106,6 @@ const QUICK_STATUSES: {
   { status: 'REJECTED', label: 'Rejected', icon: Ban, tint: 'error' },
   { status: 'CANCELLED', label: 'Cancel order', icon: CircleX, tint: 'error', danger: true },
 ];
-
-// ─── Row mapping ─────────────────────────────────────────────────────────────
-// The list endpoint returns raw backend DTOs — field names mirror the owner
-// portal (note `orderStatus` / `orderDate`, NOT `status` / `date`).
-
-interface OrderRow {
-  id: number;
-  customerName: string;
-  orderNumber: string;
-  amount: number;
-  status: string;
-  when: string | null;
-  phone?: string;
-  email?: string;
-}
-
-function toOrderRow(raw: any, index: number): OrderRow {
-  const name =
-    raw?.customerFirstName && raw?.customerLastName
-      ? `${raw.customerFirstName} ${raw.customerLastName}`
-      : raw?.customerName || raw?.customer || 'Unknown Customer';
-  return {
-    id: raw?.id ?? index,
-    customerName: name,
-    orderNumber: raw?.orderNumber || `#${raw?.id ?? index}`,
-    amount: Number(raw?.totalAmount ?? 0),
-    status: raw?.orderStatus || 'PENDING',
-    when: raw?.orderDate || raw?.createdAt || null,
-    phone: raw?.customerPhoneNumber || undefined,
-    email: raw?.customerEmail || undefined,
-  };
-}
-
-/**
- * Card amounts read as whole rupees per the mockup (₹2,450, not ₹2,450.00), but
- * keep paise when an order actually carries them. Local to this screen —
- * formatCurrency's always-2-decimals contract is relied on elsewhere.
- */
-function formatAmount(n: number): string {
-  return formatCurrency(n).replace(/\.00$/, '');
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-/** "2:30 PM" — the time half of the card's meta line. */
-function timeOf(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  const h24 = d.getHours();
-  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-  const mm = d.getMinutes();
-  return `${h12}:${mm < 10 ? `0${mm}` : mm} ${h24 < 12 ? 'AM' : 'PM'}`;
-}
-
-/** Calendar-day key (local) used to bucket rows into sections. */
-function dayKeyOf(iso: string | null): string {
-  if (!iso) return 'undated';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return 'undated';
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-/** Section title: "TODAY · 22 APR", "YESTERDAY · 21 APR", else "22 APR". */
-function dayLabelOf(iso: string | null): string {
-  if (!iso) return 'UNDATED';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return 'UNDATED';
-  const stamp = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diff = Math.round((day.getTime() - today.getTime()) / 86400000);
-  if (diff === 0) return `TODAY · ${stamp}`;
-  if (diff === -1) return `YESTERDAY · ${stamp}`;
-  if (diff === 1) return `TOMORROW · ${stamp}`;
-  return stamp;
-}
 
 // ─── Filter model ────────────────────────────────────────────────────────────
 // ONE shared filter drives both the inline chip rows and the sheet: opening the

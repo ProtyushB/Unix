@@ -20,7 +20,7 @@ import type {
 import DashboardScreen from '../screens/owner/DashboardScreen';
 import { InventoryScreen } from '../screens/owner/InventoryScreen';
 import { AccountScreen } from '../screens/owner/AccountScreen';
-import { OrdersScreen } from '../screens/owner/OrdersScreen';
+import { OrdersScreen } from '../screens/owner/orders/OrdersScreen';
 import { AppointmentsScreen } from '../screens/owner/appointments/AppointmentsScreen';
 import { BillingScreen } from '../screens/owner/billing/BillingScreen';
 import { ProductsScreen } from '../screens/owner/products/ProductsScreen';
