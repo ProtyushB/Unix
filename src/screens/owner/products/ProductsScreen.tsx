@@ -567,10 +567,16 @@ export function ProductsScreen({ navigation }: ProductsScreenProps = {}) {
    * static `top: headerHeight` instead leaves it stranded mid-list with rows scrolling both behind
    * and in front of it. `headerProps.onLayout` is deliberately NOT spread here — that measures the
    * header, and letting this band report its height too would corrupt the list inset.
+   *
+   * `insets.top` is part of the anchor for the same reason `CollapsingHeader` applies it to its own
+   * wrapper: safe-area-context supplies the inset as Yoga PADDING, and an absolutely positioned
+   * child resolves `top` against the parent's border edge, outside that padding. Without the term
+   * this band sat one status-bar too high — hidden behind the header at rest, and painted over the
+   * status bar itself once the header collapsed and it came to rest at y=0.
    */
   const band = (children: React.ReactNode, style: object) => (
     <Animated.View
-      style={[style, { top: headerHeight }, headerProps.animatedStyle]}
+      style={[style, { top: insets.top + headerHeight }, headerProps.animatedStyle]}
       pointerEvents="box-none"
     >
       {children}
