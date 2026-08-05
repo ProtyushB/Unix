@@ -15,12 +15,22 @@ const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 interface FABProps {
   onPress: () => void;
+  /**
+   * What this button does, e.g. "New order". REQUIRED, and deliberately not defaulted.
+   *
+   * The FAB is the primary action on every screen that has one, and it is an icon with no text —
+   * so without a label a screen reader announces nothing usable. A default like "Add" would be
+   * worse than no default: it would silence the type error while still telling the user nothing
+   * about which of the four screens they are on. Making it required means a new call site has to
+   * decide.
+   */
+  accessibilityLabel: string;
   icon?: React.ReactNode;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function FAB({ onPress, icon }: FABProps) {
+export function FAB({ onPress, accessibilityLabel, icon }: FABProps) {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const scale = useSharedValue(1);
@@ -51,6 +61,8 @@ export function FAB({ onPress, icon }: FABProps) {
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       style={[
         styles.fab,
         { backgroundColor: colors.primary, shadowColor: colors.primary, right: 20 + insets.right },

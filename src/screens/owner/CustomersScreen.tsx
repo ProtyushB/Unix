@@ -71,6 +71,7 @@ export function CustomersScreen() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search by name or phone..."
+      addLabel="New customer"
       onAdd={() => {
         /* TODO: navigate to customer create */
       }}

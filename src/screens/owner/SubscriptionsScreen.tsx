@@ -87,6 +87,7 @@ export function SubscriptionsScreen() {
       searchPlaceholder="Search subscriptions..."
       view={view}
       onViewChange={setView}
+      addLabel="New subscription"
       onAdd={() => {
         /* TODO */
       }}

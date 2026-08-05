@@ -114,6 +114,7 @@ export function ServicePlansScreen() {
       searchPlaceholder="Search plans..."
       view={view}
       onViewChange={setView}
+      addLabel="New service plan"
       onAdd={() => {
         /* TODO */
       }}
