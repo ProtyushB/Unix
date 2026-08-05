@@ -216,6 +216,16 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     );
     return res.data;
   }
+  // POST base/{id}/item/{itemId}/complete — see the parlour twin for why `itemId` is a string.
+  async completeAppointmentItem(
+    appointmentId: number,
+    itemId: string,
+  ): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.post(
+      `${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${appointmentId}/item/${itemId}/complete`,
+    );
+    return res.data;
+  }
   async getAppointmentById(id: number): Promise<ApiResponse<unknown>> {
     const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.APPOINTMENTS_BASE}/${id}`);
     return res.data;

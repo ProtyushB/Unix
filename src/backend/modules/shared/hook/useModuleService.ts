@@ -238,6 +238,8 @@ interface ModuleService {
   ): Promise<ServiceResult>;
   /** One appointment, fully hydrated. The detail screen's only read — see `loadAppointment`. */
   getAppointmentById(id: number): Promise<ServiceResult>;
+  /** Completes ONE service on an appointment. `itemId` is a string — see the api impl. */
+  completeAppointmentItem(appointmentId: number, itemId: string): Promise<ServiceResult>;
   createAppointment(data: Record<string, unknown>): Promise<ServiceResult>;
   updateAppointment(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteAppointment(id: number): Promise<ServiceResult>;
@@ -1041,6 +1043,25 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       [service],
     );
 
+    /**
+     * Complete ONE service on an appointment.
+     *
+     * Its own endpoint rather than a full PUT, because the server owns the roll-up: completing the
+     * last outstanding item may also complete the appointment, and that decision is not the
+     * client's to make.
+     *
+     * ⚠️ The response sometimes comes back with an empty item list — the web portal hit this and
+     * falls back to a re-fetch. Callers must handle a bare DTO rather than trusting it.
+     */
+    const completeAppointmentItem = useCallback(
+      (appointmentId: number, itemId: string) =>
+        readOne(
+          () => service.completeAppointmentItem(appointmentId, itemId),
+          'Could not mark that service completed',
+        ),
+      [service],
+    );
+
     /** One customer's unbilled appointments. Same contract as `loadBillableOrders`. */
     const loadBillableAppointments = useCallback(
       async (customerId: number, options: Omit<BillableListOptions, 'businessId'> = {}) => {
@@ -1713,6 +1734,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       rescheduleAppointment,
       loadAppointmentsByCustomer,
       loadBillableAppointments,
+      completeAppointmentItem,
       createAppointment,
       updateAppointment,
       deleteAppointment,

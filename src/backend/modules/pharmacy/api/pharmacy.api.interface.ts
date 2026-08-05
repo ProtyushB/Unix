@@ -259,6 +259,11 @@ export abstract class PharmacyApiInterface {
     appointmentDateTime: string,
     options?: { userId?: number; reason?: string },
   ): Promise<ApiResponse<unknown>>;
+  /** POST base/{id}/item/{itemId}/complete — completes ONE service, server rolls the status up. */
+  abstract completeAppointmentItem(
+    appointmentId: number,
+    itemId: string,
+  ): Promise<ApiResponse<unknown>>;
   abstract getAppointmentById(id: number): Promise<ApiResponse<unknown>>;
   abstract createAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;

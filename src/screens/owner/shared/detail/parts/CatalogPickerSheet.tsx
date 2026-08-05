@@ -14,50 +14,66 @@ import { Check, ChevronLeft, Image as ImageIcon, Plus, Search } from 'lucide-rea
 import { useTheme } from '../../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../../theme/theme.types';
-import { formatAmount } from '../../order.model';
+import { formatCurrency } from '../../../../../utils/formatters';
 
-/** One pickable product. Loose `saleUnits` — the caller passes the catalog row straight through. */
-export interface PickableProduct {
+/**
+ * One pickable catalog row, already flattened by the caller.
+ *
+ * Flattened rather than generic-over-the-DTO on purpose: a product's second line is its brand and
+ * a service's is its duration, and a picker that knew about both would grow a branch per resource.
+ * The caller owns the mapping, this owns the interaction.
+ */
+export interface CatalogRow {
   id: number;
   name: string;
-  brand: string;
   price: number;
-  /** null when the business has inventory off, or the product is untracked. */
-  availableQuantity: number | null;
-  saleUnits?: unknown;
+  /** Second line — a brand, a duration, whatever identifies the row. */
+  subtitle?: string;
+  /** Small tinted chip: stock for a product, availability for a service. */
+  badge?: { label: string; tone: 'success' | 'warning' | 'error' | 'muted' };
+  /** Anything the caller needs back on selection. Passed through untouched. */
+  raw?: unknown;
 }
 
 interface Props {
   visible: boolean;
+  title: string;
   subtitle: string;
-  products: PickableProduct[];
+  /** Sits under the search box. The mockups use it to explain what happens AFTER adding. */
+  helper: string;
+  searchPlaceholder: string;
+  /** "product" / "service" — pluralised into the footer button. */
+  noun: string;
+  rows: CatalogRow[];
   loading: boolean;
   error: string | null;
-  /** Already on the order. Shown ticked and inert — adding one twice folds into the same line. */
+  /** Already on the record. Shown ticked and inert. */
   alreadyAdded: number[];
-  onAdd: (products: PickableProduct[]) => void;
+  onAdd: (rows: CatalogRow[]) => void;
   onClose: () => void;
   onRetry?: () => void;
 }
 
 /**
- * Pick products to put on an order.
+ * Pick catalog rows to put on an order, an appointment or a bill.
  *
- * Multi-select with a sticky "Add N products" footer, as drawn. Search is CLIENT-side over the
- * page already loaded: `getAllProducts({search})` runs the batched stock enrich server-side and is
- * the expensive call in the catalog, so re-running it per keystroke to filter a list already in
- * memory would be the wrong trade.
+ * Search is CLIENT-side over the page already loaded. The server's own catalog search runs the
+ * batched stock enrich and is the expensive call in the module, so re-running it per keystroke to
+ * filter a list already in memory would be the wrong trade.
  *
- * Quantity and sale unit are deliberately NOT set here — the mockup's own helper text says "set
- * sale-unit & quantity on the line after adding". A picker that also priced things would be two
- * screens in one.
+ * Quantity and sale unit are deliberately not set here — every mockup's helper text says to set
+ * them on the line after adding. A picker that also priced things would be two screens in one.
  *
  * ⚠️ Modal insets and the never-two-Modals rule: see `OptionSheet`.
  */
-export function ProductPickerSheet({
+export function CatalogPickerSheet({
   visible,
+  title,
   subtitle,
-  products,
+  helper,
+  searchPlaceholder,
+  noun,
+  rows,
   loading,
   error,
   alreadyAdded,
@@ -75,13 +91,16 @@ export function ProductPickerSheet({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return products;
-    // Name and brand only, matching what the server's own product search matches — so the client
-    // filter and a future server filter cannot disagree about what "found" means.
-    return products.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q),
+    if (!q) return rows;
+    return rows.filter(
+      (r) => r.name.toLowerCase().includes(q) || (r.subtitle ?? '').toLowerCase().includes(q),
     );
-  }, [products, query]);
+  }, [rows, query]);
+
+  const reset = () => {
+    setPicked([]);
+    setQuery('');
+  };
 
   const toggle = (id: number) => {
     if (added.has(id)) return;
@@ -89,18 +108,17 @@ export function ProductPickerSheet({
   };
 
   const confirm = () => {
-    const chosen = products.filter((p) => picked.includes(p.id));
-    onAdd(chosen);
-    setPicked([]);
-    setQuery('');
+    onAdd(rows.filter((r) => picked.includes(r.id)));
+    reset();
     onClose();
   };
 
   const dismiss = () => {
-    setPicked([]);
-    setQuery('');
+    reset();
     onClose();
   };
+
+  const plural = picked.length === 1 ? noun : `${noun}s`;
 
   return (
     <Modal
@@ -116,12 +134,12 @@ export function ProductPickerSheet({
             style={styles.iconButton}
             onPress={dismiss}
             accessibilityRole="button"
-            accessibilityLabel="Close product picker"
+            accessibilityLabel={`Close ${title.toLowerCase()}`}
           >
             <ChevronLeft size={20} color={theme.palette.onSurface} />
           </Pressable>
           <View style={styles.appBarCopy}>
-            <Text style={styles.appBarTitle}>Add products</Text>
+            <Text style={styles.appBarTitle}>{title}</Text>
             <Text style={styles.appBarSubtitle}>{subtitle}</Text>
           </View>
         </View>
@@ -132,15 +150,13 @@ export function ProductPickerSheet({
             style={styles.searchInput}
             value={query}
             onChangeText={setQuery}
-            placeholder="Search products…"
+            placeholder={searchPlaceholder}
             placeholderTextColor={theme.palette.muted}
             autoCapitalize="none"
           />
         </View>
 
-        <Text style={styles.helper}>
-          Tap to select — set sale-unit &amp; quantity on the line after adding
-        </Text>
+        <Text style={styles.helper}>{helper}</Text>
 
         {error ? (
           <View style={styles.errorBlock}>
@@ -185,19 +201,23 @@ export function ProductPickerSheet({
                     {item.name}
                   </Text>
                   <View style={styles.rowMeta}>
-                    {item.brand ? <Text style={styles.rowBrand}>{item.brand}</Text> : null}
-                    <StockChip quantity={item.availableQuantity} styles={styles} />
-                    {isAdded ? <Text style={styles.addedNote}>Already added</Text> : null}
+                    {item.subtitle ? <Text style={styles.rowSub}>{item.subtitle}</Text> : null}
+                    {item.badge ? (
+                      <Text style={[styles.badge, { color: toneColor(theme, item.badge.tone) }]}>
+                        {item.badge.label}
+                      </Text>
+                    ) : null}
+                    {isAdded ? <Text style={styles.rowSub}>Already added</Text> : null}
                   </View>
                 </View>
-                <Text style={styles.rowPrice}>{formatAmount(item.price)}</Text>
+                <Text style={styles.rowPrice}>{money(item.price)}</Text>
               </Pressable>
             );
           }}
           ListEmptyComponent={
             loading ? null : (
               <Text style={styles.empty}>
-                {query ? `No product matches “${query}”.` : 'No products in this catalog yet.'}
+                {query ? `No ${noun} matches “${query}”.` : `No ${noun}s in this catalog yet.`}
               </Text>
             )
           }
@@ -209,11 +229,11 @@ export function ProductPickerSheet({
               style={styles.addButton}
               onPress={confirm}
               accessibilityRole="button"
-              accessibilityLabel={`Add ${picked.length} product${picked.length === 1 ? '' : 's'}`}
+              accessibilityLabel={`Add ${picked.length} ${plural}`}
             >
               <Plus size={16} color={theme.colors.onAccent ?? '#FFFFFF'} />
               <Text style={styles.addButtonText}>
-                Add {picked.length} product{picked.length === 1 ? '' : 's'}
+                Add {picked.length} {plural}
               </Text>
             </Pressable>
           </View>
@@ -223,21 +243,22 @@ export function ProductPickerSheet({
   );
 }
 
-/**
- * `null` is not zero. It means the business has inventory off, or this product is untracked —
- * rendering "Out of stock" for either would be a lie that stops a sale.
- */
-function StockChip({
-  quantity,
-  styles,
-}: {
-  quantity: number | null;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  if (quantity === null || quantity === undefined) return null;
-  if (quantity <= 0) return <Text style={styles.stockOut}>Out of stock</Text>;
-  if (quantity <= 5) return <Text style={styles.stockLow}>Low stock</Text>;
-  return <Text style={styles.stockIn}>In stock</Text>;
+/** Whole rupees, paise kept when real — the same contract the list rows use. */
+function money(n: number): string {
+  return formatCurrency(n).replace(/\.00$/, '');
+}
+
+function toneColor(theme: AppTheme, tone: NonNullable<CatalogRow['badge']>['tone']): string {
+  switch (tone) {
+    case 'success':
+      return theme.palette.success;
+    case 'warning':
+      return theme.palette.warning;
+    case 'error':
+      return theme.palette.error;
+    default:
+      return theme.palette.muted;
+  }
 }
 
 function createStyles(theme: AppTheme) {
@@ -317,12 +338,9 @@ function createStyles(theme: AppTheme) {
     rowBody: { flex: 1, gap: 2 },
     rowName: { fontSize: 13.5, fontWeight: '600', color: theme.palette.onSurface },
     rowMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-    rowBrand: { fontSize: 11.5, color: theme.palette.muted },
+    rowSub: { fontSize: 11.5, color: theme.palette.muted },
+    badge: { fontSize: 11, fontWeight: '600' },
     rowPrice: { fontSize: 13.5, fontWeight: '700', color: theme.colors.primary },
-    addedNote: { fontSize: 11, color: theme.palette.muted },
-    stockIn: { fontSize: 11, fontWeight: '600', color: theme.palette.success },
-    stockLow: { fontSize: 11, fontWeight: '600', color: theme.palette.warning },
-    stockOut: { fontSize: 11, fontWeight: '600', color: theme.palette.error },
     empty: { fontSize: 13, color: theme.palette.muted, textAlign: 'center', marginTop: 32 },
 
     footer: {

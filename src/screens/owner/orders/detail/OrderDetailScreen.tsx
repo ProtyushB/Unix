@@ -13,7 +13,7 @@ import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { CustomerPickerSheet } from '../../shared/customer/CustomerPickerSheet';
 import { OptionSheet } from '../../shared/detail/parts/OptionSheet';
 import { OrderDetailBase, type LineDisplay } from './OrderDetailBase';
-import { ProductPickerSheet, type PickableProduct } from './parts/ProductPickerSheet';
+import { CatalogPickerSheet, type CatalogRow } from '../../shared/detail/parts/CatalogPickerSheet';
 import { useOrderDetailForm } from './useOrderDetailForm';
 import { configFor, type OrderModuleKey } from './orderDetail.modules';
 import {
@@ -33,6 +33,28 @@ import { saleUnitsOf } from './orderLineUnits';
  * a union makes it unrepresentable rather than merely discouraged.
  */
 type OpenSheet = 'none' | 'customer' | 'status' | 'products';
+
+/** A catalog product, as this screen needs it. Flattened out of the module's list response. */
+interface PickableProduct {
+  id: number;
+  name: string;
+  brand: string;
+  price: number;
+  /** null when the business has inventory off, or the product is untracked. NOT the same as 0. */
+  availableQuantity: number | null;
+  saleUnits?: unknown;
+}
+
+/**
+ * `null` is not zero. It means the business has inventory off, or this product is untracked —
+ * rendering "Out of stock" for either would be a lie that stops a sale.
+ */
+function stockBadge(quantity: number | null): CatalogRow['badge'] {
+  if (quantity === null || quantity === undefined) return undefined;
+  if (quantity <= 0) return { label: 'Out of stock', tone: 'error' };
+  if (quantity <= 5) return { label: 'Low stock', tone: 'warning' };
+  return { label: 'In stock', tone: 'success' };
+}
 
 interface OrderDetailScreenProps {
   route?: { params?: { orderId?: number; mode?: DetailMode } };
@@ -203,6 +225,20 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
     return map;
   }, [item, catalog]);
 
+  /** The catalog, flattened for the shared picker. */
+  const catalogRows = useMemo<CatalogRow[]>(
+    () =>
+      catalog.map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        subtitle: p.brand,
+        badge: stockBadge(p.availableQuantity),
+        raw: p,
+      })),
+    [catalog],
+  );
+
   const view = deriveDetailView({
     mode,
     loading,
@@ -322,14 +358,18 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
         onClose={() => setSheet('none')}
       />
 
-      <ProductPickerSheet
+      <CatalogPickerSheet
         visible={sheet === 'products'}
+        title="Add products"
         subtitle={config.pickerSubtitle}
-        products={catalog}
+        helper="Tap to select — set sale-unit & quantity on the line after adding"
+        searchPlaceholder="Search products…"
+        noun="product"
+        rows={catalogRows}
         loading={catalogLoading}
         error={catalogError}
         alreadyAdded={engine.form.lines.map((l) => l.productId)}
-        onAdd={(products) => engine.addProducts(products)}
+        onAdd={(rows) => engine.addProducts(rows.map((r) => r.raw as PickableProduct))}
         onClose={() => setSheet('none')}
         onRetry={() => {
           void loadCatalog();

@@ -204,6 +204,27 @@ export const REGISTRY: ScreenEntry[] = [
     load: () => import('../src/screens/owner/appointments/AppointmentsScreen'),
   },
   {
+    id: 'owner/appointment-detail-view',
+    title: 'Appointment Detail · View',
+    group: 'Owner',
+    params: { appointmentId: 55, mode: 'view' },
+    load: () => import('../src/screens/owner/appointments/detail/AppointmentDetailScreen'),
+  },
+  {
+    id: 'owner/appointment-detail-edit',
+    title: 'Appointment Detail · Edit',
+    group: 'Owner',
+    params: { appointmentId: 55, mode: 'edit' },
+    load: () => import('../src/screens/owner/appointments/detail/AppointmentDetailScreen'),
+  },
+  {
+    id: 'owner/appointment-detail-add',
+    title: 'Appointment Detail · Add',
+    group: 'Owner',
+    params: { mode: 'add' },
+    load: () => import('../src/screens/owner/appointments/detail/AppointmentDetailScreen'),
+  },
+  {
     id: 'owner/billing',
     title: 'Billing',
     group: 'Owner',
