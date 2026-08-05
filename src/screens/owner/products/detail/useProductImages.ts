@@ -15,16 +15,18 @@ function fileService(): FileService {
 /**
  * Turn the product's attached files plus anything freshly picked into URIs `<Image>` can render.
  *
- * ⚠️ UNVERIFIED against a real backend. `getResourceUrl(id)` builds a bare
- * `…/file/get-resource?fileId=N` with no token, yet Unix's `dmsApiClient` installs auth
- * interceptors — which suggests either the DMS read path is public (as the web portal assumes, and
- * it works there) or nobody has tried it from a client that is not already sending cookies. The
- * first thing to check on a device is whether these images actually load.
+ * VERIFIED against the live backend: the DMS read path is public. `getResourceUrl(id)` builds a
+ * bare `…/file/get-resource?fileId=N` with no token, and an `<img>` pointed at a freshly uploaded
+ * file loaded it with no `Authorization` header at all. The auth interceptors on `dmsApiClient` are
+ * for the write side; reads do not need them.
  *
- * If they do not, the fallback already exists: `useDmsImages` downloads a ZIP, unpacks it to the
- * cache directory and hands back `file://` paths. Swapping to it should be a change to this one
- * function and nothing else — which is the entire reason the strip takes resolved URIs rather than
- * file ids.
+ * A `fetch()` of the same URL from the web preview DOES fail — that is CORS, not auth (no
+ * `Access-Control-Allow-Origin` for localhost). `<Image>` performs no preflight, so it is
+ * unaffected. Do not "fix" this by routing reads through the authed client.
+ *
+ * The `useDmsImages` fallback (ZIP → RNFS cache → `file://` paths) is therefore not needed. It
+ * remains a one-function swap if the read path is ever locked down, which is the entire reason the
+ * strip takes resolved URIs rather than file ids.
  */
 export function useProductImages(files: ProductFile[], pending: PendingFile[]): string[] {
   const attachedKey = files
