@@ -132,11 +132,36 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // Credentials come from the per-machine Gradle home (~/.gradle/gradle.properties),
+        // never from the git-tracked android/gradle.properties — this repo is public. See the
+        // note in that file for the four properties and where to put them.
+        //
+        // The guard matters: these used to be referenced bare, so a machine without them failed
+        // at CONFIGURATION time with "Could not get unknown property", which breaks every task
+        // including assembleDebug and `./gradlew tasks`. Now a missing value only stops a release
+        // build, and says which file to create.
         release {
-            storeFile file(MYAPP_RELEASE_STORE_FILE)
-            storePassword MYAPP_RELEASE_STORE_PASSWORD
-            keyAlias MYAPP_RELEASE_KEY_ALIAS
-            keyPassword MYAPP_RELEASE_KEY_PASSWORD
+            if (project.hasProperty('MYAPP_RELEASE_STORE_FILE')) {
+                storeFile file(MYAPP_RELEASE_STORE_FILE)
+                storePassword MYAPP_RELEASE_STORE_PASSWORD
+                keyAlias MYAPP_RELEASE_KEY_ALIAS
+                keyPassword MYAPP_RELEASE_KEY_PASSWORD
+            }
+        }
+    }
+
+    // Fail the RELEASE build loudly and early if the signing properties are absent, rather than
+    // letting Gradle emit an unsigned APK that looks fine until a device refuses to install it.
+    tasks.matching { it.name.toLowerCase().contains('release') }.configureEach { task ->
+        task.doFirst {
+            if (!project.hasProperty('MYAPP_RELEASE_STORE_FILE')) {
+                throw new GradleException(
+                    "Release signing is not configured.\n" +
+                    "Add MYAPP_RELEASE_STORE_FILE / _KEY_ALIAS / _STORE_PASSWORD / _KEY_PASSWORD to\n" +
+                    "  ${System.getProperty('user.home')}/.gradle/gradle.properties\n" +
+                    "They are intentionally absent from android/gradle.properties, which is public."
+                )
+            }
         }
     }
     buildTypes {

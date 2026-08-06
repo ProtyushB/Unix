@@ -60,7 +60,13 @@ pipeline {
                     sh 'chmod +x gradlew'
                     // -P rather than writing android/gradle.properties: the flags are visible in
                     // the build log, scoped to this one invocation, and never touch that file â€”
-                    // which is git-tracked and holds the keystore credentials.
+                    // which is git-tracked and PUBLIC.
+                    //
+                    // The signing credentials are deliberately NOT passed here. Gradle merges
+                    // /var/lib/jenkins/.gradle/gradle.properties (this agent runs as `jenkins`)
+                    // into project properties by itself, so they stay off the command line and
+                    // out of the build log -- unlike -P flags, which Jenkins echoes verbatim.
+                    // If that file is missing, assembleRelease fails naming it.
                     sh "./gradlew assembleRelease --no-daemon -PversionCode=${env.APP_VERSION_CODE} -PversionName=${env.APP_VERSION_NAME}"
                 }
             }
