@@ -3,7 +3,7 @@
   3. City — e.g. "Naihati"
   4. State — e.g. "West Bengal"
   5. Country code — e.g. "IN" for India
-  6. Keystore password — Unix#2026
+  6. Keystore password — see ~/.gradle/gradle.properties (NOT stored in this repo, which is public)
 
 
 
