@@ -1115,8 +1115,18 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
      * no-ops for modules without the endpoint or on any failure. The dots are decoration — a 500
      * here must not take the screen down.
      *
-     * MERGES rather than replaces. Switching Day↔Calendar or paging months fetches a different
-     * window, and blanking the map first would drop every dot for a frame.
+     * Replaces WITHIN the requested window, keeps everything outside it.
+     *
+     * Not a plain `{...prev, ...next}` merge, and the difference is a real bug rather than a
+     * nicety: the server OMITS zero-count days from `counts` entirely, so a day that emptied out
+     * simply stops appearing in the response. A merge only ever adds or overwrites keys, so that
+     * day's old count survives in `prev` forever and its dot stays on the strip — after deleting
+     * the only appointment on a day, the dot outlived the appointment until a full remount.
+     *
+     * Not a wholesale replace either: switching Day↔Calendar or paging months fetches a different
+     * window, and blanking the map would drop every dot outside it for a frame. Dropping just the
+     * requested range and re-filling it from the response gets both. Plain string comparison is
+     * safe on YYYY-MM-DD.
      */
     const loadAppointmentDayCounts = useCallback(
       async (options: { fromDate: string; toDate: string }) => {
@@ -1126,7 +1136,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           const response = await service.getAppointmentDayCounts(businessId, options);
           if (response.success && response.data?.counts) {
             const next = response.data.counts;
-            setAppointmentDayCounts((prev) => ({ ...prev, ...next }));
+            setAppointmentDayCounts((prev) => {
+              const outsideWindow = Object.fromEntries(
+                Object.entries(prev).filter(
+                  ([day]) => day < options.fromDate || day > options.toDate,
+                ),
+              );
+              return { ...outsideWindow, ...next };
+            });
           }
         } catch {
           // Swallowed on purpose — see the note above.
