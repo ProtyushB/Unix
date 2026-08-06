@@ -1,96 +1,73 @@
-# Rotating the release keystore password
+# Release keystore password — rotated 2026-08-06
 
-The old password was committed to this **public** repo, so treat it as known. This
-changes the password **without changing the signing key**, so every installed device
-keeps accepting updates. Roughly two minutes.
+**Done.** The password that was committed to this public repo no longer opens the
+keystore. The signing key is unchanged, so every installed device still accepts
+updates. This file is the record and the procedure if it ever needs repeating.
 
-> **Why you run this and not an assistant.** The new password must not exist in a chat
-> transcript, a tool log, or shell history — those are exactly the kinds of places the
-> old one leaked from. Every command below prompts interactively so nothing is echoed.
+## What was wrong
 
-## Facts established before you start
+`android/gradle.properties` carried `MYAPP_RELEASE_STORE_PASSWORD` and
+`MYAPP_RELEASE_KEY_PASSWORD` as literal values, and `App Deployment.txt` repeated
+one of them in prose. This repository is public, so both were world-readable from
+commits `0503aac` and `6b86641` onward, and remain in history.
 
-- Keystore: `android/app/unix-release-key.keystore`, type **PKCS12**, alias
-  `unix-release-key`, valid until 2053.
-- Backup taken: `~/keystore-backups/unix-release-key.keystore.bak-20260806`
-  (verified byte-identical, outside any git repo).
-- Current key fingerprint — this is what must not change:
+The keystore itself was never exposed — `*.keystore` is gitignored and no release
+keystore appears anywhere in history — so what leaked was one half of a two-part
+secret. That still mattered: this app self-hosts its APK updates and compares only
+`versionCode`, so a compromised signing key cannot be rotated without every
+installed device uninstalling and reinstalling. The key file was the single thing
+standing between "fine" and "unrecoverable".
 
-  ```
-  SHA256: C1:20:77:DA:66:72:9F:E6:25:D5:F8:18:AF:8B:26:9F:63:15:23:53:09:DB:EA:C9:D7:0B:A3:46:B2:6E:DA:88
-  ```
+## What was done
 
-## PKCS12 has ONE password, not two
+1. Keystore backed up locally and on the CI box; all three copies verified
+   byte-identical first (`d4a5cc47…`).
+2. New 32-character alphanumeric password generated with `openssl rand` straight
+   into a mode-600 file — never echoed to a terminal, a log, or a transcript.
+3. `keytool -storepasswd` applied. Old password confirmed **rejected** afterwards.
+4. Fingerprint confirmed unchanged:
+   `C1:20:77:DA:66:72:9F:E6:25:D5:F8:18:AF:8B:26:9F:63:15:23:53:09:DB:EA:C9:D7:0B:A3:46:B2:6E:DA:88`
+5. Credentials written to both Gradle homes; rotated keystore uploaded to CI.
+6. Verified on the server, running **as the `jenkins` user**, that the CI
+   credentials open the CI keystore and yield that same fingerprint.
+7. Real `assembleRelease` built and the APK's signature checked:
+   `V2 Signer: certificate SHA-256 digest: c12077da…b26eda88` — identical.
+8. Both old-password backups shredded.
 
-`keytool -keypasswd` does **not** work here:
+## Where the password lives now
 
-```
-keytool error: java.lang.UnsupportedOperationException:
-  -keypasswd commands not supported if -storetype is PKCS12
-```
+    ~/.gradle/gradle.properties                  (workstation)
+    /var/lib/jenkins/.gradle/gradle.properties   (CI, jenkins:jenkins, 0600)
 
-Only `-storepasswd` is needed, and afterwards
-`MYAPP_RELEASE_STORE_PASSWORD` and `MYAPP_RELEASE_KEY_PASSWORD` must be set to the
-**same** new value. (Both were already the same string, so nothing changes in shape.)
+Gradle merges these into project properties automatically, so nothing is passed
+on the command line and nothing reaches the Jenkins build log. It is deliberately
+**not** recorded anywhere else — read it from one of those two files.
 
-## 1. Change it
+## Verifying at any time
 
-`keytool` lives in the Android Studio JBR. From `android/app`:
+    keytool -list -v -keystore android/app/unix-release-key.keystore
 
-```bash
-"/c/Program Files/Android/Android Studio/jbr/bin/keytool.exe" -storepasswd -keystore unix-release-key.keystore
-```
+    # v1 JAR signing is off, so keytool -printcert -jarfile prints NOTHING.
+    # Use apksigner for a built APK:
+    apksigner verify --print-certs app-release.apk
 
-It prompts for the current password, then the new one twice. Do **not** pass
-`-storepass` or `-new` — those land in shell history.
+Both must show the fingerprint above.
 
-## 2. Prove the signing identity survived
+## If it ever needs repeating
 
-```bash
-"/c/Program Files/Android/Android Studio/jbr/bin/keytool.exe" -list -v -keystore unix-release-key.keystore | grep SHA256
-```
+This keystore is **PKCS12**, which keeps one password rather than a store password
+plus a per-key password:
 
-The SHA256 must match the fingerprint above **exactly**. If it does not, stop and
-restore from `~/keystore-backups/` — do not build or publish anything.
+    keytool error: java.lang.UnsupportedOperationException:
+      -keypasswd commands not supported if -storetype is PKCS12
 
-## 3. Update the two machines
+So `-storepasswd` alone, then set both `MYAPP_RELEASE_STORE_PASSWORD` and
+`MYAPP_RELEASE_KEY_PASSWORD` to the same value. Run it without `-storepass`/`-new`
+so the value is prompted rather than left in shell history, and diff the
+fingerprint before and after.
 
-Workstation — `~/.gradle/gradle.properties`:
-
-```
-MYAPP_RELEASE_STORE_FILE=unix-release-key.keystore
-MYAPP_RELEASE_KEY_ALIAS=unix-release-key
-MYAPP_RELEASE_STORE_PASSWORD=<new>
-MYAPP_RELEASE_KEY_PASSWORD=<new>
-```
-
-CI — `/var/lib/jenkins/.gradle/gradle.properties`, same four lines,
-`chown jenkins:jenkins`, `chmod 600`. Gradle merges this automatically; nothing is
-passed on the command line, so it never reaches the build log.
-
-Also replace the keystore Jenkins stages from
-`/var/lib/jenkins/.android/unix-release-key.keystore` with the re-passworded file.
-
-## 4. Confirm a real release build still signs
-
-```bash
-cd android && ./gradlew assembleRelease
-```
-
-Then check the APK carries the same key:
-
-```bash
-"/c/Program Files/Android/Android Studio/jbr/bin/keytool.exe" -printcert -jarfile app/build/outputs/apk/release/app-release.apk | grep SHA256
-```
-
-Same fingerprint again. That is the end-to-end proof: new password, same identity,
-devices unaffected.
-
-## 5. Afterwards
-
-Delete `~/keystore-backups/unix-release-key.keystore.bak-20260806` once step 4 passes,
-or move it to wherever you keep the canonical offline copy. It still opens with the
-**old, public** password, so it is the weakest copy in existence until it is gone.
-
-The old password remains in git history (`0503aac`, `6b86641`). Once this is done that
-no longer matters — it unlocks nothing.
+Take a backup first — but **not next to the original**. `*.keystore` does not match
+`unix-release-key.keystore.bak-20260806`, so a backup taken in `android/app/` shows
+up as an ordinary untracked file, one `git add -A` from publishing the signing key.
+`.gitignore` now covers the suffixed variants, and the backup belongs outside the
+repo regardless.
