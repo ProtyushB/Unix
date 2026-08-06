@@ -31,7 +31,16 @@ local.properties
 *.iml
 *.hprof
 .cxx/
+# The signing key is the one unrecoverable asset here: this app self-hosts its APK
+# updates, so a leaked key cannot be rotated without every installed device having to
+# uninstall and reinstall. `*.keystore` alone was too narrow — it does not match
+# `unix-release-key.keystore.bak-20260806`, so a routine backup taken next to the
+# original sits in `git status` as an ordinary untracked file, one `git add -A` from
+# being published. The suffix wildcards close that.
 *.keystore
+*.keystore.*
+*.jks
+*.jks.*
 !debug.keystore
 
 # Gradle
