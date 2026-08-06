@@ -52,11 +52,41 @@ export interface UpdateBusinessFlags {
   updateIsActive?: boolean;
 }
 
+/**
+ * One row of a business's customer list.
+ *
+ * ⚠️ The id key is `personId`, NOT `id` — this is a projection over Person, not a Person. Anything
+ * that treats these rows interchangeably with `PersonDto` has to normalise first.
+ */
+export interface CustomerDto {
+  personId: number;
+  firstName?: string;
+  lastName?: string;
+  userName?: string;
+  email?: string;
+  phoneNumber?: string;
+  firstSeenAt?: string;
+  lastActivityAt?: string;
+  activityCount?: number;
+  totalSpent?: number;
+  [key: string]: unknown;
+}
+
 /** One candidate returned by /persons/lookup. */
 export interface CustomerLookupMatch {
   person: PersonDto;
   matchedByEmail?: boolean;
   matchedByPhone?: boolean;
+  /** Already a customer of the businessId that was passed in. Drives the eligibility badge. */
+  existingCustomer?: boolean;
+}
+
+/** Body for POST /persons/customer — a walk-in with no login. */
+export interface CreateCustomerPayload {
+  /** Split on whitespace into first/last by the caller, not the server. */
+  name: string;
+  email: string;
+  phone: string;
 }
 
 /** Body for /customers/claim — links an existing walk-in to a new login. */
@@ -90,4 +120,24 @@ export abstract class PersonApiInterface {
     businessId?: number;
   }): Promise<ApiResponse<CustomerLookupMatch[]>>;
   abstract claimCustomer(payload: ClaimCustomerPayload): Promise<ApiResponse<PersonDto>>;
+
+  // Customer APIs
+  /**
+   * One business's customers, paginated and searchable. This is the picker's primary list.
+   *
+   * Not to be confused with `getAllPersons()` above, which hits `/persons/viewAll` — unscoped,
+   * unpaginated, every Person the caller can see. That is never the right call for a picker.
+   */
+  abstract getCustomersByBusiness(
+    businessId: number,
+    page?: number,
+    limit?: number,
+    search?: string,
+  ): Promise<ApiResponse<CustomerDto[]>>;
+  /**
+   * Create a walk-in customer. Both email and phone are required server-side — the person service
+   * throws without them. The DMS root and Customer folder are provisioned server-side; the client
+   * creates no folders.
+   */
+  abstract createCustomer(payload: CreateCustomerPayload): Promise<ApiResponse<PersonDto>>;
 }

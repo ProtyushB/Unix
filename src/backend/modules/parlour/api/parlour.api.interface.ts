@@ -33,6 +33,25 @@ export interface OrderSummary {
 }
 
 /**
+ * Filters for the "what can I put on this bill?" pickers.
+ *
+ * `billId` is the one that is easy to leave out and impossible to notice: when editing an existing
+ * bill, the orders and appointments already on it are `isBilled = true` and would otherwise be
+ * filtered out of their own picker — so the user opens Add items and cannot see, or un-tick, the
+ * lines they are looking at. Passing the bill's own id tells the backend to keep them visible.
+ * Omit it when creating.
+ */
+export interface BillableListOptions {
+  businessId: number;
+  billId?: number;
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/**
  * Appointments list filters. Same shape as OrderListOptions — `status` is a comma-separated
  * AppointmentStatus list, dates are YYYY-MM-DD IST with `toDate` inclusive.
  *
@@ -224,6 +243,11 @@ export abstract class ParlourApiInterface {
     customerId: number,
     options: Record<string, unknown>,
   ): Promise<ApiResponse<unknown[]>>;
+  /** One customer's unbilled orders, for the bill's Add-items picker. Paginated, `totalPages` set. */
+  abstract getBillableOrders(
+    customerId: number,
+    options: BillableListOptions,
+  ): Promise<ApiResponse<unknown[]>>;
 
   // Appointments
   abstract getAllAppointments(
@@ -246,6 +270,11 @@ export abstract class ParlourApiInterface {
     appointmentDateTime: string,
     options?: { userId?: number; reason?: string },
   ): Promise<ApiResponse<unknown>>;
+  /** POST base/{id}/item/{itemId}/complete — completes ONE service, server rolls the status up. */
+  abstract completeAppointmentItem(
+    appointmentId: number,
+    itemId: string,
+  ): Promise<ApiResponse<unknown>>;
   abstract getAppointmentById(id: number): Promise<ApiResponse<unknown>>;
   abstract createAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
@@ -253,6 +282,11 @@ export abstract class ParlourApiInterface {
   abstract getAppointmentsByCustomer(
     customerId: number,
     options: Record<string, unknown>,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** One customer's unbilled appointments. Same contract as `getBillableOrders`. */
+  abstract getBillableAppointments(
+    customerId: number,
+    options: BillableListOptions,
   ): Promise<ApiResponse<unknown[]>>;
 
   // Bills

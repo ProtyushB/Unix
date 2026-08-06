@@ -145,6 +145,28 @@ export function formatSyncTime(date: Date): string {
   return `${hours12}:${pad(date.getMinutes())} ${hours24 < 12 ? 'AM' : 'PM'}`;
 }
 
+// ─── Initials → "AR" ────────────────────────────────────────────────────────
+
+/**
+ * Two-letter avatar initials for a person's name.
+ *
+ * ⚠️ There are three OTHER copies of this in the app and they disagree, which is why this one is
+ * here and tested: `OrdersScreen.tsx` takes first + LAST initial, `BillingScreen.tsx` takes first +
+ * SECOND, and `BottomGroupNav.tsx` takes first + last but returns '' for a blank name instead of
+ * '?'. So "Anjali Rao Sharma" renders as AS on the orders list and AR on the billing list today.
+ * New code should use this one; the three copies are left alone for now because collapsing them
+ * changes initials on shipped screens, which is a visible change and a separate decision.
+ *
+ * First + last, because that is what a person is usually called. One word gives its first two
+ * letters, so "Priya" is PR rather than a lonely P.
+ */
+export function initialsOf(name: string): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 // ─── Format Phone → "+91 XXXXX XXXXX" ───────────────────────────────────────
 
 export function formatPhone(phone: string): string {

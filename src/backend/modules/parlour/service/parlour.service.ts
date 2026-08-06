@@ -1,5 +1,6 @@
 import {
   ParlourApiInterface,
+  BillableListOptions,
   ProductListOptions,
   ServiceListOptions,
   OrderListOptions,
@@ -108,6 +109,11 @@ export class ParlourService {
     if (!customerId) throw new Error('Customer ID is required');
     return this.api.getOrdersByCustomer(customerId, options);
   }
+  async getBillableOrders(customerId: number, options: BillableListOptions) {
+    if (!customerId) throw new Error('Customer ID is required');
+    if (!options?.businessId) throw new Error('Business ID is required');
+    return this.api.getBillableOrders(customerId, options);
+  }
 
   // Appointments
   async getAllAppointments(
@@ -143,6 +149,11 @@ export class ParlourService {
     if (!appointmentDateTime) throw new Error('Appointment date and time is required');
     return this.api.rescheduleAppointment(id, appointmentDateTime, options);
   }
+  async completeAppointmentItem(appointmentId: number, itemId: string) {
+    if (!appointmentId) throw new Error('Appointment ID is required');
+    if (!itemId) throw new Error('Item ID is required');
+    return this.api.completeAppointmentItem(appointmentId, itemId);
+  }
   async getAppointmentById(id: number) {
     return this.api.getAppointmentById(id);
   }
@@ -162,6 +173,11 @@ export class ParlourService {
   async getAppointmentsByCustomer(customerId: number, options = {}) {
     if (!customerId) throw new Error('Customer ID is required');
     return this.api.getAppointmentsByCustomer(customerId, options);
+  }
+  async getBillableAppointments(customerId: number, options: BillableListOptions) {
+    if (!customerId) throw new Error('Customer ID is required');
+    if (!options?.businessId) throw new Error('Business ID is required');
+    return this.api.getBillableAppointments(customerId, options);
   }
 
   // Bills
