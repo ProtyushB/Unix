@@ -13,6 +13,8 @@ import { errorSummary, hasErrors, validateOrder, type DetailMode } from './order
 import {
   addUnit as addUnitTo,
   baseSaleUnit,
+  canMarkDelivered,
+  markLineDelivered,
   removeUnit as removeUnitFrom,
   saleUnitsOf,
   selectUnit as selectUnitOn,
@@ -41,6 +43,11 @@ interface UseOrderDetailFormInput {
   businessId: number | null;
   onSaved: (saved: OrderDetailItem) => void;
   onDeleted: () => void;
+  /**
+   * Called after a per-item delivery lands. Separate from `onSaved` because that one also leaves
+   * edit mode and toasts "Order updated" — both wrong for an action taken FROM view mode.
+   */
+  onItemDelivered?: (saved: OrderDetailItem) => void;
 }
 
 /**
@@ -61,6 +68,7 @@ export function useOrderDetailForm({
   businessId,
   onSaved,
   onDeleted,
+  onItemDelivered,
 }: UseOrderDetailFormInput) {
   const [form, setForm] = useState<OrderFormState>(() => toFormState(null));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -75,6 +83,9 @@ export function useOrderDetailForm({
    * row AND restocks units already handed to a customer.
    */
   const [passthrough, setPassthrough] = useState<Record<string, unknown>[]>([]);
+
+  /** productIds with a delivery in flight — drives the per-row spinner and blocks a double tap. */
+  const [deliveringIds, setDeliveringIds] = useState<number[]>([]);
 
   // Reseed whenever a new record arrives. Keyed on the record's identity rather than the object,
   // so a re-render that merely re-wraps the same order does not discard what the user has typed.
@@ -211,6 +222,83 @@ export function useOrderDetailForm({
     }
   }, [form, mode, item, businessId, moduleApi, onSaved, passthrough]);
 
+  /**
+   * Mark one product line delivered, from VIEW mode.
+   *
+   * There is no per-item endpoint for a top-level product — see `canMarkDelivered`. This is the
+   * ordinary full PUT with one line's `status` flipped, which is exactly what Centrix does
+   * (`GenericOrderDetailsBase.jsx:339-363`).
+   *
+   * Three things this deliberately does NOT do:
+   *
+   *  - It does not touch `saving`. That flag drives the screen's SAVING view, which blanks the
+   *    whole record behind a spinner. A per-row action gets a per-row spinner via `deliveringIds`;
+   *    hiding the order to tick one line off it would be absurd.
+   *  - It does not run `validateOrder`. The user is not editing, and refusing to deliver a line
+   *    because some unrelated field is empty would be a dead end with no way out from view mode.
+   *  - It does not rebuild the payload from the form alone. It goes through `toUpdatePayload` with
+   *    `passthrough`, because omitting a line from `orderItems` deletes it AND restocks it.
+   *
+   * Optimistic, and the rollback is the point: the pill repaints instantly, but a save that fails
+   * must not leave a row claiming DELIVERED when the server still has it PENDING.
+   */
+  const markItemDelivered = useCallback(
+    async (productId: number): Promise<SaveResult> => {
+      if (item?.id == null) {
+        return { success: false, error: 'This order has not been saved yet.' };
+      }
+      if (deliveringIds.includes(productId)) return { success: false };
+
+      const target = form.lines.find((l) => l.productId === productId);
+      if (!target || !canMarkDelivered(target)) return { success: false };
+
+      const previousLines = form.lines;
+      const optimisticLines = markLineDelivered(previousLines, productId);
+
+      setForm((prev) => ({ ...prev, lines: optimisticLines }));
+      setDeliveringIds((prev) => [...prev, productId]);
+      setSaveError(null);
+
+      try {
+        const result = await moduleApi.updateOrder(
+          toUpdatePayload(item, { ...form, lines: optimisticLines }, passthrough),
+        );
+
+        if (!result.success) {
+          // Put the row back the way the server still has it.
+          setForm((prev) => ({ ...prev, lines: previousLines }));
+          // ORDER_LOCKED (409) is the common refusal: the order sits on a finalized bill.
+          setSaveError(result.error || 'Could not mark that item delivered.');
+          return result;
+        }
+
+        const saved = (result.data as OrderDetailItem) ?? item;
+
+        // Adopt the server's copy of the record, not just the optimistic flip.
+        //
+        // A delivery can roll the ORDER's own status up to COMPLETED, and the header pill renders
+        // from `form.orderStatus` — which the reseed effect will NOT refresh, because it is keyed on
+        // the record's id and that has not changed. Without this the line says DELIVERED while the
+        // pill still says Confirmed until the screen is remounted.
+        //
+        // Guarded on a non-empty `orderItems`: the appointment endpoint has been seen to answer
+        // without its items, and reseeding from a response like that would blank the section.
+        if (Array.isArray(saved?.orderItems) && saved.orderItems.length) {
+          setForm(toFormState(saved));
+          setPassthrough(passthroughItems(saved));
+        } else if (saved?.orderStatus) {
+          setForm((prev) => ({ ...prev, orderStatus: String(saved.orderStatus) }));
+        }
+
+        onItemDelivered?.(saved);
+        return { success: true, data: saved };
+      } finally {
+        setDeliveringIds((prev) => prev.filter((id) => id !== productId));
+      }
+    },
+    [form, item, deliveringIds, moduleApi, passthrough, onItemDelivered],
+  );
+
   const remove = useCallback(async (): Promise<SaveResult> => {
     if (item?.id == null) return { success: false, error: 'This order has not been saved yet.' };
     setSaving(true);
@@ -236,6 +324,8 @@ export function useOrderDetailForm({
     saving,
     saveError,
     passthrough,
+    deliveringIds,
+    markItemDelivered,
     setField,
     setCustomer,
     addProducts,

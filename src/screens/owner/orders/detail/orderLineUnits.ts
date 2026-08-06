@@ -237,3 +237,50 @@ export function baseSaleUnit(units: SaleUnit[]): SaleUnit | null {
   if (!units.length) return null;
   return units.find((u) => u.perStock === 1) ?? units[0];
 }
+
+// ─── Per-item delivery ───────────────────────────────────────────────────────
+
+/**
+ * Statuses a line can never move on from. Mirrors Centrix's `TERMINAL_ITEM_STATUSES`.
+ *
+ * DELIVERED is terminal because it is the destination; CANCELLED and RETURNED because delivering
+ * either would contradict a decision already recorded against the line.
+ */
+export const TERMINAL_ITEM_STATUSES = ['DELIVERED', 'CANCELLED', 'RETURNED'];
+
+export function isItemStatusTerminal(status: unknown): boolean {
+  return TERMINAL_ITEM_STATUSES.includes(String(status ?? 'PENDING').toUpperCase());
+}
+
+/**
+ * Whether a line can be marked delivered.
+ *
+ * ⚠️ Unlike the appointment's per-item completion, there is NO endpoint behind this. Modulex has
+ * only `POST /{orderId}/fulfillment/{id}/deliver`, which addresses a PRODUCT component inside a
+ * PACKAGE row — not a top-level product line. Centrix does not use it for these rows either: it
+ * flips `status` on the item and re-saves the whole order through the ordinary PUT
+ * (`GenericOrderDetailsBase.jsx:339`). This mirrors that, which is why the action lives on the save
+ * path rather than in the api layer.
+ *
+ * `productId` is the identity used throughout — the order form dedupes by it, so it is unique per
+ * order, and unlike an array index it cannot be invalidated by a row being removed elsewhere.
+ */
+export function canMarkDelivered(line: OrderLine): boolean {
+  return line?.productId != null && !isItemStatusTerminal(line.status);
+}
+
+/**
+ * Return the lines with one product's line flipped to DELIVERED.
+ *
+ * A new array with a new object for the touched row only — the untouched lines keep their identity,
+ * so the PUT that follows sends back exactly what the server gave us for them. That matters more
+ * here than usual: `orderItems` is replaced wholesale on save, and a line reconstructed rather than
+ * echoed risks losing `productSnapshot`, `unitLines` or `inventoryLine`.
+ */
+export function markLineDelivered(lines: OrderLine[], productId: number): OrderLine[] {
+  return lines.map((line) =>
+    line.productId === productId && canMarkDelivered(line)
+      ? { ...line, status: 'DELIVERED' }
+      : line,
+  );
+}
