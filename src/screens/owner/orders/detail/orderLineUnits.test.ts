@@ -1,7 +1,10 @@
 import {
   addUnit,
   baseSaleUnit,
+  canMarkDelivered,
   displayUnitLines,
+  isItemStatusTerminal,
+  markLineDelivered,
   isMixedLine,
   lineBaseQty,
   lineEffUnitPrice,
@@ -250,5 +253,65 @@ describe('catalog', () => {
     expect(baseSaleUnit([BOX, STRIP, TABLET])).toEqual(TABLET);
     expect(baseSaleUnit([BOX, STRIP])).toEqual(BOX);
     expect(baseSaleUnit([])).toBeNull();
+  });
+});
+
+describe('per-item delivery', () => {
+  const line = (over: Partial<OrderLine> = {}): OrderLine => ({
+    productId: 7,
+    quantity: 1,
+    itemPrice: 100,
+    totalPrice: 100,
+    discount: 0,
+    status: 'PENDING',
+    ...over,
+  });
+
+  it('treats DELIVERED, CANCELLED and RETURNED as terminal', () => {
+    for (const s of ['DELIVERED', 'CANCELLED', 'RETURNED']) {
+      expect(isItemStatusTerminal(s)).toBe(true);
+    }
+    for (const s of ['PENDING', 'CONFIRMED', 'PREPARING', 'READY']) {
+      expect(isItemStatusTerminal(s)).toBe(false);
+    }
+  });
+
+  it('reads a missing status as PENDING rather than terminal', () => {
+    // A line the picker just built has no status yet. Defaulting the other way would hide the
+    // action on exactly the rows that need it.
+    expect(isItemStatusTerminal(undefined)).toBe(false);
+    expect(isItemStatusTerminal(null)).toBe(false);
+    expect(canMarkDelivered(line({ status: undefined }))).toBe(true);
+  });
+
+  it('offers the action only on a non-terminal line with a productId', () => {
+    expect(canMarkDelivered(line())).toBe(true);
+    expect(canMarkDelivered(line({ status: 'DELIVERED' }))).toBe(false);
+    expect(canMarkDelivered(line({ status: 'CANCELLED' }))).toBe(false);
+    expect(canMarkDelivered(line({ productId: undefined as unknown as number }))).toBe(false);
+  });
+
+  it('flips only the named product, and leaves the other rows IDENTICAL', () => {
+    // Identity matters, not just equality: `orderItems` is replaced wholesale by the PUT, so an
+    // untouched line must go back as the very object the server sent — rebuilding one risks
+    // dropping productSnapshot / unitLines / inventoryLine.
+    const a = line({ productId: 7 });
+    const b = line({ productId: 9, status: 'PENDING' });
+    const next = markLineDelivered([a, b], 7);
+
+    expect(next[0].status).toBe('DELIVERED');
+    expect(next[0]).not.toBe(a);
+    expect(next[1]).toBe(b);
+  });
+
+  it('is a no-op on a terminal line, so a double tap cannot rewrite a RETURNED row', () => {
+    const returned = line({ status: 'RETURNED' });
+    const next = markLineDelivered([returned], 7);
+    expect(next[0]).toBe(returned);
+  });
+
+  it('is a no-op when no line matches the productId', () => {
+    const only = line({ productId: 7 });
+    expect(markLineDelivered([only], 999)[0]).toBe(only);
   });
 });

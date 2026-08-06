@@ -45,12 +45,16 @@ import {
   type DetailMode,
 } from './orderDetail.view';
 import {
+  canMarkDelivered,
   displayUnitLines,
   lineTotal,
   unitSummary,
   type OrderLine,
   type SaleUnit,
 } from './orderLineUnits';
+
+/** Module-level so the default prop is a stable reference and cannot re-render every row. */
+const EMPTY_IDS: number[] = [];
 
 /**
  * What a line needs from the catalog in order to render.
@@ -88,6 +92,10 @@ interface OrderDetailBaseProps {
   onRemoveUnit?: (lineIndex: number, unitIndex: number) => void;
   onAddUnit?: (lineIndex: number) => void;
   onPickStatus?: () => void;
+  /** View mode only. Flips one line to DELIVERED and re-saves — see `markItemDelivered`. */
+  onMarkDelivered?: (productId: number) => void;
+  /** productIds with a delivery in flight, so the row that was tapped is the row that spins. */
+  deliveringIds?: number[];
 
   onBack: () => void;
   onEdit?: () => void;
@@ -120,6 +128,8 @@ export function OrderDetailBase({
   onRemoveUnit,
   onAddUnit,
   onPickStatus,
+  onMarkDelivered,
+  deliveringIds = EMPTY_IDS,
   onBack,
   onEdit,
   onSave,
@@ -252,6 +262,8 @@ export function OrderDetailBase({
             onUnitQty={onUnitQty}
             onRemoveUnit={onRemoveUnit}
             onAddUnit={onAddUnit}
+            onMarkDelivered={onMarkDelivered}
+            delivering={deliveringIds.includes(line.productId)}
           />
         ))}
 
@@ -457,6 +469,8 @@ function ItemRow({
   onUnitQty,
   onRemoveUnit,
   onAddUnit,
+  onMarkDelivered,
+  delivering = false,
 }: {
   line: OrderLine;
   index: number;
@@ -465,6 +479,8 @@ function ItemRow({
   error?: string;
   styles: Styles;
   theme: AppTheme;
+  onMarkDelivered?: (productId: number) => void;
+  delivering?: boolean;
   onRemoveLine?: (index: number) => void;
   onUnitQty?: (lineIndex: number, unitIndex: number, qty: number) => void;
   onRemoveUnit?: (lineIndex: number, unitIndex: number) => void;
@@ -477,6 +493,7 @@ function ItemRow({
   const brand = snapshot?.brand || display?.brand || '';
   const units = displayUnitLines(line);
   const status = String(line.status ?? '');
+  const showsDeliver = !editable && !!onMarkDelivered && canMarkDelivered(line);
 
   return (
     <View style={styles.itemRow}>
@@ -569,6 +586,22 @@ function ItemRow({
           {error ? <Text style={styles.fieldError}>{error}</Text> : null}
         </View>
       )}
+
+      {/* View mode only, and only while the line can still move. The mirror of the appointment
+          screen's per-service "Mark completed" — see `canMarkDelivered` for why this one rides the
+          ordinary save rather than an endpoint of its own. */}
+      {showsDeliver ? (
+        <Pressable
+          onPress={() => onMarkDelivered?.(line.productId)}
+          disabled={delivering}
+          style={[styles.deliverButton, delivering && styles.deliverButtonBusy]}
+          accessibilityRole="button"
+          accessibilityLabel={`Mark ${name} delivered`}
+        >
+          <Check size={13} color={theme.palette.success} />
+          <Text style={styles.deliverLabel}>{delivering ? 'Marking…' : 'Mark delivered'}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -757,6 +790,18 @@ function createStyles(theme: AppTheme) {
     },
     addUnit: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     addUnitLabel: { fontSize: 11.5, fontWeight: '600', color: theme.colors.primary },
+
+    deliverButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      borderRadius: 10,
+      backgroundColor: theme.palette.success + '18',
+    },
+    deliverButtonBusy: { opacity: 0.6 },
+    deliverLabel: { fontSize: 12.5, fontWeight: '700', color: theme.palette.success },
 
     emptyItems: {
       flexDirection: 'row',

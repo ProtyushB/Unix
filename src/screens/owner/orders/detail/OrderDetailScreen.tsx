@@ -193,6 +193,19 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
     navigation?.goBack();
   }, [navigation, showToast]);
 
+  /**
+   * Deliberately NOT `onSaved`: that one toasts "Order updated" and leaves edit mode, and this
+   * action is taken FROM view mode. The DTO is adopted because a delivery can roll the ORDER's
+   * status up to COMPLETED, and the header pill should show that without a manual refresh.
+   */
+  const onItemDelivered = useCallback(
+    (saved: OrderDetailItem) => {
+      setItem(saved);
+      showToast('Item marked delivered', 'success');
+    },
+    [showToast],
+  );
+
   const engine = useOrderDetailForm({
     mode,
     item,
@@ -200,6 +213,7 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
     businessId,
     onSaved,
     onDeleted,
+    onItemDelivered,
   });
 
   /**
@@ -270,6 +284,23 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
     if (!result.success && result.error) showToast(result.error, 'error');
   }, [engine, showToast]);
 
+  /**
+   * Checked here rather than left to the server's 409, because a billed order is fully locked and
+   * the optimistic flip would otherwise paint DELIVERED for as long as the round trip takes before
+   * snapping back. Same gate and same message as `onEdit` — this IS an edit, taken from view mode.
+   */
+  const onMarkDelivered = useCallback(
+    async (productId: number) => {
+      if (!canEdit(item?.isBilled === true)) {
+        showToast(lockedReason(item?.billNumber as string | null), 'error');
+        return;
+      }
+      const result = await engine.markItemDelivered(productId);
+      if (!result.success && result.error) showToast(result.error, 'error');
+    },
+    [engine, item, showToast],
+  );
+
   const onConfirmDelete = useCallback(async () => {
     setConfirmDelete(false);
     const result = await engine.remove();
@@ -320,6 +351,8 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
         onRemoveLine={engine.removeLine}
         onUnitQty={engine.setUnitQty}
         onRemoveUnit={engine.removeUnit}
+        onMarkDelivered={onMarkDelivered}
+        deliveringIds={engine.deliveringIds}
         onAddUnit={(lineIndex) => {
           // Add the first rung the line does not already carry. Which rung is not a decision worth
           // a second sheet — the chip's own dropdown is where a different unit gets chosen.
