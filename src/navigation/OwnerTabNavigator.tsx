@@ -11,7 +11,10 @@ import { BlurTargetProvider } from '../components/common/BlurTargetContext';
 import { TabConfigProvider } from '../backend/tab-config';
 import type { AppTheme } from '../theme/theme.types';
 import type {
+  AppointmentsStackParamList,
+  BillingStackParamList,
   CatalogStackParamList,
+  OrdersStackParamList,
   OwnerTabParamList,
   ProfileStackParamList,
   ServicesStackParamList,
@@ -21,8 +24,11 @@ import DashboardScreen from '../screens/owner/DashboardScreen';
 import { InventoryScreen } from '../screens/owner/InventoryScreen';
 import { AccountScreen } from '../screens/owner/AccountScreen';
 import { OrdersScreen } from '../screens/owner/orders/OrdersScreen';
+import { OrderDetailScreen } from '../screens/owner/orders/detail/OrderDetailScreen';
 import { AppointmentsScreen } from '../screens/owner/appointments/AppointmentsScreen';
+import { AppointmentDetailScreen } from '../screens/owner/appointments/detail/AppointmentDetailScreen';
 import { BillingScreen } from '../screens/owner/billing/BillingScreen';
+import { BillDetailScreen } from '../screens/owner/billing/detail/BillDetailScreen';
 import { ProductsScreen } from '../screens/owner/products/ProductsScreen';
 import { ProductDetailScreen } from '../screens/owner/products/detail/ProductDetailScreen';
 import { ServicesScreen } from '../screens/owner/services/ServicesScreen';
@@ -92,6 +98,51 @@ function ServicesNavigator() {
       <ServicesStack.Screen name="ServicesMain" component={ServicesScreen} />
       <ServicesStack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
     </ServicesStack.Navigator>
+  );
+}
+
+// ─── Orders / Appointments / Billing Stacks ─────────────────────────────────
+
+/**
+ * Three stacks, not one.
+ *
+ * The dead `OperationsStackParamList` this replaces put all three detail routes behind a single
+ * `OperationsMain`, and that would have been wrong even if the screen had existed: the three live
+ * in three different tabs, so a shared stack would let Back out of a bill land on an order the user
+ * never opened from there. Each tab owns its own history.
+ *
+ * All three are NESTED INSIDE their tab for the same reason the catalog is — see `CatalogNavigator`.
+ */
+const OrdersStack = createNativeStackNavigator<OrdersStackParamList>();
+
+function OrdersNavigator() {
+  return (
+    <OrdersStack.Navigator screenOptions={{ headerShown: false }}>
+      <OrdersStack.Screen name="OrdersMain" component={OrdersScreen} />
+      <OrdersStack.Screen name="OrderDetail" component={OrderDetailScreen} />
+    </OrdersStack.Navigator>
+  );
+}
+
+const AppointmentsStack = createNativeStackNavigator<AppointmentsStackParamList>();
+
+function AppointmentsNavigator() {
+  return (
+    <AppointmentsStack.Navigator screenOptions={{ headerShown: false }}>
+      <AppointmentsStack.Screen name="AppointmentsMain" component={AppointmentsScreen} />
+      <AppointmentsStack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
+    </AppointmentsStack.Navigator>
+  );
+}
+
+const BillingStack = createNativeStackNavigator<BillingStackParamList>();
+
+function BillingNavigator() {
+  return (
+    <BillingStack.Navigator screenOptions={{ headerShown: false }}>
+      <BillingStack.Screen name="BillingMain" component={BillingScreen} />
+      <BillingStack.Screen name="BillDetail" component={BillDetailScreen} />
+    </BillingStack.Navigator>
   );
 }
 
@@ -179,15 +230,34 @@ export function OwnerTabNavigator() {
                   you. Unmounting a focused screen would make React Navigation
                   re-derive the index and flash an arbitrary neighbour. */}
               <Tab.Screen name="Dashboard" component={DashboardScreen} />
-              <Tab.Screen name="Orders" component={OrdersScreen} />
-              <Tab.Screen name="Appointments" component={AppointmentsScreen} />
-              <Tab.Screen name="Billing" component={BillingScreen} />
               {/*
-                The two tabs with a stack behind them. `listeners` resets to the list on every tab
+                The five tabs with a stack behind them. `listeners` resets to the list on every tab
                 press: React Navigation restores a tab's nested state, so without this, leaving the
                 tab while a detail is open and coming back later lands on that detail rather than
                 on the list the user expects.
               */}
+              <Tab.Screen
+                name="Orders"
+                component={OrdersNavigator}
+                listeners={({ navigation }) => ({
+                  tabPress: () => navigation.navigate('Orders', { screen: 'OrdersMain' }),
+                })}
+              />
+              <Tab.Screen
+                name="Appointments"
+                component={AppointmentsNavigator}
+                listeners={({ navigation }) => ({
+                  tabPress: () =>
+                    navigation.navigate('Appointments', { screen: 'AppointmentsMain' }),
+                })}
+              />
+              <Tab.Screen
+                name="Billing"
+                component={BillingNavigator}
+                listeners={({ navigation }) => ({
+                  tabPress: () => navigation.navigate('Billing', { screen: 'BillingMain' }),
+                })}
+              />
               <Tab.Screen
                 name="Products"
                 component={CatalogNavigator}

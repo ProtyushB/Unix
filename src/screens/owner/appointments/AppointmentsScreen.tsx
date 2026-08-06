@@ -122,7 +122,15 @@ const GRID_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-export function AppointmentsScreen() {
+interface AppointmentsScreenProps {
+  /** Optional so the web preview can mount the list standalone, with no navigator around it. */
+  navigation?: {
+    navigate: (route: string, params?: Record<string, unknown>) => void;
+    addListener?: (event: string, cb: () => void) => () => void;
+  };
+}
+
+export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {}) {
   const theme = useTheme();
   const { colors, palette } = theme;
   const styles = useThemedStyles(createStyles);
@@ -284,11 +292,54 @@ export function AppointmentsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listOpts, countsWindow]);
 
+  /**
+   * Drop every overlay. Called before navigating as well as after an action.
+   *
+   * Not optional on react-native-web: a Modal's portal stays mounted after `visible` flips false,
+   * so a sheet left open when the stack pushes reappears over the detail screen and eats its taps.
+   * The three overlays here are unmounted by STATE rather than by `visible` for that reason, so
+   * clearing the state is what actually removes them.
+   */
   const closeAll = useCallback(() => {
     setSheet(null);
     setActiveAppt(null);
     setDialog(null);
   }, []);
+
+  /**
+   * Refetch on RETURN from the detail screen. `reload` also repaints the day-count dots, which a
+   * create or a delete moves.
+   *
+   * Skips the FIRST focus — the list effect already fetched on mount, and firing both sends two
+   * identical requests and lets the slower one overwrite the newer rows. A ref rather than state so
+   * it survives the re-subscription when `reload`'s identity changes; `addListener` rather than
+   * `useFocusEffect` because this screen is also mounted standalone in the web preview.
+   */
+  const hasFocusedRef = useRef(false);
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      if (!hasFocusedRef.current) {
+        hasFocusedRef.current = true;
+        return;
+      }
+      reload();
+    });
+    return unsubscribe;
+  }, [navigation, reload]);
+
+  /** Tapping a row opens the record; the quick-actions sheet moves to a long press. */
+  const openDetail = useCallback(
+    (appt: AppointmentRow) => {
+      closeAll();
+      navigation?.navigate('AppointmentDetail', { appointmentId: appt.id, mode: 'view' });
+    },
+    [closeAll, navigation],
+  );
+
+  const onAdd = useCallback(() => {
+    closeAll();
+    navigation?.navigate('AppointmentDetail', { mode: 'add' });
+  }, [closeAll, navigation]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const changeStatus = useCallback(
@@ -377,12 +428,15 @@ export function AppointmentsScreen() {
 
       return (
         <Pressable
-          onPress={() => {
+          onPress={() => openDetail(item)}
+          onLongPress={() => {
             setActiveAppt(item);
             setSheet('actions');
           }}
           style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
           android_ripple={{ color: palette.divider }}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.appointmentNumber} · ${item.customerName}`}
         >
           <View style={styles.timeCol}>
             <Text style={styles.timeClock}>{apptClock(item.time)}</Text>
@@ -416,7 +470,7 @@ export function AppointmentsScreen() {
         </Pressable>
       );
     },
-    [theme, styles, palette.divider, view],
+    [theme, styles, palette.divider, view, openDetail],
   );
 
   // ── Body ───────────────────────────────────────────────────────────────────
@@ -514,9 +568,7 @@ export function AppointmentsScreen() {
         headline="No appointments"
         sub="Nothing scheduled for this day. Book one to get started."
         ctaLabel="New Appointment"
-        onCta={() => {
-          /* TODO: navigate to appointment create */
-        }}
+        onCta={onAdd}
         colors={colors}
       />
     );
@@ -672,14 +724,10 @@ export function AppointmentsScreen() {
 
       {header}
 
-      {showsFab(view) && (
-        <FAB
-          accessibilityLabel="New appointment"
-          onPress={() => {
-            /* TODO: navigate to appointment create */
-          }}
-        />
-      )}
+      {/* Two create affordances, one handler. `showsFab` also covers the empty views, so here the
+          hero CTA and the FAB are both on screen at once — wiring one and not the other would
+          leave two identical-looking buttons behaving differently. */}
+      {showsFab(view) && <FAB accessibilityLabel="New appointment" onPress={onAdd} />}
 
       {/* Each overlay is gated at render level rather than on Modal's `visible` prop alone:
           react-native-web keeps a Modal's portal mounted after `visible` flips to false, which

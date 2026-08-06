@@ -143,7 +143,15 @@ function dateChipLabel(f: OrderFilters): string | null {
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-export function OrdersScreen() {
+interface OrdersScreenProps {
+  /** Optional so the web preview can mount the list standalone, with no navigator around it. */
+  navigation?: {
+    navigate: (route: string, params?: Record<string, unknown>) => void;
+    addListener?: (event: string, cb: () => void) => () => void;
+  };
+}
+
+export function OrdersScreen({ navigation }: OrdersScreenProps = {}) {
   const theme = useTheme();
   const { colors, palette } = theme;
   const styles = useThemedStyles(createStyles);
@@ -207,6 +215,33 @@ export function OrdersScreen() {
     activeModule.loadOrderSummary?.(range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moduleKey, range]);
+
+  /**
+   * Refetch on RETURN from the detail screen, so an edit, a create or a delete is reflected.
+   *
+   * The summary goes with it, which `reload` alone does NOT do: the chip counts and the "N total"
+   * subtitle come from `loadOrderSummary`, so a delete would leave the header claiming a count the
+   * list no longer has.
+   *
+   * Skips the FIRST focus — the effect above already fetched on mount, and firing both sends two
+   * identical requests and lets the slower one overwrite the newer rows. `hasFocusedRef` is a ref
+   * rather than state so it survives the re-subscription that happens whenever `reload`'s identity
+   * changes. `navigation.addListener` rather than `useFocusEffect` because this screen is also
+   * mounted standalone in the web preview, with no navigator to hook into.
+   */
+  const hasFocusedRef = useRef(false);
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      if (!hasFocusedRef.current) {
+        hasFocusedRef.current = true;
+        return;
+      }
+      reload();
+      activeModule.loadOrderSummary?.(range);
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation, reload, moduleKey, range]);
 
   // The hook replaces `orders` per page: page 1 resets, later pages append.
   useEffect(() => {
@@ -375,21 +410,46 @@ export function OrdersScreen() {
     setFromSheet(false);
   }, []);
 
+  /**
+   * Drop every overlay.
+   *
+   * One definition rather than the setter triple inlined at each site, because it is now also what
+   * runs before navigating — and there it is not optional: on react-native-web a Modal's portal
+   * stays mounted after `visible` flips false, so a sheet left open when the stack pushes reappears
+   * over the detail screen and eats its taps. These overlays are unmounted by STATE rather than by
+   * `visible` for exactly that reason, so clearing the state is what actually removes them.
+   */
+  const closeOverlays = useCallback(() => {
+    setSheet(null);
+    setActiveOrder(null);
+    setDialog(null);
+  }, []);
+
+  /** Tapping a row opens the record; the quick-actions sheet moves to a long press. */
+  const openDetail = useCallback(
+    (order: OrderRow) => {
+      closeOverlays();
+      navigation?.navigate('OrderDetail', { orderId: order.id, mode: 'view' });
+    },
+    [closeOverlays, navigation],
+  );
+
+  const onAdd = useCallback(() => {
+    closeOverlays();
+    navigation?.navigate('OrderDetail', { mode: 'add' });
+  }, [closeOverlays, navigation]);
+
   const changeStatus = useCallback(
     async (order: OrderRow, status: string) => {
       const res = await activeModule.updateOrderStatus?.(order.id, status);
       if (res?.success) {
-        setSheet(null);
-        setActiveOrder(null);
-        setDialog(null);
+        closeOverlays();
         reload();
         return;
       }
       // Dismiss the sheet and dialog BEFORE reporting. The action was refused, so leaving the
       // sheet up just invites a retry loop against a lock that will not clear from here.
-      setSheet(null);
-      setActiveOrder(null);
-      setDialog(null);
+      closeOverlays();
 
       // Title follows the action the user actually took — a failed "Processing" must not
       // say "Couldn't cancel order".
@@ -410,7 +470,7 @@ export function OrdersScreen() {
         },
       );
     },
-    [activeModule, reload, showToast],
+    [activeModule, closeOverlays, reload, showToast],
   );
 
   const contactCustomer = useCallback((order: OrderRow) => {
@@ -430,12 +490,15 @@ export function OrdersScreen() {
       const st = theme.status[item.status] ?? theme.status.FALLBACK;
       return (
         <Pressable
-          onPress={() => {
+          onPress={() => openDetail(item)}
+          onLongPress={() => {
             setActiveOrder(item);
             setSheet('actions');
           }}
           style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
           android_ripple={{ color: palette.divider }}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.orderNumber} · ${item.customerName}`}
         >
           <View style={[styles.avatar, { backgroundColor: pair.bg + '26' }]}>
             <Text style={[styles.avatarText, { color: pair.bg }]}>
@@ -464,7 +527,7 @@ export function OrdersScreen() {
         </Pressable>
       );
     },
-    [theme, styles, palette.divider],
+    [theme, styles, palette.divider, openDetail],
   );
 
   const { headerProps, listProps, headerHeight } = useCollapsingHeader({
@@ -569,9 +632,7 @@ export function OrdersScreen() {
         subtext="New orders from customers will appear here as they come in."
         ctaLabel="Create Order"
         ctaIcon={<Plus size={18} color="#ffffff" />}
-        onCta={() => {
-          /* TODO: navigate to order create */
-        }}
+        onCta={onAdd}
       />
     );
   } else if (view === 'NO_RESULTS') {
@@ -786,14 +847,10 @@ export function OrdersScreen() {
 
       {header}
 
-      {showFab && (
-        <FAB
-          accessibilityLabel="New order"
-          onPress={() => {
-            /* TODO: navigate to order create */
-          }}
-        />
-      )}
+      {/* Two create affordances, one handler. `showFab` hides the FAB in exactly the state where
+          the hero CTA appears (EMPTY), so wiring only one of them leaves a dead button on the
+          screen a brand-new business sees first. */}
+      {showFab && <FAB accessibilityLabel="New order" onPress={onAdd} />}
 
       {/*
         Each overlay is gated on its own state rather than relying on Modal's `visible` prop alone.
