@@ -90,7 +90,15 @@ const CHIPS: { key: string | null; label: string }[] = [
   { key: 'UNPAID', label: 'Unpaid' },
 ];
 
-export function BillingScreen() {
+interface BillingScreenProps {
+  /** Optional so the web preview can mount the list standalone, with no navigator around it. */
+  navigation?: {
+    navigate: (route: string, params?: Record<string, unknown>) => void;
+    addListener?: (event: string, cb: () => void) => () => void;
+  };
+}
+
+export function BillingScreen({ navigation }: BillingScreenProps = {}) {
   const theme = useTheme();
   const { colors, palette } = theme;
   const styles = useThemedStyles(createStyles);
@@ -264,6 +272,53 @@ export function BillingScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reload]);
 
+  /**
+   * Refetch on RETURN from the detail screen — `afterWrite`, not `reload`, for the reason above:
+   * a bill created or finalized elsewhere moves the chip counts and the outstanding total too.
+   *
+   * Skips the FIRST focus, since the mount effect already fetched and firing both lets the slower
+   * response overwrite the newer rows. A ref rather than state so it survives the re-subscription
+   * when `afterWrite`'s identity changes; `addListener` rather than `useFocusEffect` because this
+   * screen is also mounted standalone in the web preview.
+   */
+  const hasFocusedRef = useRef(false);
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      if (!hasFocusedRef.current) {
+        hasFocusedRef.current = true;
+        return;
+      }
+      afterWrite();
+    });
+    return unsubscribe;
+  }, [navigation, afterWrite]);
+
+  /**
+   * Everything that must come down before the stack pushes.
+   *
+   * `closeSheets` alone is not enough — the wallet popover is separate state and would ride onto
+   * the detail screen. On react-native-web a Modal's portal outlives `visible: false`, so any
+   * overlay still open at navigate time becomes a tap-eating ghost over the next route.
+   */
+  const closeForNavigation = useCallback(() => {
+    closeSheets();
+    setWalletOpen(false);
+  }, [closeSheets]);
+
+  /** Tapping a row opens the record; the quick-actions sheet moves to a long press. */
+  const openDetail = useCallback(
+    (bill: BillRow) => {
+      closeForNavigation();
+      navigation?.navigate('BillDetail', { billId: bill.id, mode: 'view' });
+    },
+    [closeForNavigation, navigation],
+  );
+
+  const onAdd = useCallback(() => {
+    closeForNavigation();
+    navigation?.navigate('BillDetail', { mode: 'add' });
+  }, [closeForNavigation, navigation]);
+
   const runAction = useCallback(
     async (bill: BillRow, action: QuickAction, amount?: number) => {
       // Dismiss first. The action either succeeds — in which case the sheet is stale — or is
@@ -335,12 +390,15 @@ export function BillingScreen() {
 
       return (
         <Pressable
-          onPress={() => {
+          onPress={() => openDetail(item)}
+          onLongPress={() => {
             setActiveBill(item);
             setSheet('actions');
           }}
           style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
           android_ripple={{ color: palette.divider }}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.billNumber} · ${item.customerName}`}
         >
           <View style={[styles.avatar, { backgroundColor: pair.bg }]}>
             <Text style={[styles.avatarText, { color: pair.text }]}>
@@ -375,7 +433,7 @@ export function BillingScreen() {
         </Pressable>
       );
     },
-    [theme, styles, palette.divider],
+    [theme, styles, palette.divider, openDetail],
   );
 
   // ── Body ───────────────────────────────────────────────────────────────────
@@ -448,9 +506,7 @@ export function BillingScreen() {
         headline="No bills yet"
         sub="Bills you create will appear here. Create your first bill to get started."
         ctaLabel="Create Bill"
-        onCta={() => {
-          /* TODO: navigate to bill create */
-        }}
+        onCta={onAdd}
         colors={colors}
       />
     );
@@ -646,14 +702,10 @@ export function BillingScreen() {
       {/* Hidden while the wallet is open. The FAB renders after the scrim and would otherwise sit
           on top of it at full brightness, which both breaks the dim and offers a second action
           competing with the popover — the mockup draws no FAB in this state. */}
-      {showsBillFab(view) && !walletOpen && (
-        <FAB
-          accessibilityLabel="New bill"
-          onPress={() => {
-            /* TODO: navigate to bill create */
-          }}
-        />
-      )}
+      {/* Two create affordances, one handler. `showsBillFab` excludes EMPTY, where the hero CTA is
+          the only way in, so wiring one and not the other leaves a dead button on the screen a
+          brand-new business sees first. */}
+      {showsBillFab(view) && !walletOpen && <FAB accessibilityLabel="New bill" onPress={onAdd} />}
 
       {/* Each overlay is gated at render level rather than on Modal's `visible` prop alone:
           react-native-web keeps a Modal's portal mounted after `visible` flips false, which leaves

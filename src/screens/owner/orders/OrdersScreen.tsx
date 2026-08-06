@@ -31,22 +31,32 @@ import {
   X,
 } from 'lucide-react-native';
 
-import { FAB } from '../../components/layout/FAB';
-import { CollapsingHeader, AnimatedSectionList } from '../../components/layout/CollapsingHeader';
-import { ConfirmDialog } from '../../components/common/ConfirmDialog';
-import { useTheme } from '../../hooks/useTheme';
-import { useThemedStyles } from '../../hooks/useThemedStyles';
-import { useCollapsingHeader } from '../../hooks/useCollapsingHeader';
-import { useToast } from '../../hooks/useToast';
+import { FAB } from '../../../components/layout/FAB';
+import { CollapsingHeader, AnimatedSectionList } from '../../../components/layout/CollapsingHeader';
+import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
+import { useTheme } from '../../../hooks/useTheme';
+import { useThemedStyles } from '../../../hooks/useThemedStyles';
+import { useCollapsingHeader } from '../../../hooks/useCollapsingHeader';
+import { useToast } from '../../../hooks/useToast';
 import { headerCollapses, type OrdersView } from './order.view';
-import type { AppTheme } from '../../theme/theme.types';
-import { formatCurrency } from '../../utils/formatters';
-import { DATE_PRESETS, rangeForPreset, toYmd, type DatePresetId } from '../../utils/dateRange';
+import {
+  STATUS_LABEL,
+  STATUS_ORDER,
+  dayKeyOf,
+  dayLabelOf,
+  formatAmount,
+  initialsOf,
+  timeOf,
+  toOrderRow,
+  type OrderRow,
+} from './order.model';
+import type { AppTheme } from '../../../theme/theme.types';
+import { DATE_PRESETS, rangeForPreset, toYmd, type DatePresetId } from '../../../utils/dateRange';
 
-import { useAppContext } from '../../context/AppContext';
-import { useParlour } from '../../backend/modules/parlour/hook/useParlour';
-import { usePharmacy } from '../../backend/modules/pharmacy/hook/usePharmacy';
-import type { OrderListOptions } from '../../backend/modules/shared/hook/useModuleService';
+import { useAppContext } from '../../../context/AppContext';
+import { useParlour } from '../../../backend/modules/parlour/hook/useParlour';
+import { usePharmacy } from '../../../backend/modules/pharmacy/hook/usePharmacy';
+import type { OrderListOptions } from '../../../backend/modules/shared/hook/useModuleService';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -59,39 +69,6 @@ const PAGE_SIZE = 20;
 const LIST_TOP_PAD = 12;
 /** FAB clearance, so the last card is never trapped under it. */
 const LIST_BOTTOM_PAD = 100;
-
-const MONTHS = [
-  'JAN',
-  'FEB',
-  'MAR',
-  'APR',
-  'MAY',
-  'JUN',
-  'JUL',
-  'AUG',
-  'SEP',
-  'OCT',
-  'NOV',
-  'DEC',
-] as const;
-
-const STATUS_ORDER = [
-  'PENDING',
-  'CONFIRMED',
-  'PROCESSING',
-  'COMPLETED',
-  'CANCELLED',
-  'REJECTED',
-] as const;
-
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'Pending',
-  CONFIRMED: 'Confirmed',
-  PROCESSING: 'Processing',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-  REJECTED: 'Rejected',
-};
 
 /** Statuses offered in the filter sheet (2×2 grid), per the mockup. */
 const FILTER_STATUSES = ['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
@@ -130,89 +107,6 @@ const QUICK_STATUSES: {
   { status: 'CANCELLED', label: 'Cancel order', icon: CircleX, tint: 'error', danger: true },
 ];
 
-// ─── Row mapping ─────────────────────────────────────────────────────────────
-// The list endpoint returns raw backend DTOs — field names mirror the owner
-// portal (note `orderStatus` / `orderDate`, NOT `status` / `date`).
-
-interface OrderRow {
-  id: number;
-  customerName: string;
-  orderNumber: string;
-  amount: number;
-  status: string;
-  when: string | null;
-  phone?: string;
-  email?: string;
-}
-
-function toOrderRow(raw: any, index: number): OrderRow {
-  const name =
-    raw?.customerFirstName && raw?.customerLastName
-      ? `${raw.customerFirstName} ${raw.customerLastName}`
-      : raw?.customerName || raw?.customer || 'Unknown Customer';
-  return {
-    id: raw?.id ?? index,
-    customerName: name,
-    orderNumber: raw?.orderNumber || `#${raw?.id ?? index}`,
-    amount: Number(raw?.totalAmount ?? 0),
-    status: raw?.orderStatus || 'PENDING',
-    when: raw?.orderDate || raw?.createdAt || null,
-    phone: raw?.customerPhoneNumber || undefined,
-    email: raw?.customerEmail || undefined,
-  };
-}
-
-/**
- * Card amounts read as whole rupees per the mockup (₹2,450, not ₹2,450.00), but
- * keep paise when an order actually carries them. Local to this screen —
- * formatCurrency's always-2-decimals contract is relied on elsewhere.
- */
-function formatAmount(n: number): string {
-  return formatCurrency(n).replace(/\.00$/, '');
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-/** "2:30 PM" — the time half of the card's meta line. */
-function timeOf(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  const h24 = d.getHours();
-  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-  const mm = d.getMinutes();
-  return `${h12}:${mm < 10 ? `0${mm}` : mm} ${h24 < 12 ? 'AM' : 'PM'}`;
-}
-
-/** Calendar-day key (local) used to bucket rows into sections. */
-function dayKeyOf(iso: string | null): string {
-  if (!iso) return 'undated';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return 'undated';
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-/** Section title: "TODAY · 22 APR", "YESTERDAY · 21 APR", else "22 APR". */
-function dayLabelOf(iso: string | null): string {
-  if (!iso) return 'UNDATED';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return 'UNDATED';
-  const stamp = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diff = Math.round((day.getTime() - today.getTime()) / 86400000);
-  if (diff === 0) return `TODAY · ${stamp}`;
-  if (diff === -1) return `YESTERDAY · ${stamp}`;
-  if (diff === 1) return `TOMORROW · ${stamp}`;
-  return stamp;
-}
-
 // ─── Filter model ────────────────────────────────────────────────────────────
 // ONE shared filter drives both the inline chip rows and the sheet: opening the
 // sheet shows whatever is currently applied. `fromSheet` only decides which
@@ -249,7 +143,15 @@ function dateChipLabel(f: OrderFilters): string | null {
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-export function OrdersScreen() {
+interface OrdersScreenProps {
+  /** Optional so the web preview can mount the list standalone, with no navigator around it. */
+  navigation?: {
+    navigate: (route: string, params?: Record<string, unknown>) => void;
+    addListener?: (event: string, cb: () => void) => () => void;
+  };
+}
+
+export function OrdersScreen({ navigation }: OrdersScreenProps = {}) {
   const theme = useTheme();
   const { colors, palette } = theme;
   const styles = useThemedStyles(createStyles);
@@ -313,6 +215,33 @@ export function OrdersScreen() {
     activeModule.loadOrderSummary?.(range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moduleKey, range]);
+
+  /**
+   * Refetch on RETURN from the detail screen, so an edit, a create or a delete is reflected.
+   *
+   * The summary goes with it, which `reload` alone does NOT do: the chip counts and the "N total"
+   * subtitle come from `loadOrderSummary`, so a delete would leave the header claiming a count the
+   * list no longer has.
+   *
+   * Skips the FIRST focus — the effect above already fetched on mount, and firing both sends two
+   * identical requests and lets the slower one overwrite the newer rows. `hasFocusedRef` is a ref
+   * rather than state so it survives the re-subscription that happens whenever `reload`'s identity
+   * changes. `navigation.addListener` rather than `useFocusEffect` because this screen is also
+   * mounted standalone in the web preview, with no navigator to hook into.
+   */
+  const hasFocusedRef = useRef(false);
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      if (!hasFocusedRef.current) {
+        hasFocusedRef.current = true;
+        return;
+      }
+      reload();
+      activeModule.loadOrderSummary?.(range);
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation, reload, moduleKey, range]);
 
   // The hook replaces `orders` per page: page 1 resets, later pages append.
   useEffect(() => {
@@ -481,21 +410,46 @@ export function OrdersScreen() {
     setFromSheet(false);
   }, []);
 
+  /**
+   * Drop every overlay.
+   *
+   * One definition rather than the setter triple inlined at each site, because it is now also what
+   * runs before navigating — and there it is not optional: on react-native-web a Modal's portal
+   * stays mounted after `visible` flips false, so a sheet left open when the stack pushes reappears
+   * over the detail screen and eats its taps. These overlays are unmounted by STATE rather than by
+   * `visible` for exactly that reason, so clearing the state is what actually removes them.
+   */
+  const closeOverlays = useCallback(() => {
+    setSheet(null);
+    setActiveOrder(null);
+    setDialog(null);
+  }, []);
+
+  /** Tapping a row opens the record; the quick-actions sheet moves to a long press. */
+  const openDetail = useCallback(
+    (order: OrderRow) => {
+      closeOverlays();
+      navigation?.navigate('OrderDetail', { orderId: order.id, mode: 'view' });
+    },
+    [closeOverlays, navigation],
+  );
+
+  const onAdd = useCallback(() => {
+    closeOverlays();
+    navigation?.navigate('OrderDetail', { mode: 'add' });
+  }, [closeOverlays, navigation]);
+
   const changeStatus = useCallback(
     async (order: OrderRow, status: string) => {
       const res = await activeModule.updateOrderStatus?.(order.id, status);
       if (res?.success) {
-        setSheet(null);
-        setActiveOrder(null);
-        setDialog(null);
+        closeOverlays();
         reload();
         return;
       }
       // Dismiss the sheet and dialog BEFORE reporting. The action was refused, so leaving the
       // sheet up just invites a retry loop against a lock that will not clear from here.
-      setSheet(null);
-      setActiveOrder(null);
-      setDialog(null);
+      closeOverlays();
 
       // Title follows the action the user actually took — a failed "Processing" must not
       // say "Couldn't cancel order".
@@ -516,7 +470,7 @@ export function OrdersScreen() {
         },
       );
     },
-    [activeModule, reload, showToast],
+    [activeModule, closeOverlays, reload, showToast],
   );
 
   const contactCustomer = useCallback((order: OrderRow) => {
@@ -536,12 +490,15 @@ export function OrdersScreen() {
       const st = theme.status[item.status] ?? theme.status.FALLBACK;
       return (
         <Pressable
-          onPress={() => {
+          onPress={() => openDetail(item)}
+          onLongPress={() => {
             setActiveOrder(item);
             setSheet('actions');
           }}
           style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
           android_ripple={{ color: palette.divider }}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.orderNumber} · ${item.customerName}`}
         >
           <View style={[styles.avatar, { backgroundColor: pair.bg + '26' }]}>
             <Text style={[styles.avatarText, { color: pair.bg }]}>
@@ -570,7 +527,7 @@ export function OrdersScreen() {
         </Pressable>
       );
     },
-    [theme, styles, palette.divider],
+    [theme, styles, palette.divider, openDetail],
   );
 
   const { headerProps, listProps, headerHeight } = useCollapsingHeader({
@@ -675,9 +632,7 @@ export function OrdersScreen() {
         subtext="New orders from customers will appear here as they come in."
         ctaLabel="Create Order"
         ctaIcon={<Plus size={18} color="#ffffff" />}
-        onCta={() => {
-          /* TODO: navigate to order create */
-        }}
+        onCta={onAdd}
       />
     );
   } else if (view === 'NO_RESULTS') {
@@ -892,14 +847,10 @@ export function OrdersScreen() {
 
       {header}
 
-      {showFab && (
-        <FAB
-          accessibilityLabel="New order"
-          onPress={() => {
-            /* TODO: navigate to order create */
-          }}
-        />
-      )}
+      {/* Two create affordances, one handler. `showFab` hides the FAB in exactly the state where
+          the hero CTA appears (EMPTY), so wiring only one of them leaves a dead button on the
+          screen a brand-new business sees first. */}
+      {showFab && <FAB accessibilityLabel="New order" onPress={onAdd} />}
 
       {/*
         Each overlay is gated on its own state rather than relying on Modal's `visible` prop alone.

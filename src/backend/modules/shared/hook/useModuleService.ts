@@ -13,7 +13,6 @@ import {
   getSelectedBusinessType,
   getBusinessTypeMap,
 } from '../../../../storage/session.storage';
-import { PersonApiImpl } from '../../../person/api/person.api.impl';
 import { DmsService } from '../../../dms/service/dms.service';
 import { createEntityFolder } from '../../../dms/util/EntityFolderUtils';
 import { NativeFile, ResourceFileDto } from '../../../dms/api/file.api.interface';
@@ -62,6 +61,24 @@ export interface OrderListOptions {
   status?: string;
   fromDate?: string;
   toDate?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/**
+ * Filters for the bill's Add-items pickers — one customer's UNBILLED orders / appointments.
+ *
+ * `billId` is the one that is easy to omit and impossible to notice: while editing a bill, the
+ * orders and appointments already on it are `isBilled = true` and would otherwise be filtered out
+ * of their own picker, so the user could not see or un-tick the lines in front of them. Pass the
+ * bill's own id when editing; omit it when creating.
+ */
+export interface BillableListOptions {
+  businessId: number;
+  billId?: number;
+  page?: number;
+  limit?: number;
+  search?: string;
   sortBy?: string;
   sortDir?: string;
 }
@@ -188,10 +205,14 @@ interface ModuleService {
     status: string,
     options?: { userId?: number; reason?: string },
   ): Promise<ServiceResult>;
+  /** One order, fully hydrated. The detail screen's only read — see `loadOrder`. */
+  getOrderById(id: number): Promise<ServiceResult>;
   createOrder(data: Record<string, unknown>): Promise<ServiceResult>;
   updateOrder(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteOrder(id: number): Promise<ServiceResult>;
   getOrdersByCustomer(customerId: number, options: Record<string, unknown>): Promise<ServiceResult>;
+  /** One customer's UNBILLED orders, for the bill's Add-items picker. */
+  getBillableOrders(customerId: number, options: BillableListOptions): Promise<ServiceResult>;
 
   getAllAppointments(
     businessId: number,
@@ -215,6 +236,10 @@ interface ModuleService {
     appointmentDateTime: string,
     options?: { userId?: number; reason?: string },
   ): Promise<ServiceResult>;
+  /** One appointment, fully hydrated. The detail screen's only read — see `loadAppointment`. */
+  getAppointmentById(id: number): Promise<ServiceResult>;
+  /** Completes ONE service on an appointment. `itemId` is a string — see the api impl. */
+  completeAppointmentItem(appointmentId: number, itemId: string): Promise<ServiceResult>;
   createAppointment(data: Record<string, unknown>): Promise<ServiceResult>;
   updateAppointment(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteAppointment(id: number): Promise<ServiceResult>;
@@ -222,7 +247,11 @@ interface ModuleService {
     customerId: number,
     options: Record<string, unknown>,
   ): Promise<ServiceResult>;
+  /** One customer's UNBILLED appointments. Same contract as `getBillableOrders`. */
+  getBillableAppointments(customerId: number, options: BillableListOptions): Promise<ServiceResult>;
 
+  /** One bill, fully enriched (billedOrderDetails, bareProducts, …) — see `loadBill`. */
+  getBillById(id: number): Promise<ServiceResult>;
   getBillsByBusiness(
     businessId: number,
     page?: number,
@@ -238,6 +267,15 @@ interface ModuleService {
     paymentStatus: string,
     options?: { paidAmount?: number; refundedAmount?: number },
   ): Promise<ServiceResult>;
+  createBill(data: Record<string, unknown>): Promise<ServiceResult>;
+  /**
+   * ⚠️ Two arguments, unlike every other update on this interface: the bill's id travels in the
+   * PATH (`PUT /{module}Bill/{billId}`), not the body. Ordering the arguments the other way round
+   * would read like the rest of the file and silently post to the wrong URL.
+   */
+  updateBill(billId: number, data: Record<string, unknown>): Promise<ServiceResult>;
+  deleteBill(id: number): Promise<ServiceResult>;
+  getBillsByCustomer(customerId: number): Promise<ServiceResult>;
 
   getInventoryBatchesByBusiness(businessId: number): Promise<ServiceResult>;
   getInventoryBatchesByProduct(productId: number, businessId: number): Promise<ServiceResult>;
@@ -247,6 +285,53 @@ interface ModuleService {
   updateBatchStatus(id: number, status: string): Promise<ServiceResult>;
   getExpiringBatches(businessId: number, withinDays: number): Promise<ServiceResult>;
   getTotalStock(productId: number, businessId: number): Promise<ServiceResult>;
+}
+
+// ─── Detail-screen reads ─────────────────────────────────────────────────────
+
+/** What every `loadX(id)` hands back. `code` carries the backend's ErrorCode when there is one. */
+interface ReadOneResult {
+  success: boolean;
+  data?: unknown;
+  code?: string;
+  error?: string | null;
+}
+
+/**
+ * Fetch ONE record for a detail screen.
+ *
+ * Every `loadProduct` / `loadService` / `loadOrder` / `loadAppointment` / `loadBill` is this
+ * function plus a name. It lives at module scope, outside the hook, precisely because it must not
+ * be able to touch state: a detail read must NOT write the resource's shared array or the shared
+ * `loading` flag. That is not tidiness — within one screen's hook instance those cells are also
+ * written by the create/update/delete calls, so a read that toggled them would race the save it
+ * was fetching for, and `loading` is what the list screens' `sawLoadingRef` first-load detector
+ * watches, so a spurious true→false would end their skeletons early.
+ *
+ * The error is dug out of the axios body rather than taken from `err.message`, for the same reason
+ * the delete paths do it: a bare "Request failed with status code 404" tells the user nothing.
+ *
+ * (An earlier version of this note claimed the list and detail screens share one hook instance.
+ * They do not — `createModuleHook` returns a plain hook with its own `useState` cells and there is
+ * no provider anywhere. Only the service singleton behind it is shared.)
+ */
+async function readOne(
+  fetchOne: () => Promise<ServiceResult>,
+  fallbackMessage: string,
+): Promise<ReadOneResult> {
+  try {
+    const response = await fetchOne();
+    if (response.success) return { success: true, data: response.data };
+    return { success: false, error: response.error || response.message || null };
+  } catch (err) {
+    const e = err as {
+      response?: { data?: { code?: string; error?: string; message?: string } };
+      message?: string;
+    };
+    const body = e.response?.data;
+    const message = body?.error || body?.message || (err as Error).message || fallbackMessage;
+    return { success: false, code: body?.code, error: message };
+  }
 }
 
 // ─── Selected Business ID (async) ────────────────────────────────────────────
@@ -288,7 +373,6 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     const [servicesTotalPages, setServicesTotalPages] = useState(1);
     /** Null until a server that sends it answers — never 0, which would read as "no services". */
     const [servicesTotalElements, setServicesTotalElements] = useState<number | null>(null);
-    const [customers, setCustomers] = useState<unknown[]>([]);
     const [employees, setEmployees] = useState<unknown[]>([]);
     const [orders, setOrders] = useState<unknown[]>([]);
     const [ordersTotalPages, setOrdersTotalPages] = useState(1);
@@ -453,40 +537,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       [service],
     );
 
-    /**
-     * Fetch ONE product for the detail screen.
-     *
-     * Deliberately does not touch the shared `products` array or the shared `loading` flag. Not
-     * tidiness: within a single screen's own hook instance those cells are also written by
-     * `createProduct`, `updateProduct` and `deleteProduct`, so a read that toggled them would
-     * race the save it was fetching for — and `loading` is what the list screens' `sawLoadingRef`
-     * first-load detector watches, so a spurious true→false would end their skeletons early. This
-     * owns its own try/catch and hands the row straight back to the caller.
-     *
-     * (An earlier version of this comment claimed the list and detail screens share one hook
-     * instance. They do not — `createModuleHook` returns a plain hook with its own `useState`
-     * cells and there is no provider. Only the service singleton behind it is shared.)
-     *
-     * The error is dug out of the axios body for the same reason `deleteProduct` does it: a bare
-     * "Request failed with status code 404" tells the user nothing.
-     */
+    /** Fetch ONE product for the detail screen. Contract and reasoning: see `readOne`. */
     const loadProduct = useCallback(
-      async (id: number) => {
-        try {
-          const response = await service.getProductById(id);
-          if (response.success) return { success: true, data: response.data };
-          return { success: false, error: response.error || response.message || null };
-        } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to load product';
-          return { success: false, code: body?.code, error: message };
-        }
-      },
+      (id: number) => readOne(() => service.getProductById(id), 'Failed to load product'),
       [service],
     );
 
@@ -575,31 +628,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * Fetch ONE service for the detail screen. Same contract as `loadProduct`, same reasons: no
-     * shared `services` array, no shared `loading`, its own try/catch, and the message dug out of
-     * the axios body rather than left as "Request failed with status code 404".
+     * Fetch ONE service for the detail screen. Contract and reasoning: see `readOne`.
      *
      * Services have no `enrich` step, so this returns exactly what `/viewAll` returns for the same
      * row — the detail screen could be seeded from a tapped list row and skip the loading state
      * entirely. Not done, because a stale row raises a refresh-ordering question this does not.
      */
     const loadService = useCallback(
-      async (id: number) => {
-        try {
-          const response = await service.getServiceById(id);
-          if (response.success) return { success: true, data: response.data };
-          return { success: false, error: response.error || response.message || null };
-        } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to load service';
-          return { success: false, code: body?.code, error: message };
-        }
-      },
+      (id: number) => readOne(() => service.getServiceById(id), 'Failed to load service'),
       [service],
     );
 
@@ -749,24 +785,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     // Customer & Employee
     // ═══════════════════════════════════════════════════════════════
 
-    const loadCustomers = useCallback(async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const personApi = new PersonApiImpl();
-        const response = await personApi.getAllPersons();
-        if (response?.data) {
-          setCustomers(Array.isArray(response.data) ? response.data : []);
-        } else {
-          setCustomers([]);
-        }
-      } catch (err) {
-        setError((err as Error).message || 'Failed to load customers');
-        setCustomers([]);
-      } finally {
-        setLoading(false);
-      }
-    }, []);
+    // `loadCustomers` used to live here. It called `/persons/viewAll` — unscoped, unpaginated,
+    // every Person the caller can see — wrote the result into a shared `customers` cell, and was
+    // consumed by nothing. The customer picker that finally needed a customer list wants a
+    // business-scoped, paged, searchable one, which is a Person concern rather than a module one,
+    // so it calls PersonService directly. Removed rather than left as a trap for the next caller.
 
     const loadEmployees = useCallback(async () => {
       setEmployees([]);
@@ -775,6 +798,35 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     // ═══════════════════════════════════════════════════════════════
     // Order CRUD
     // ═══════════════════════════════════════════════════════════════
+
+    /** Fetch ONE order for the detail screen. Contract and reasoning: see `readOne`. */
+    const loadOrder = useCallback(
+      (id: number) => readOne(() => service.getOrderById(id), 'Failed to load order'),
+      [service],
+    );
+
+    /**
+     * One customer's unbilled orders, for the bill's Add-items picker.
+     *
+     * Writes no shared state, same rule as the detail reads — the bill screen owns this list and
+     * pages it itself. `businessId` is resolved here rather than by the caller, matching
+     * `loadProductOptions`.
+     *
+     * Pass the bill's own `billId` when EDITING: the orders already on that bill are
+     * `isBilled = true` and would otherwise be filtered out of their own picker, so the user could
+     * not see or un-tick the lines they are looking at.
+     */
+    const loadBillableOrders = useCallback(
+      async (customerId: number, options: Omit<BillableListOptions, 'businessId'> = {}) => {
+        const businessId = await getSelectedBusinessId();
+        if (businessId == null) return { success: false, error: 'No business is selected.' };
+        return readOne(
+          () => service.getBillableOrders(customerId, { ...options, businessId }),
+          'Failed to load billable orders',
+        );
+      },
+      [service],
+    );
 
     const loadOrders = useCallback(
       async (page = 1, limit = 10, options: OrderListOptions = {}) => {
@@ -985,6 +1037,44 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     // Appointment CRUD
     // ═══════════════════════════════════════════════════════════════
 
+    /** Fetch ONE appointment for the detail screen. Contract and reasoning: see `readOne`. */
+    const loadAppointment = useCallback(
+      (id: number) => readOne(() => service.getAppointmentById(id), 'Failed to load appointment'),
+      [service],
+    );
+
+    /**
+     * Complete ONE service on an appointment.
+     *
+     * Its own endpoint rather than a full PUT, because the server owns the roll-up: completing the
+     * last outstanding item may also complete the appointment, and that decision is not the
+     * client's to make.
+     *
+     * ⚠️ The response sometimes comes back with an empty item list — the web portal hit this and
+     * falls back to a re-fetch. Callers must handle a bare DTO rather than trusting it.
+     */
+    const completeAppointmentItem = useCallback(
+      (appointmentId: number, itemId: string) =>
+        readOne(
+          () => service.completeAppointmentItem(appointmentId, itemId),
+          'Could not mark that service completed',
+        ),
+      [service],
+    );
+
+    /** One customer's unbilled appointments. Same contract as `loadBillableOrders`. */
+    const loadBillableAppointments = useCallback(
+      async (customerId: number, options: Omit<BillableListOptions, 'businessId'> = {}) => {
+        const businessId = await getSelectedBusinessId();
+        if (businessId == null) return { success: false, error: 'No business is selected.' };
+        return readOne(
+          () => service.getBillableAppointments(customerId, { ...options, businessId }),
+          'Failed to load billable appointments',
+        );
+      },
+      [service],
+    );
+
     const loadAppointments = useCallback(
       async (page = 1, limit = 10, options: AppointmentListOptions = {}) => {
         setLoading(true);
@@ -1025,8 +1115,18 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
      * no-ops for modules without the endpoint or on any failure. The dots are decoration — a 500
      * here must not take the screen down.
      *
-     * MERGES rather than replaces. Switching Day↔Calendar or paging months fetches a different
-     * window, and blanking the map first would drop every dot for a frame.
+     * Replaces WITHIN the requested window, keeps everything outside it.
+     *
+     * Not a plain `{...prev, ...next}` merge, and the difference is a real bug rather than a
+     * nicety: the server OMITS zero-count days from `counts` entirely, so a day that emptied out
+     * simply stops appearing in the response. A merge only ever adds or overwrites keys, so that
+     * day's old count survives in `prev` forever and its dot stays on the strip — after deleting
+     * the only appointment on a day, the dot outlived the appointment until a full remount.
+     *
+     * Not a wholesale replace either: switching Day↔Calendar or paging months fetches a different
+     * window, and blanking the map would drop every dot outside it for a frame. Dropping just the
+     * requested range and re-filling it from the response gets both. Plain string comparison is
+     * safe on YYYY-MM-DD.
      */
     const loadAppointmentDayCounts = useCallback(
       async (options: { fromDate: string; toDate: string }) => {
@@ -1036,7 +1136,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           const response = await service.getAppointmentDayCounts(businessId, options);
           if (response.success && response.data?.counts) {
             const next = response.data.counts;
-            setAppointmentDayCounts((prev) => ({ ...prev, ...next }));
+            setAppointmentDayCounts((prev) => {
+              const outsideWindow = Object.fromEntries(
+                Object.entries(prev).filter(
+                  ([day]) => day < options.fromDate || day > options.toDate,
+                ),
+              );
+              return { ...outsideWindow, ...next };
+            });
           }
         } catch {
           // Swallowed on purpose — see the note above.
@@ -1228,6 +1335,19 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     // Bills
     // ═══════════════════════════════════════════════════════════════
 
+    /**
+     * Fetch ONE bill for the detail screen. Contract and reasoning: see `readOne`.
+     *
+     * Unlike the other four, this response is genuinely richer than its list row: the backend
+     * enriches it with `billedOrderDetails`, `billedAppointmentDetails`, `bareProducts` and
+     * `bareServices`, none of which `/business/{id}` returns. The detail screen cannot be seeded
+     * from a tapped row.
+     */
+    const loadBill = useCallback(
+      (id: number) => readOne(() => service.getBillById(id), 'Failed to load bill'),
+      [service],
+    );
+
     const loadBills = useCallback(
       async (page = 1, limit = 20, options: BillListOptions = {}) => {
         setLoading(true);
@@ -1329,6 +1449,84 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             success: false,
             code: body?.code,
             error: body?.error || body?.message || e.message || 'Failed to update bill payment',
+          };
+        }
+      },
+      [service],
+    );
+
+    const createBill = useCallback(
+      async (data: Record<string, unknown>) => {
+        try {
+          return await service.createBill(data);
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          return {
+            success: false,
+            code: body?.code,
+            error: body?.error || body?.message || e.message || 'Failed to create bill',
+          };
+        }
+      },
+      [service],
+    );
+
+    /**
+     * ⚠️ `billId` first, THEN the body — the bill's id travels in the path
+     * (`PUT /{module}Bill/{billId}`), unlike every other update in this hook, which carries it in
+     * the body. Getting the argument order wrong here is a silent 404 or a write to the wrong bill.
+     *
+     * And a warning about what this endpoint does with what you send it: the update is a full
+     * destructive replace. Omitting `billedOrders` releases every linked order; omitting
+     * `customProducts` deletes the bare lines AND restocks their inventory; omitting `tips`,
+     * `discount` or `taxRate` zeroes them. The payload must be rebuilt from the fetched bill, not
+     * assembled from whatever the form happens to hold. For a status-only or payment-only change,
+     * use `updateBillStatus` / `updateBillPayment` instead — `billStatus: 'CANCELLED'` in a PUT
+     * body is a cascade trigger, not a label.
+     */
+    const updateBill = useCallback(
+      async (billId: number, data: Record<string, unknown>) => {
+        try {
+          return await service.updateBill(billId, data);
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          return {
+            success: false,
+            code: body?.code,
+            error: body?.error || body?.message || e.message || 'Failed to update bill',
+          };
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Deleting a bill cascades server-side: auto-generated orders and appointments are deleted,
+     * pre-existing ones are un-marked and released back into the billable pickers, and bare lines
+     * are restocked. No bill status blocks it.
+     */
+    const deleteBill = useCallback(
+      async (id: number) => {
+        try {
+          return await service.deleteBill(id);
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          return {
+            success: false,
+            code: body?.code,
+            error: body?.error || body?.message || e.message || 'Failed to delete bill',
           };
         }
       },
@@ -1501,7 +1699,6 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       services,
       servicesTotalPages,
       servicesTotalElements,
-      customers,
       employees,
       orders,
       ordersTotalPages,
@@ -1537,8 +1734,10 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
       // Order CRUD
       loadOrders,
+      loadOrder,
       loadOrderSummary,
       loadOrdersByCustomer,
+      loadBillableOrders,
       updateOrderStatus,
       createOrder,
       updateOrder,
@@ -1546,21 +1745,29 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
       // Appointment CRUD
       loadAppointments,
+      loadAppointment,
       loadAppointmentDayCounts,
       updateAppointmentStatus,
       rescheduleAppointment,
       loadAppointmentsByCustomer,
+      loadBillableAppointments,
+      completeAppointmentItem,
       createAppointment,
       updateAppointment,
       deleteAppointment,
 
-      // Other
-      loadCustomers,
-      loadEmployees,
+      // Bill CRUD
       loadBills,
+      loadBill,
       loadBillSummary,
       updateBillStatus,
       updateBillPayment,
+      createBill,
+      updateBill,
+      deleteBill,
+
+      // Other
+      loadEmployees,
 
       // Inventory CRUD
       loadInventoryByBusiness,

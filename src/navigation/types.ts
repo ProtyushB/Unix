@@ -13,10 +13,10 @@ export type RootStackParamList = {
 
 export type OwnerTabParamList = {
   Dashboard: undefined;
-  Orders: undefined;
-  Appointments: undefined;
-  Billing: undefined;
-  // The two tabs with a stack behind them, so the only ones whose params are not `undefined`.
+  // The five tabs with a stack behind them, so the only ones whose params are not `undefined`.
+  Orders: NavigatorScreenParams<OrdersStackParamList>;
+  Appointments: NavigatorScreenParams<AppointmentsStackParamList>;
+  Billing: NavigatorScreenParams<BillingStackParamList>;
   Products: NavigatorScreenParams<CatalogStackParamList>;
   Services: NavigatorScreenParams<ServicesStackParamList>;
   Packages: undefined;
@@ -56,19 +56,31 @@ export type ServicesStackParamList = {
   ServiceDetail: { serviceId?: number; mode: 'view' | 'edit' | 'add' };
 };
 
-export type OperationsStackParamList = {
-  OperationsMain: undefined;
-  OrderDetail: { orderId: number };
-  AppointmentDetail: { appointmentId: number };
-  BillingDetail: { billId: number };
+/**
+ * The Orders tab's stack.
+ *
+ * Replaces an `OperationsStackParamList` that declared `OrderDetail`, `AppointmentDetail` and
+ * `BillingDetail` on ONE stack behind an `OperationsMain` screen that never existed. Nothing
+ * consumed it, so nothing could catch the drift — exactly the rot the note above describes. Three
+ * tabs means three stacks: a shared one would let a bill's back button land on an order.
+ *
+ * `mode` is required and the id is not: no id means add mode, since there is no record to fetch.
+ */
+export type OrdersStackParamList = {
+  OrdersMain: undefined;
+  OrderDetail: { orderId?: number; mode: 'view' | 'edit' | 'add' };
 };
 
-export type InventoryStackParamList = {
-  InventoryMain: undefined;
+/** The Appointments tab's stack. */
+export type AppointmentsStackParamList = {
+  AppointmentsMain: undefined;
+  AppointmentDetail: { appointmentId?: number; mode: 'view' | 'edit' | 'add' };
 };
 
-export type PeopleStackParamList = {
-  PeopleMain: undefined;
+/** The Billing tab's stack. */
+export type BillingStackParamList = {
+  BillingMain: undefined;
+  BillDetail: { billId?: number; mode: 'view' | 'edit' | 'add' };
 };
 
 // Shared stack for both Customer Profile tab and Business Account tab

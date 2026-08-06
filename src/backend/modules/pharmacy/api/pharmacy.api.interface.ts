@@ -33,6 +33,25 @@ export interface OrderSummary {
 }
 
 /**
+ * Filters for the bill's Add-items pickers. Own copy rather than an import from the parlour
+ * interface, matching every other option type here — the two module surfaces are deliberately
+ * symmetric and independent.
+ *
+ * `billId` is the load-bearing one: while editing a bill, the orders and appointments already on it
+ * are `isBilled = true` and would otherwise be filtered out of their own picker. Passing the bill's
+ * own id keeps them visible so they can be un-ticked. Omit it when creating.
+ */
+export interface BillableListOptions {
+  businessId: number;
+  billId?: number;
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/**
  * Appointments list filters. Same shape as OrderListOptions — `status` is a comma-separated
  * AppointmentStatus list, dates are YYYY-MM-DD IST with `toDate` inclusive.
  *
@@ -214,6 +233,11 @@ export abstract class PharmacyApiInterface {
     customerId: number,
     options: Record<string, unknown>,
   ): Promise<ApiResponse<unknown[]>>;
+  /** One customer's unbilled orders, for the bill's Add-items picker. Paginated, `totalPages` set. */
+  abstract getBillableOrders(
+    customerId: number,
+    options: BillableListOptions,
+  ): Promise<ApiResponse<unknown[]>>;
 
   abstract getAllAppointments(
     businessId: number,
@@ -235,6 +259,11 @@ export abstract class PharmacyApiInterface {
     appointmentDateTime: string,
     options?: { userId?: number; reason?: string },
   ): Promise<ApiResponse<unknown>>;
+  /** POST base/{id}/item/{itemId}/complete — completes ONE service, server rolls the status up. */
+  abstract completeAppointmentItem(
+    appointmentId: number,
+    itemId: string,
+  ): Promise<ApiResponse<unknown>>;
   abstract getAppointmentById(id: number): Promise<ApiResponse<unknown>>;
   abstract createAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract updateAppointment(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
@@ -242,6 +271,11 @@ export abstract class PharmacyApiInterface {
   abstract getAppointmentsByCustomer(
     customerId: number,
     options: Record<string, unknown>,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** One customer's unbilled appointments. Same contract as `getBillableOrders`. */
+  abstract getBillableAppointments(
+    customerId: number,
+    options: BillableListOptions,
   ): Promise<ApiResponse<unknown[]>>;
 
   abstract getBillById(id: number): Promise<ApiResponse<unknown>>;

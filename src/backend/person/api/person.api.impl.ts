@@ -8,6 +8,8 @@ import {
   PersonApiInterface,
   PersonDto,
   UpdatePersonFlags,
+  CreateCustomerPayload,
+  CustomerDto,
   CustomerLookupMatch,
   ClaimCustomerPayload,
 } from './person.api.interface';
@@ -68,6 +70,44 @@ export class PersonApiImpl extends PersonApiInterface {
     }
 
     const response = await personApiClient.post(PERSON_API_CONFIG.ENDPOINTS.CUSTOMERS_CLAIM, body);
+    return response.data;
+  }
+
+  // ===== Customer APIs =====
+
+  async getCustomersByBusiness(
+    businessId: number,
+    page = 1,
+    limit = 20,
+    search?: string,
+  ): Promise<ApiResponse<CustomerDto[]>> {
+    const params: Record<string, unknown> = { page, limit };
+    // Omitted rather than sent blank: an empty `search` is not the same query as no search, and
+    // the backend treats the parameter's presence as intent to filter.
+    if (search?.trim()) params.search = search.trim();
+
+    const response = await personApiClient.get(
+      PERSON_API_CONFIG.ENDPOINTS.BUSINESS_CUSTOMERS(businessId),
+      { params },
+    );
+    return response.data;
+  }
+
+  async createCustomer(payload: CreateCustomerPayload): Promise<ApiResponse<PersonDto>> {
+    // The server wants first/last, the form collects one "Full name" box. Split on the first run of
+    // whitespace, and when there is only one word use it for BOTH — lastName is not nullable, and a
+    // one-word name is the normal case for a walk-in ("Priya", "Anjali").
+    const name = payload.name.trim();
+    const cut = name.search(/\s/);
+    const firstName = cut === -1 ? name : name.slice(0, cut);
+    const lastName = cut === -1 ? name : name.slice(cut + 1).trim();
+
+    const response = await personApiClient.post(PERSON_API_CONFIG.ENDPOINTS.PERSONS_CUSTOMER, {
+      firstName,
+      lastName,
+      email: payload.email.trim(),
+      phoneNumber: payload.phone.trim(),
+    });
     return response.data;
   }
 

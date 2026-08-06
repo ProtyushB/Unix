@@ -155,6 +155,15 @@ export const REGISTRY: ScreenEntry[] = [
     load: () => import('../src/screens/owner/CustomersScreen'),
   },
   {
+    // One entry, not three: unlike the product/service detail screens the picker's three states
+    // are internal, so the gallery can walk list → results → create from a single mount. The host
+    // exists because the picker is a Modal and has nothing to render into on its own.
+    id: 'owner/customer-picker',
+    title: 'Customer Picker · Shared',
+    group: 'Shared',
+    load: () => import('./hosts/CustomerPickerHost'),
+  },
+  {
     id: 'owner/employees',
     title: 'Employees',
     group: 'Owner',
@@ -164,7 +173,29 @@ export const REGISTRY: ScreenEntry[] = [
     id: 'owner/orders',
     title: 'Orders',
     group: 'Owner',
-    load: () => import('../src/screens/owner/OrdersScreen'),
+    load: () => import('../src/screens/owner/orders/OrdersScreen'),
+  },
+  {
+    // One entry per mode, same as the product and service detail trios.
+    id: 'owner/order-detail-view',
+    title: 'Order Detail · View',
+    group: 'Owner',
+    params: { orderId: 94, mode: 'view' },
+    load: () => import('../src/screens/owner/orders/detail/OrderDetailScreen'),
+  },
+  {
+    id: 'owner/order-detail-edit',
+    title: 'Order Detail · Edit',
+    group: 'Owner',
+    params: { orderId: 94, mode: 'edit' },
+    load: () => import('../src/screens/owner/orders/detail/OrderDetailScreen'),
+  },
+  {
+    id: 'owner/order-detail-add',
+    title: 'Order Detail · Add',
+    group: 'Owner',
+    params: { mode: 'add' },
+    load: () => import('../src/screens/owner/orders/detail/OrderDetailScreen'),
   },
   {
     id: 'owner/appointments',
@@ -173,10 +204,52 @@ export const REGISTRY: ScreenEntry[] = [
     load: () => import('../src/screens/owner/appointments/AppointmentsScreen'),
   },
   {
+    id: 'owner/appointment-detail-view',
+    title: 'Appointment Detail · View',
+    group: 'Owner',
+    params: { appointmentId: 51, mode: 'view' },
+    load: () => import('../src/screens/owner/appointments/detail/AppointmentDetailScreen'),
+  },
+  {
+    id: 'owner/appointment-detail-edit',
+    title: 'Appointment Detail · Edit',
+    group: 'Owner',
+    params: { appointmentId: 51, mode: 'edit' },
+    load: () => import('../src/screens/owner/appointments/detail/AppointmentDetailScreen'),
+  },
+  {
+    id: 'owner/appointment-detail-add',
+    title: 'Appointment Detail · Add',
+    group: 'Owner',
+    params: { mode: 'add' },
+    load: () => import('../src/screens/owner/appointments/detail/AppointmentDetailScreen'),
+  },
+  {
     id: 'owner/billing',
     title: 'Billing',
     group: 'Owner',
     load: () => import('../src/screens/owner/billing/BillingScreen'),
+  },
+  {
+    id: 'owner/bill-detail-view',
+    title: 'Bill Detail · View',
+    group: 'Owner',
+    params: { billId: 51, mode: 'view' },
+    load: () => import('../src/screens/owner/billing/detail/BillDetailScreen'),
+  },
+  {
+    id: 'owner/bill-detail-edit',
+    title: 'Bill Detail · Edit',
+    group: 'Owner',
+    params: { billId: 51, mode: 'edit' },
+    load: () => import('../src/screens/owner/billing/detail/BillDetailScreen'),
+  },
+  {
+    id: 'owner/bill-detail-add',
+    title: 'Bill Detail · Add',
+    group: 'Owner',
+    params: { mode: 'add' },
+    load: () => import('../src/screens/owner/billing/detail/BillDetailScreen'),
   },
   {
     id: 'owner/inventory',
