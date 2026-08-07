@@ -22,6 +22,7 @@ import { Badge } from '../../shared/detail/parts/Badge';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
 import { MediaStrip } from '../../shared/detail/parts/MediaStrip';
+import { ImageStage } from '../../shared/detail/parts/ImageStage';
 import { SwitchRow } from '../../shared/detail/parts/SwitchRow';
 import { RequiredProductsPicker } from './parts/RequiredProductsPicker';
 import {
@@ -191,12 +192,15 @@ export function ServiceDetailBase({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <MediaStrip
-          uris={imageUris}
-          editable={editable}
-          onAdd={onAddImage}
-          onRemove={onRemoveImage}
-        />
+        {/* Two different components, not one with a flag — same split as the product screen.
+            Reading is a 3:4 stage that pages and never crops (`ImageStage`); editing is a row of
+            78px input tiles led by an Add button, because above a form a stage would push every
+            field below the fold. */}
+        {editable ? (
+          <MediaStrip uris={imageUris} onAdd={onAddImage} onRemove={onRemoveImage} />
+        ) : (
+          <ImageStage uris={imageUris} />
+        )}
 
         {!editable ? (
           <View style={styles.titleBlock}>
