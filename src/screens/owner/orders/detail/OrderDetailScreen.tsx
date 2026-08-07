@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../../../hooks/useTheme';
@@ -22,7 +22,17 @@ import {
   STATUS_ORDER,
   type OrderDetailItem,
 } from './orderDetail.model';
-import { canEdit, deriveDetailView, lockedReason, type DetailMode } from './orderDetail.view';
+import {
+  canEdit,
+  deriveDetailView,
+  lockedReason,
+  showsCreateProduct,
+  type DetailMode,
+} from './orderDetail.view';
+import {
+  shouldResumeCatalogPick,
+  shouldStartCreateNav,
+} from '../../shared/detail/catalogPicker.view';
 import { saleUnitsOf } from './orderLineUnits';
 
 /**
@@ -59,7 +69,12 @@ function stockBadge(quantity: number | null): CatalogRow['badge'] {
 interface OrderDetailScreenProps {
   route?: { params?: { orderId?: number; mode?: DetailMode } };
   /** Optional, so the web preview can mount the screen with no navigator around it. */
-  navigation?: { goBack: () => void; setParams?: (params: Record<string, unknown>) => void };
+  navigation?: {
+    goBack: () => void;
+    setParams?: (params: Record<string, unknown>) => void;
+    navigate?: (route: string, params?: Record<string, unknown>) => void;
+    addListener?: (event: string, cb: () => void) => (() => void) | undefined;
+  };
 }
 
 export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps = {}) {
@@ -107,6 +122,17 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
   const [catalog, setCatalog] = useState<PickableProduct[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  /*
+    The "go make a product, then come back here" round trip.
+
+    `pickedProductIds` lives HERE and not inside the sheet because the trip outlives the sheet's
+    children — a selection kept in there would be gone by the time the user returned.
+  */
+  const [pendingCreate, setPendingCreate] = useState(false);
+  const [awaitingProduct, setAwaitingProduct] = useState(false);
+  const [pickedProductIds, setPickedProductIds] = useState<number[]>([]);
+  const hasFocusedRef = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -173,6 +199,41 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
     if (!editable || catalog.length || catalogLoading) return;
     void loadCatalog();
   }, [editable, catalog.length, catalogLoading, loadCatalog]);
+
+  /**
+   * Leave for the product create screen — but only once the picker Modal is down.
+   *
+   * A native push that lands while the Modal is still mounted goes UNDERNEATH it. `ProductDetail`
+   * is registered on the ORDERS stack, so this is a push within the current stack rather than a
+   * jump to the Products tab: the screen below is frozen, not unmounted, and every line, the
+   * customer and the dates are all still here on the way back.
+   */
+  useEffect(() => {
+    if (!shouldStartCreateNav({ pendingCreate, sheetOpen: sheet !== 'none' })) return;
+    setPendingCreate(false);
+    setAwaitingProduct(true);
+    navigation?.navigate?.('ProductDetail', { mode: 'add' });
+  }, [pendingCreate, sheet, navigation]);
+
+  /**
+   * Coming back: refresh the catalog and reopen the picker on the selection they left behind.
+   *
+   * `loadCatalog()` directly rather than emptying `catalog` first — the catalog also feeds the
+   * line display, and add-mode lines carry no product snapshot, so a blank window would repaint
+   * every line the user had already added as "Product #12" with no unit chips until the refetch
+   * landed.
+   */
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      const isFirstFocus = !hasFocusedRef.current;
+      hasFocusedRef.current = true;
+      if (!shouldResumeCatalogPick({ awaiting: awaitingProduct, isFirstFocus })) return;
+      setAwaitingProduct(false);
+      void loadCatalog();
+      setSheet('products');
+    });
+    return unsubscribe;
+  }, [navigation, awaitingProduct, loadCatalog]);
 
   const onSaved = useCallback(
     (saved: OrderDetailItem) => {
@@ -402,6 +463,9 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
         loading={catalogLoading}
         error={catalogError}
         alreadyAdded={engine.form.lines.map((l) => l.productId)}
+        picked={pickedProductIds}
+        onPickedChange={setPickedProductIds}
+        onCreateNew={showsCreateProduct(mode) ? () => setPendingCreate(true) : undefined}
         onAdd={(rows) => engine.addProducts(rows.map((r) => r.raw as PickableProduct))}
         onClose={() => setSheet('none')}
         onRetry={() => {

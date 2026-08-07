@@ -50,3 +50,60 @@ export function createNewA11yLabel(noun: string): string {
   const n = noun.trim().toLowerCase();
   return n ? `Create new ${n}` : 'Create new';
 }
+
+// ─── Multi-select mechanics ──────────────────────────────────────────────────
+
+/**
+ * Add or remove one id, preserving the order they were ticked in.
+ *
+ * `serviceDetail.model.ts` has its own `toggleProductId` doing the same thing. Deliberately not
+ * imported across feature folders — this one belongs to the shared sheet and that one to the
+ * service form, and coupling them would mean a change for one had to be safe for the other.
+ */
+export function togglePick(ids: number[], id: number): number[] {
+  return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
+}
+
+/**
+ * The ticks that are still real, dropping any that were committed while the user was elsewhere.
+ *
+ * Matters because the selection now outlives the sheet: someone can tick three products, leave to
+ * create a fourth, and come back to find one of the three already on the record. Without this the
+ * footer would promise "Add 3" while `onAdd` handed over a row the caller then ignores as a
+ * duplicate — a count that lies by one.
+ */
+export function activePicks(picked: number[], alreadyAdded: number[]): number[] {
+  if (!alreadyAdded.length) return picked;
+  const added = new Set(alreadyAdded);
+  return picked.filter((id) => !added.has(id));
+}
+
+// ─── The create round trip ───────────────────────────────────────────────────
+
+/**
+ * Whether it is time to push the create screen.
+ *
+ * The push waits for the sheet to be DOWN. A native stack push that lands while the picker Modal
+ * is still mounted goes underneath it, leaving the user looking at the picker with an invisible
+ * screen behind. Taking a plain boolean rather than the sheet state itself keeps this usable from
+ * screens that spell "closed" differently — `null` on one, `'none'` on the others.
+ */
+export function shouldStartCreateNav(input: {
+  pendingCreate: boolean;
+  sheetOpen: boolean;
+}): boolean {
+  return input.pendingCreate && !input.sheetOpen;
+}
+
+/**
+ * On regaining focus: reopen the picker because we left it to create something?
+ *
+ * The first-focus skip is the app-wide convention — a screen fires focus once on mount, and acting
+ * on that would reopen the picker over a form nobody has touched.
+ */
+export function shouldResumeCatalogPick(input: {
+  awaiting: boolean;
+  isFirstFocus: boolean;
+}): boolean {
+  return input.awaiting && !input.isFirstFocus;
+}

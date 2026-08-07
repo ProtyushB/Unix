@@ -35,6 +35,16 @@ export function showsEditCta(mode: DetailMode): boolean {
   return mode === 'view';
 }
 
+/**
+ * Whether the services picker offers "New Service".
+ *
+ * Add AND edit, matching the order screen's `showsCreateProduct` deliberately — the two screens
+ * answer the same question and should not drift apart on it.
+ */
+export function showsCreateService(mode: DetailMode): boolean {
+  return isEditable(mode);
+}
+
 // ─── Copy ────────────────────────────────────────────────────────────────────
 
 export function appBarTitle(mode: DetailMode, appointmentNumber: string): string {

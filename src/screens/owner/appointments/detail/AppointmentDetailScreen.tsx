@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../../../hooks/useTheme';
@@ -25,7 +25,17 @@ import {
   STATUS_ORDER,
   type AppointmentDetailItem,
 } from './appointmentDetail.model';
-import { canEdit, deriveDetailView, lockedReason, type DetailMode } from './appointmentDetail.view';
+import {
+  canEdit,
+  deriveDetailView,
+  lockedReason,
+  showsCreateService,
+  type DetailMode,
+} from './appointmentDetail.view';
+import {
+  shouldResumeCatalogPick,
+  shouldStartCreateNav,
+} from '../../shared/detail/catalogPicker.view';
 import { displayServices, passthroughItems } from './appointmentLines';
 
 type OpenSheet = 'none' | 'customer' | 'status' | 'services' | 'time';
@@ -55,7 +65,12 @@ const TIME_SLOTS = Array.from({ length: 32 }, (_, i) => {
 
 interface Props {
   route?: { params?: { appointmentId?: number; mode?: DetailMode } };
-  navigation?: { goBack: () => void; setParams?: (params: Record<string, unknown>) => void };
+  navigation?: {
+    goBack: () => void;
+    setParams?: (params: Record<string, unknown>) => void;
+    navigate?: (route: string, params?: Record<string, unknown>) => void;
+    addListener?: (event: string, cb: () => void) => (() => void) | undefined;
+  };
 }
 
 export function AppointmentDetailScreen({ route, navigation }: Props = {}) {
@@ -101,6 +116,16 @@ export function AppointmentDetailScreen({ route, navigation }: Props = {}) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [completing, setCompleting] = useState<number | null>(null);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
+
+  /*
+    The "go make a service, then come back here" round trip. `pickedServiceIds` lives here because
+    the trip outlives the picker Modal's children.
+  */
+  const [pendingCreate, setPendingCreate] = useState(false);
+  const [awaitingService, setAwaitingService] = useState(false);
+  const [pickedServiceIds, setPickedServiceIds] = useState<number[]>([]);
+  const [catalogRefreshing, setCatalogRefreshing] = useState(false);
+  const hasFocusedRef = useRef(false);
   /**
    * The platform date picker, kept out of `OpenSheet` because it is not a Modal of ours — it is
    * the OS dialog, and the two never overlap.
@@ -144,6 +169,40 @@ export function AppointmentDetailScreen({ route, navigation }: Props = {}) {
     setCatalogLoaded(true);
     void loadServices(1, 200);
   }, [editable, catalogLoaded, loadServices]);
+
+  /**
+   * Leave for the service create screen, once the picker Modal is down.
+   *
+   * A native push landing while the Modal is up goes underneath it. `ServiceDetail` is registered
+   * on the APPOINTMENTS stack so this stays within the current stack — the screen below is frozen
+   * rather than unmounted, so the customer, date, time and every line survive the trip.
+   */
+  useEffect(() => {
+    if (!shouldStartCreateNav({ pendingCreate, sheetOpen: sheet !== 'none' })) return;
+    setPendingCreate(false);
+    setAwaitingService(true);
+    navigation?.navigate?.('ServiceDetail', { mode: 'add' });
+  }, [pendingCreate, sheet, navigation]);
+
+  /**
+   * Coming back: refresh and reopen on the selection they left behind.
+   *
+   * `loadServices` is called directly rather than by clearing the `catalogLoaded` latch — that
+   * latch is a one-shot and resetting it would race the effect above into a second fetch. The
+   * hook replaces its `services` cell rather than emptying it, so no line label ever blanks.
+   */
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      const isFirstFocus = !hasFocusedRef.current;
+      hasFocusedRef.current = true;
+      if (!shouldResumeCatalogPick({ awaiting: awaitingService, isFirstFocus })) return;
+      setAwaitingService(false);
+      setCatalogRefreshing(true);
+      void loadServices(1, 200).finally(() => setCatalogRefreshing(false));
+      setSheet('services');
+    });
+    return unsubscribe;
+  }, [navigation, awaitingService, loadServices]);
 
   const engine = useAppointmentDetailForm({
     mode,
@@ -384,9 +443,14 @@ export function AppointmentDetailScreen({ route, navigation }: Props = {}) {
         searchPlaceholder="Search services…"
         noun="service"
         rows={catalogRows}
-        loading={false}
+        // Only ever true on the way back from creating a service — the initial load happens before
+        // the sheet can be opened. Shows a spinner over the stale rows rather than an empty list.
+        loading={catalogRefreshing}
         error={null}
         alreadyAdded={engine.form.lines.map((l) => l.serviceId)}
+        picked={pickedServiceIds}
+        onPickedChange={setPickedServiceIds}
+        onCreateNew={showsCreateService(mode) ? () => setPendingCreate(true) : undefined}
         onAdd={(rows) => engine.addServices(rows.map((r) => r.raw as PickableService))}
         onClose={() => setSheet('none')}
       />
