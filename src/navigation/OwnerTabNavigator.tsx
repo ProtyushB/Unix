@@ -99,6 +99,12 @@ function InventoryNavigator() {
     <InventoryStack.Navigator screenOptions={{ headerShown: false }}>
       <InventoryStack.Screen name="InventoryMain" component={InventoryScreen} />
       <InventoryStack.Screen name="InventoryDetail" component={BatchDetailScreen} />
+      {/*
+        Same component as CatalogStack's, on purpose. Route names resolve to the NEAREST navigator,
+        so `navigate('ProductDetail')` from the batch form stays on this stack — which is what keeps
+        the half-filled batch mounted underneath. See the note on `InventoryStackParamList`.
+      */}
+      <InventoryStack.Screen name="ProductDetail" component={ProductDetailScreen} />
     </InventoryStack.Navigator>
   );
 }

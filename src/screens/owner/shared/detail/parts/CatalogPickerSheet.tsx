@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronLeft, Image as ImageIcon, Plus, Search } from 'lucide-react-native';
+import { createNewA11yLabel, createNewLabel, showsCreateNew } from '../catalogPicker.view';
 import { useTheme } from '../../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../../theme/theme.types';
@@ -57,6 +58,15 @@ interface Props {
    * and a footer reading "Add 1 product" after every tap would be noise there.
    */
   singleSelect?: boolean;
+  /**
+   * Shows a "New <noun>" pill in the app bar. Absent = no pill, which is the whole gate.
+   *
+   * The sheet dismisses ITSELF before calling this — a caller that navigates would otherwise be
+   * pushing a screen underneath a Modal that is still up (see the never-two-Modals note on
+   * `OptionSheet`). Because dismissing also resets `query` and `picked`, do not pass this to a
+   * multi-select picker without deciding what happens to a selection in progress.
+   */
+  onCreateNew?: () => void;
   onAdd: (rows: CatalogRow[]) => void;
   onClose: () => void;
   onRetry?: () => void;
@@ -86,6 +96,7 @@ export function CatalogPickerSheet({
   error,
   alreadyAdded,
   singleSelect = false,
+  onCreateNew,
   onAdd,
   onClose,
   onRetry,
@@ -162,6 +173,26 @@ export function CatalogPickerSheet({
             <Text style={styles.appBarTitle}>{title}</Text>
             <Text style={styles.appBarSubtitle}>{subtitle}</Text>
           </View>
+
+          {/*
+            Close FIRST, then hand off. The callback is expected to navigate, and a native push
+            that lands while this Modal is still mounted goes UNDERNEATH it — the user would be
+            looking at the picker with a screen they cannot see behind it.
+          */}
+          {showsCreateNew(onCreateNew) ? (
+            <Pressable
+              onPress={() => {
+                dismiss();
+                onCreateNew?.();
+              }}
+              style={styles.createPill}
+              accessibilityRole="button"
+              accessibilityLabel={createNewA11yLabel(noun)}
+            >
+              <Plus size={14} color={theme.colors.primary} />
+              <Text style={styles.createPillLabel}>{createNewLabel(noun)}</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={styles.searchWrap}>
@@ -316,6 +347,21 @@ function createStyles(theme: AppTheme) {
     appBarCopy: { flex: 1, gap: 2 },
     appBarTitle: { fontSize: 16, fontWeight: '700', color: theme.palette.onBackground },
     appBarSubtitle: { fontSize: 12, color: theme.palette.muted },
+
+    // Tinted, not filled — the mockup's pill is the accent at 12% over a 25% border, so it reads
+    // as a secondary action next to the sheet's solid accent "Add" button in the footer.
+    createPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingVertical: 7,
+      paddingHorizontal: 11,
+      borderRadius: 12,
+      borderWidth: 1,
+      backgroundColor: theme.colors.primary + '1F',
+      borderColor: theme.colors.primary + '40',
+    },
+    createPillLabel: { fontSize: 12.5, fontWeight: '600', color: theme.colors.primary },
 
     searchWrap: {
       flexDirection: 'row',

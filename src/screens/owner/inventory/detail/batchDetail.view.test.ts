@@ -6,6 +6,9 @@ import {
   errorSummary,
   hasErrors,
   isEditable,
+  shouldLoadCatalog,
+  shouldResumeProductPick,
+  showsCreateProduct,
   showsDelete,
   showsEditCta,
   typeDescription,
@@ -71,6 +74,58 @@ describe('mode → affordances', () => {
     expect(appBarTitle('add', '')).toBe('Add Batch');
     expect(appBarTitle('view', 'M-BCH-2026-08-07-001')).toBe('M-BCH-2026-08-07-001');
     expect(appBarTitle('view', '')).toBe('Batch');
+  });
+});
+
+describe('showsCreateProduct', () => {
+  it('offers New Product only while composing a batch', () => {
+    expect(showsCreateProduct('add')).toBe(true);
+    expect(showsCreateProduct('view')).toBe(false);
+  });
+});
+
+describe('shouldLoadCatalog', () => {
+  const i = (over: Partial<Parameters<typeof shouldLoadCatalog>[0]> = {}) => ({
+    mode: 'add' as const,
+    hasRows: false,
+    loading: false,
+    ...over,
+  });
+
+  it('fetches once, for the add form that needs it', () => {
+    expect(shouldLoadCatalog(i())).toBe(true);
+  });
+
+  it('does not fetch a catalog the read screen has no picker for', () => {
+    expect(shouldLoadCatalog(i({ mode: 'view' }))).toBe(false);
+  });
+
+  it('does not refetch what it already holds, or what is already in flight', () => {
+    expect(shouldLoadCatalog(i({ hasRows: true }))).toBe(false);
+    expect(shouldLoadCatalog(i({ loading: true }))).toBe(false);
+  });
+
+  it('re-arms once the held rows are dropped', () => {
+    // This is the mechanism: returning from creating a product clears the rows, which is what
+    // makes the new product appear in the picker instead of a stale list without it.
+    expect(shouldLoadCatalog(i({ hasRows: true }))).toBe(false);
+    expect(shouldLoadCatalog(i({ hasRows: false }))).toBe(true);
+  });
+});
+
+describe('shouldResumeProductPick', () => {
+  it('reopens the picker only after coming BACK from creating a product', () => {
+    expect(shouldResumeProductPick({ awaitingProduct: true, isFirstFocus: false })).toBe(true);
+  });
+
+  it('ignores the focus a screen fires on mount', () => {
+    // Every screen focuses once when it mounts. Acting on that would reopen the picker over a form
+    // the user has not touched yet, and fight the mount-time catalog fetch.
+    expect(shouldResumeProductPick({ awaitingProduct: true, isFirstFocus: true })).toBe(false);
+  });
+
+  it('stays out of the way of an ordinary return to this screen', () => {
+    expect(shouldResumeProductPick({ awaitingProduct: false, isFirstFocus: false })).toBe(false);
   });
 });
 
