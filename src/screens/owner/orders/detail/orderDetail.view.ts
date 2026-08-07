@@ -44,6 +44,17 @@ export function showsEditCta(mode: DetailMode): boolean {
   return mode === 'view';
 }
 
+/**
+ * Whether the products picker offers "New Product".
+ *
+ * Wherever the picker itself is reachable, which is add AND edit — not `mode === 'add'` as on the
+ * batch screen. A batch belongs to one product chosen once; an order gains lines throughout its
+ * life, so a pill that disappeared while editing would be an arbitrary hole in the same task.
+ */
+export function showsCreateProduct(mode: DetailMode): boolean {
+  return isEditable(mode);
+}
+
 // ─── Copy ────────────────────────────────────────────────────────────────────
 
 /**

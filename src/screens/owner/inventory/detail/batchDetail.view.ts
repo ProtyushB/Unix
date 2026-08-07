@@ -1,4 +1,5 @@
 import { todayIst } from '../../../../utils/dateRange';
+import { shouldResumeCatalogPick } from '../../shared/detail/catalogPicker.view';
 import type { BatchFormState } from './batchDetail.model';
 
 /**
@@ -101,7 +102,12 @@ export function shouldResumeProductPick(input: {
   awaitingProduct: boolean;
   isFirstFocus: boolean;
 }): boolean {
-  return input.awaitingProduct && !input.isFirstFocus;
+  // Delegates now that Orders and Appointments do the same thing — the rule is one rule, and
+  // three copies of it would be three chances to drift.
+  return shouldResumeCatalogPick({
+    awaiting: input.awaitingProduct,
+    isFirstFocus: input.isFirstFocus,
+  });
 }
 
 /** The Product/Raw explainer under the segmented control. */

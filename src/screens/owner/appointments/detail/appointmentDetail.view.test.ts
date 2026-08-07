@@ -15,6 +15,7 @@ import {
   isEditable,
   lockedReason,
   saveLabel,
+  showsCreateService,
   showsDelete,
   showsEditCta,
   validateAppointment,
@@ -48,6 +49,13 @@ describe('mode gates and copy', () => {
     expect(showsDelete('edit')).toBe(true);
     expect(showsDelete('add')).toBe(false);
     expect(showsEditCta('view')).toBe(true);
+  });
+
+  it('offers New Service wherever the picker is reachable', () => {
+    // Kept in step with the order screen's showsCreateProduct on purpose.
+    expect(showsCreateService('add')).toBe(true);
+    expect(showsCreateService('edit')).toBe(true);
+    expect(showsCreateService('view')).toBe(false);
   });
 
   it('titles and subtitles each mode as drawn', () => {
