@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { ImageIcon } from 'lucide-react-native';
+import { ImageIcon, ImagePlus, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../../theme/theme.types';
@@ -22,26 +22,39 @@ import {
   offsetForPage,
   pageIndexFromOffset,
   showsPager,
+  showsThumbs,
   thumbStripOffset,
 } from '../imageStage';
 
 interface ImageStageProps {
   /** Already-resolved URIs, in display order. See `useProductImages` for why not DMS ids. */
   uris: string[];
+  /** Adds the Add tile and the stage's Remove button. The photos themselves render identically. */
+  editable?: boolean;
+  onAdd?: () => void;
+  onRemove?: (index: number) => void;
 }
 
 /**
- * The product's photos, in view mode: a 3:4 portrait stage that pages.
+ * A product's or service's photos: a 3:4 portrait stage that pages.
+ *
+ * ONE component for both modes, and that is the point — a photo is judged at the size it will be
+ * seen, so what you pick while editing is framed exactly as the customer-facing screen frames it.
+ * Editing only adds two affordances; it changes nothing about how a photo is drawn.
  *
  * Every rule it follows is in `imageStage.ts`, including the one that matters most — the photo is
  * CONTAINED, never cropped. A landscape shot letterboxes, a tall shot pillarboxes, and the bars are
  * the stage's own surface so the frame stays legible either way.
  *
+ * ⚠️ The stage is ~477pt on a 390pt phone, so in edit mode the first form field starts below the
+ * fold. That is deliberate and was chosen over a shorter edit stage: a photo picker that shows the
+ * photo smaller than the screen it feeds is how you end up shipping a badly framed hero.
+ *
  * Paging is driven from two places that must not fight each other: swiping the stage moves the
- * thumbnails, tapping a thumbnail moves the stage. Both funnel through `setActive`, and the scroll
- * each one triggers on the OTHER strip is imperative, so neither re-enters the handler that ran it.
+ * thumbnails, tapping a thumbnail moves the stage. Both funnel through `activeRef` before they
+ * scroll, so neither re-enters the handler that ran it.
  */
-export function ImageStage({ uris }: ImageStageProps) {
+export function ImageStage({ uris, editable = false, onAdd, onRemove }: ImageStageProps) {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -66,20 +79,32 @@ export function ImageStage({ uris }: ImageStageProps) {
    */
   const activeRef = useRef(0);
 
-  const syncTo = useCallback((next: number) => {
+  const hasAdd = editable && !!onAdd;
+
+  const syncTo = useCallback(
+    (next: number) => {
+      if (next === activeRef.current) return;
+      activeRef.current = next;
+      setActive(next);
+      thumbsRef.current?.scrollTo({ x: thumbStripOffset(next, hasAdd), animated: true });
+    },
+    [hasAdd],
+  );
+
+  /**
+   * Follow the list shrinking, which in edit mode happens on every Remove.
+   *
+   * Two things, and the scroll is the one that is easy to forget: removing the LAST photo while it
+   * is on screen leaves both the index and the pager's scroll offset past the end — the counter
+   * reads "5 / 4" and the stage sits on empty space the content no longer covers.
+   */
+  useEffect(() => {
+    const next = clampIndex(activeRef.current, count);
     if (next === activeRef.current) return;
     activeRef.current = next;
     setActive(next);
-    thumbsRef.current?.scrollTo({ x: thumbStripOffset(next), animated: true });
-  }, []);
-
-  // Removing the photo that is on screen leaves the index past the end — the counter would read
-  // "5 / 4" with no dot lit.
-  useEffect(() => {
-    const next = clampIndex(activeRef.current, count);
-    activeRef.current = next;
-    setActive(next);
-  }, [count]);
+    pagerRef.current?.scrollTo({ x: offsetForPage(next, stageWidth), animated: false });
+  }, [count, stageWidth]);
 
   const onPagerScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -98,16 +123,25 @@ export function ImageStage({ uris }: ImageStageProps) {
   );
 
   const pager = showsPager(count);
+  const thumbs = showsThumbs(count, editable);
 
   return (
     <View style={styles.wrap}>
       <View style={styles.stage} onLayout={(e) => setStageWidth(e.nativeEvent.layout.width)}>
         {count === 0 ? (
-          // A bare glyph, no caption. A product with no photo is the common case, and labelling it
-          // "No images" states the obvious twice.
-          <View style={styles.empty}>
+          // While editing the empty stage IS the Add button — a full-bleed target beats making the
+          // user find the 60px tile below it. Reading, it is a bare glyph with no caption: a product
+          // with no photo is the common case, and labelling it "No images" states the obvious twice.
+          <Pressable
+            onPress={hasAdd ? onAdd : undefined}
+            disabled={!hasAdd}
+            style={styles.empty}
+            accessibilityRole={hasAdd ? 'button' : 'image'}
+            accessibilityLabel={hasAdd ? 'Add an image' : 'No image'}
+          >
             <ImageIcon size={44} color={theme.palette.muted} />
-          </View>
+            {hasAdd ? <Text style={styles.emptyLabel}>Tap to add a photo</Text> : null}
+          </Pressable>
         ) : (
           <ScrollView
             ref={pagerRef}
@@ -138,6 +172,19 @@ export function ImageStage({ uris }: ImageStageProps) {
           </ScrollView>
         )}
 
+        {/* Removes the photo ON THE STAGE, not one identified from a 60px crop. Sits opposite the
+            counter so the two read as one row of chrome rather than two competing badges. */}
+        {editable && onRemove && count > 0 ? (
+          <Pressable
+            onPress={() => onRemove(active)}
+            style={styles.removeButton}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove image ${active + 1} of ${count}`}
+          >
+            <Trash2 size={13} color="#FFFFFF" />
+          </Pressable>
+        ) : null}
+
         {pager ? (
           <>
             <View style={styles.counter} pointerEvents="none">
@@ -158,13 +205,26 @@ export function ImageStage({ uris }: ImageStageProps) {
         ) : null}
       </View>
 
-      {pager ? (
+      {thumbs ? (
         <ScrollView
           ref={thumbsRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.thumbs}
         >
+          {/* Add comes first, so its position never moves as photos are added and removed. */}
+          {hasAdd ? (
+            <Pressable
+              onPress={onAdd}
+              style={styles.addTile}
+              accessibilityRole="button"
+              accessibilityLabel="Add image"
+            >
+              <ImagePlus size={20} color={theme.palette.muted} />
+              <Text style={styles.addLabel}>Add</Text>
+            </Pressable>
+          ) : null}
+
           {uris.map((uri, i) => (
             <Pressable
               key={`thumb-${uri}-${i}`}
@@ -201,16 +261,17 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: theme.palette.divider,
     },
-    empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+    emptyLabel: { fontSize: 12.5, color: theme.palette.muted },
     // The page is the full stage; the photo is centred inside it by `contain`, so the leftover
     // letterbox/pillarbox area shows the stage's surface through.
     page: { height: '100%', alignItems: 'center', justifyContent: 'center' },
     photo: { width: '100%', height: '100%' },
 
-    // Deliberately NOT themed, here and on the dots below. This chrome sits on top of an arbitrary
-    // photo, not on a surface — `palette.overlay` is a 15% sheen meant for scrims over known
-    // backgrounds, and white-on-that would vanish against a pale product shot. A fixed dark scrim
-    // with white on it is legible over anything, in all sixteen themes.
+    // Deliberately NOT themed, here and on the dots and Remove below. This chrome sits on top of an
+    // arbitrary photo, not on a surface — `palette.overlay` is a 15% sheen meant for scrims over
+    // known backgrounds, and white-on-that would vanish against a pale product shot. A fixed dark
+    // scrim with white on it is legible over anything, in all sixteen themes.
     counter: {
       position: 'absolute',
       top: 14,
@@ -221,6 +282,20 @@ function createStyles(theme: AppTheme) {
       backgroundColor: 'rgba(0,0,0,0.65)',
     },
     counterLabel: { fontSize: 11, fontWeight: '600', color: '#FFFFFF' },
+
+    // Tinted with the error colour rather than plain black — it is the one destructive control on
+    // the screen, and it needs to read as such before it is tapped, not after.
+    removeButton: {
+      position: 'absolute',
+      top: 14,
+      left: 14,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.palette.error,
+    },
 
     dotsRow: {
       position: 'absolute',
@@ -242,7 +317,6 @@ function createStyles(theme: AppTheme) {
       borderRadius: 999,
       backgroundColor: 'rgba(0,0,0,0.45)',
     },
-    // Sized to leave the active dot a touch larger, which is what the mockup draws.
     dot: {
       width: 6,
       height: 6,
@@ -266,5 +340,19 @@ function createStyles(theme: AppTheme) {
     // renders under fifteen other themes.
     thumbOn: { borderColor: theme.colors.primary, backgroundColor: theme.colors.softBg },
     thumbImage: { width: '100%', height: '100%' },
+
+    addTile: {
+      width: THUMB_SIZE,
+      height: THUMB_SIZE,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      backgroundColor: theme.palette.surfaceElevated,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: theme.palette.divider,
+    },
+    addLabel: { fontSize: 10.5, color: theme.palette.muted },
   });
 }
