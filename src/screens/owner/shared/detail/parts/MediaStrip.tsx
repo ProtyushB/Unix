@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ImageIcon, ImagePlus, X } from 'lucide-react-native';
+import { ImagePlus, X } from 'lucide-react-native';
 import { useTheme } from '../../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../../theme/theme.types';
@@ -12,52 +12,22 @@ interface MediaStripProps {
    * have to change when that is settled. See `useProductImages`.
    */
   uris: string[];
-  editable?: boolean;
   onAdd?: () => void;
   onRemove?: (index: number) => void;
 }
 
 /**
- * The product's images.
+ * A product's or service's images while they are being EDITED: a row of 78px squares led by an Add
+ * tile. Here the photos are inputs sitting above a form, so they stay small — a full-bleed stage
+ * would push every field below the fold.
  *
- * The two modes are drawn as different things, not as one thing with a disabled state. Reading is a
- * single full-width 160-tall hero — the photo is the first thing on the screen and deserves the
- * room. Editing is a row of 78px squares led by an Add tile, because there the photos are inputs
- * sitting above a form and a hero would push every field below the fold.
+ * Reading is a different component, not this one with a flag: `ImageStage` draws a 3:4 stage that
+ * pages and never crops. This used to carry that mode too, as a 160-tall `cover` hero, which
+ * cropped; nothing renders it any more.
  */
-export function MediaStrip({ uris, editable = false, onAdd, onRemove }: MediaStripProps) {
+export function MediaStrip({ uris, onAdd, onRemove }: MediaStripProps) {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  // Measured rather than assumed: the hero pages one image per swipe, so a tile has to be exactly
-  // as wide as the scroll view and only the layout knows that number.
-  const [heroWidth, setHeroWidth] = useState(0);
-
-  if (!editable) {
-    return (
-      <View style={styles.hero} onLayout={(e) => setHeroWidth(e.nativeEvent.layout.width)}>
-        {uris.length === 0 ? (
-          // A bare glyph, no caption. A product with no photo is the common case, and labelling it
-          // "No images" states the obvious twice.
-          <View style={styles.heroEmpty}>
-            <ImageIcon size={38} color={theme.palette.muted} />
-          </View>
-        ) : uris.length === 1 || heroWidth === 0 ? (
-          <Image source={{ uri: uris[0] }} style={styles.heroImage} resizeMode="cover" />
-        ) : (
-          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-            {uris.map((uri, i) => (
-              <Image
-                key={`${uri}-${i}`}
-                source={{ uri }}
-                style={[styles.heroImage, { width: heroWidth }]}
-                resizeMode="cover"
-              />
-            ))}
-          </ScrollView>
-        )}
-      </View>
-    );
-  }
 
   return (
     <ScrollView
@@ -100,19 +70,6 @@ export function MediaStrip({ uris, editable = false, onAdd, onRemove }: MediaStr
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    // ── Read: one full-width hero ────────────────────────────────────────────
-    hero: {
-      height: 160,
-      borderRadius: 16,
-      overflow: 'hidden',
-      backgroundColor: theme.palette.surfaceElevated,
-      borderWidth: 1,
-      borderColor: theme.palette.divider,
-    },
-    heroEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    heroImage: { flex: 1, height: '100%' },
-
-    // ── Edit: a row of squares ───────────────────────────────────────────────
     row: { gap: 10 },
     thumbWrap: { width: 78, height: 78 },
     thumb: {
