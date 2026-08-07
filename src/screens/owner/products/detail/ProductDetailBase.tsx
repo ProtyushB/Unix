@@ -225,7 +225,7 @@ export function ProductDetailBase({
             A product's photos are the first thing on the view screen and deserve the room — above a
             form they would push every field below the fold. */}
         {editable ? (
-          <MediaStrip uris={imageUris} editable onAdd={onAddImage} onRemove={onRemoveImage} />
+          <MediaStrip uris={imageUris} onAdd={onAddImage} onRemove={onRemoveImage} />
         ) : (
           <ImageStage uris={imageUris} />
         )}
