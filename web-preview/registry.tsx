@@ -255,7 +255,7 @@ export const REGISTRY: ScreenEntry[] = [
     id: 'owner/inventory',
     title: 'Inventory',
     group: 'Owner',
-    load: () => import('../src/screens/owner/InventoryScreen'),
+    load: () => import('../src/screens/owner/inventory/InventoryScreen'),
   },
   {
     id: 'owner/reports',

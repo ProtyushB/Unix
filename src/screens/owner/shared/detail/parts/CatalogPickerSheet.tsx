@@ -49,6 +49,14 @@ interface Props {
   error: string | null;
   /** Already on the record. Shown ticked and inert. */
   alreadyAdded: number[];
+  /**
+   * One row only: tapping confirms immediately and there is no footer button.
+   *
+   * For records that hold exactly one catalog row — an inventory batch belongs to a single product.
+   * Left multi-select by default because orders, appointments and bills all add several at once,
+   * and a footer reading "Add 1 product" after every tap would be noise there.
+   */
+  singleSelect?: boolean;
   onAdd: (rows: CatalogRow[]) => void;
   onClose: () => void;
   onRetry?: () => void;
@@ -77,6 +85,7 @@ export function CatalogPickerSheet({
   loading,
   error,
   alreadyAdded,
+  singleSelect = false,
   onAdd,
   onClose,
   onRetry,
@@ -104,6 +113,17 @@ export function CatalogPickerSheet({
 
   const toggle = (id: number) => {
     if (added.has(id)) return;
+    if (singleSelect) {
+      // Confirm on tap. Selecting then hunting for a footer button is a step too many when the
+      // answer can only ever be one row.
+      const row = rows.find((r) => r.id === id);
+      if (row) {
+        onAdd([row]);
+        reset();
+        onClose();
+      }
+      return;
+    }
     setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
@@ -184,15 +204,27 @@ export function CatalogPickerSheet({
                 style={[styles.row, (isPicked || isAdded) && styles.rowPicked]}
                 onPress={() => toggle(item.id)}
                 disabled={isAdded}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: isPicked || isAdded, disabled: isAdded }}
+                // Single-select confirms on tap, so it is a button, not a checkbox — and a
+                // screen reader announcing "checkbox, unchecked" would promise a selection step
+                // that does not exist.
+                accessibilityRole={singleSelect ? 'button' : 'checkbox'}
+                accessibilityState={
+                  singleSelect
+                    ? { disabled: isAdded }
+                    : { checked: isPicked || isAdded, disabled: isAdded }
+                }
                 accessibilityLabel={item.name}
               >
-                <View style={[styles.check, (isPicked || isAdded) && styles.checkOn]}>
-                  {isPicked || isAdded ? (
-                    <Check size={12} color={theme.colors.onAccent ?? '#FFFFFF'} />
-                  ) : null}
-                </View>
+                {/* The empty tick box is the multi-select affordance; in single-select it would
+                    imply a selection you then have to confirm. Kept for an already-added row,
+                    where it explains why the row is inert. */}
+                {!singleSelect || isAdded ? (
+                  <View style={[styles.check, (isPicked || isAdded) && styles.checkOn]}>
+                    {isPicked || isAdded ? (
+                      <Check size={12} color={theme.colors.onAccent ?? '#FFFFFF'} />
+                    ) : null}
+                  </View>
+                ) : null}
                 <View style={styles.thumb}>
                   <ImageIcon size={15} color={theme.palette.muted} />
                 </View>

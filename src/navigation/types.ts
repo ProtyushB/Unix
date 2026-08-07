@@ -22,7 +22,7 @@ export type OwnerTabParamList = {
   Packages: undefined;
   Subscriptions: undefined;
   ServicePlans: undefined;
-  Inventory: undefined;
+  Inventory: NavigatorScreenParams<InventoryStackParamList>;
   Consumptions: undefined;
   StockTransfers: undefined;
   Wastage: undefined;
@@ -48,6 +48,18 @@ export type OwnerTabParamList = {
 export type CatalogStackParamList = {
   ProductsMain: undefined;
   ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
+};
+
+/**
+ * The Inventory tab's stack.
+ *
+ * Only two modes, unlike its siblings: a batch is IMMUTABLE after creation — the backend has no PUT
+ * — so there is no `'edit'` to navigate to. Stock is corrected through wastage/transfer, lifecycle
+ * moves through the status endpoint, and an untouched batch can be deleted.
+ */
+export type InventoryStackParamList = {
+  InventoryMain: undefined;
+  InventoryDetail: { batchId?: number; mode: 'view' | 'add' };
 };
 
 /** The Services tab's stack. Same shape as the catalog's, for the same reasons. */

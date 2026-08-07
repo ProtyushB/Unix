@@ -13,6 +13,12 @@ import {
   getSelectedBusinessType,
   getBusinessTypeMap,
 } from '../../../../storage/session.storage';
+import type {
+  InventoryQuery,
+  InventoryStatus,
+  InventoryType,
+  StatusChangeOptions,
+} from '../inventory.types';
 import { DmsService } from '../../../dms/service/dms.service';
 import { createEntityFolder } from '../../../dms/util/EntityFolderUtils';
 import { NativeFile, ResourceFileDto } from '../../../dms/api/file.api.interface';
@@ -277,14 +283,39 @@ interface ModuleService {
   deleteBill(id: number): Promise<ServiceResult>;
   getBillsByCustomer(customerId: number): Promise<ServiceResult>;
 
-  getInventoryBatchesByBusiness(businessId: number): Promise<ServiceResult>;
-  getInventoryBatchesByProduct(productId: number, businessId: number): Promise<ServiceResult>;
+  // ── Inventory ──────────────────────────────────────────────────────────────
+  // There is no `updateInventoryBatch`: batches are immutable and the backend has no PUT. Correct
+  // stock via wastage/transfer/consumption, move lifecycle via `updateBatchStatus`, or delete an
+  // untouched batch.
+  getInventoryBatchesByBusiness(
+    businessId: number,
+    query?: InventoryQuery,
+    page?: number,
+    limit?: number,
+    append?: boolean,
+  ): Promise<ServiceResult>;
+  getInventoryStatusCounts(businessId: number, query?: InventoryQuery): Promise<ServiceResult>;
+  getInventoryBatchesByProduct(
+    itemId: number,
+    businessId: number,
+    inventoryType?: InventoryType | null,
+  ): Promise<ServiceResult>;
+  getInventoryBatch(id: number): Promise<ServiceResult>;
   addInventoryBatch(data: Record<string, unknown>): Promise<ServiceResult>;
-  updateInventoryBatch(data: Record<string, unknown>): Promise<ServiceResult>;
   deleteInventoryBatch(id: number): Promise<ServiceResult>;
-  updateBatchStatus(id: number, status: string): Promise<ServiceResult>;
+  getAllowedTransitions(id: number): Promise<ServiceResult>;
+  updateBatchStatus(
+    id: number,
+    status: InventoryStatus,
+    options?: StatusChangeOptions,
+  ): Promise<ServiceResult>;
+  disposeBatch(batchId: number): Promise<ServiceResult>;
   getExpiringBatches(businessId: number, withinDays: number): Promise<ServiceResult>;
-  getTotalStock(productId: number, businessId: number): Promise<ServiceResult>;
+  getTotalStock(
+    itemId: number,
+    businessId: number,
+    inventoryType?: InventoryType | null,
+  ): Promise<ServiceResult>;
 }
 
 // ─── Detail-screen reads ─────────────────────────────────────────────────────
@@ -384,6 +415,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     const [billsTotalPages, setBillsTotalPages] = useState(1);
     const [billSummary, setBillSummary] = useState<BillSummary | null>(null);
     const [inventory, setInventory] = useState<unknown[]>([]);
+    const [inventoryTotalPages, setInventoryTotalPages] = useState(1);
+    /** Null when the server did not report it — never conflate "unknown" with zero. */
+    const [inventoryTotal, setInventoryTotal] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -1537,21 +1571,52 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     // Inventory CRUD
     // ═══════════════════════════════════════════════════════════════
 
+    /**
+     * One page of batches.
+     *
+     * `append` grows the list for infinite scroll. A failed append deliberately leaves the existing
+     * rows alone — blanking what the user is already reading because page 4 timed out is worse than
+     * simply not growing.
+     *
+     * The caller must pass the SAME `query` on every page or the pages will not line up: the server
+     * filters and sorts, so page 2 of a different query is not the continuation of page 1.
+     */
     const loadInventoryByBusiness = useCallback(
-      async (businessId: number) => {
+      async (
+        businessId: number,
+        query: InventoryQuery = {},
+        page = 1,
+        limit = 20,
+        append = false,
+      ) => {
         setLoading(true);
         setError(null);
         try {
-          const response = await service.getInventoryBatchesByBusiness(businessId);
+          const response = await service.getInventoryBatchesByBusiness(
+            businessId,
+            query,
+            page,
+            limit,
+          );
           if (response.success) {
-            setInventory(Array.isArray(response.data) ? response.data : []);
-          } else {
-            setError(response.error || response.message || null);
-            setInventory([]);
+            const rows = Array.isArray(response.data) ? response.data : [];
+            setInventory((prev) => (append ? [...prev, ...rows] : rows));
+            setInventoryTotalPages(response.totalPages ?? 1);
+            // `totalElements` is what the "N batches" subtitle reads. Null rather than 0 when the
+            // server omits it, so the UI can tell "none" from "not reported".
+            setInventoryTotal(
+              typeof response.totalElements === 'number' ? response.totalElements : null,
+            );
+            return { success: true, data: rows };
           }
+          setError(response.error || response.message || null);
+          if (!append) setInventory([]);
+          return { success: false, error: response.error };
         } catch (err) {
-          setError((err as Error).message || 'Failed to load inventory');
-          setInventory([]);
+          const message = (err as Error).message || 'Failed to load inventory';
+          setError(message);
+          if (!append) setInventory([]);
+          return { success: false, error: message };
         } finally {
           setLoading(false);
         }
@@ -1559,12 +1624,37 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       [service],
     );
 
+    /**
+     * Batch counts per status, for the list's filter chips.
+     *
+     * Deliberately does NOT touch `loading` — it rides alongside the list load, and letting it flip
+     * the shared flag makes the whole screen flash a spinner when only the chips changed.
+     */
+    const getInventoryStatusCounts = useCallback(
+      async (businessId: number, query: InventoryQuery = {}) => {
+        try {
+          const response = await service.getInventoryStatusCounts(businessId, query);
+          if (response.success) {
+            return { success: true, data: response.data, totalElements: response.totalElements };
+          }
+          return { success: false, error: response.error };
+        } catch (err) {
+          return { success: false, error: (err as Error).message || 'Failed to load counts' };
+        }
+      },
+      [service],
+    );
+
     const loadInventoryByProduct = useCallback(
-      async (productId: number, businessId: number) => {
+      async (itemId: number, businessId: number, inventoryType?: InventoryType | null) => {
         setLoading(true);
         setError(null);
         try {
-          const response = await service.getInventoryBatchesByProduct(productId, businessId);
+          const response = await service.getInventoryBatchesByProduct(
+            itemId,
+            businessId,
+            inventoryType,
+          );
           if (response.success) return { success: true, data: response.data };
           setError(response.error || response.message || null);
           return { success: false, error: response.error };
@@ -1574,6 +1664,55 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           return { success: false, error: message };
         } finally {
           setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    const loadInventoryBatch = useCallback(
+      async (id: number) => {
+        try {
+          const response = await service.getInventoryBatch(id);
+          if (response.success) return { success: true, data: response.data };
+          return { success: false, error: response.error || response.message };
+        } catch (err) {
+          return { success: false, error: (err as Error).message || 'Failed to load batch' };
+        }
+      },
+      [service],
+    );
+
+    /**
+     * The moves THIS batch may make, already narrowed by the server's state guards.
+     *
+     * Never cached: the answer depends on the batch's live remaining quantity and expiry, not just
+     * its status. An ACTIVE batch that is past expiry matches ACTIVE → {ON_HOLD, QUARANTINED} in
+     * the raw matrix, yet the server refuses both — which is exactly why the client must ask about
+     * the batch rather than derive from a status.
+     */
+    const getAllowedTransitions = useCallback(
+      async (id: number) => {
+        try {
+          const response = await service.getAllowedTransitions(id);
+          if (response.success) {
+            return { success: true, data: Array.isArray(response.data) ? response.data : [] };
+          }
+          return { success: false, error: response.error || response.message };
+        } catch (err) {
+          return { success: false, error: (err as Error).message || 'Failed to load transitions' };
+        }
+      },
+      [service],
+    );
+
+    const disposeBatch = useCallback(
+      async (batchId: number) => {
+        try {
+          const response = await service.disposeBatch(batchId);
+          if (response.success) return { success: true, data: response.data };
+          return { success: false, error: response.error || response.message };
+        } catch (err) {
+          return { success: false, error: (err as Error).message || 'Failed to dispose batch' };
         }
       },
       [service],
@@ -1598,24 +1737,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       [service],
     );
 
-    const updateInventoryBatch = useCallback(
-      async (batchData: Record<string, unknown>) => {
-        setLoading(true);
-        setError(null);
-        try {
-          const response = await service.updateInventoryBatch(batchData);
-          if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to update inventory batch');
-        } catch (err) {
-          const message = (err as Error).message || 'Failed to update inventory batch';
-          setError(message);
-          return { success: false, error: message };
-        } finally {
-          setLoading(false);
-        }
-      },
-      [service],
-    );
+    // No `updateInventoryBatch` — batches are immutable and the backend has no PUT. A stray one
+    // used to live here and could only ever 404.
 
     const deleteInventoryBatch = useCallback(
       async (id: number) => {
@@ -1636,12 +1759,19 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       [service],
     );
 
+    /**
+     * Move a batch's lifecycle status.
+     *
+     * A refusal comes back as a 400 `INVALID_STATUS_TRANSITION` and is surfaced as-is — it means
+     * the batch's live state disallows the move (delivered to zero stock, or already past expiry),
+     * not that the request was malformed, and a retry cannot help.
+     */
     const updateBatchStatus = useCallback(
-      async (id: number, status: string) => {
+      async (id: number, status: InventoryStatus, options: StatusChangeOptions = {}) => {
         setLoading(true);
         setError(null);
         try {
-          const response = await service.updateBatchStatus(id, status);
+          const response = await service.updateBatchStatus(id, status, options);
           if (response.success) return { success: true, data: response.data };
           throw new Error(response.error || response.message || 'Failed to update batch status');
         } catch (err) {
@@ -1675,9 +1805,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     );
 
     const getTotalStock = useCallback(
-      async (productId: number, businessId: number) => {
+      async (itemId: number, businessId: number, inventoryType?: InventoryType | null) => {
         try {
-          const response = await service.getTotalStock(productId, businessId);
+          const response = await service.getTotalStock(itemId, businessId, inventoryType);
           if (response.success) return { success: true, data: response.data };
           return { success: false, error: response.error };
         } catch (err) {
@@ -1710,6 +1840,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       billsTotalPages,
       billSummary,
       inventory,
+      inventoryTotalPages,
+      inventoryTotal,
       loading,
       error,
 
@@ -1769,13 +1901,16 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       // Other
       loadEmployees,
 
-      // Inventory CRUD
+      // Inventory — no update, batches are immutable
       loadInventoryByBusiness,
+      getInventoryStatusCounts,
       loadInventoryByProduct,
+      loadInventoryBatch,
       addInventoryBatch,
-      updateInventoryBatch,
       deleteInventoryBatch,
+      getAllowedTransitions,
       updateBatchStatus,
+      disposeBatch,
       getExpiringBatches,
       getTotalStock,
 
