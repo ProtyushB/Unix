@@ -7,6 +7,7 @@ import {
   offsetForPage,
   pageIndexFromOffset,
   showsPager,
+  showsThumbs,
   thumbStripOffset,
 } from './imageStage';
 
@@ -30,6 +31,27 @@ describe('showsPager', () => {
     // "1 / 1" beside a single dot is furniture that says nothing.
     expect(showsPager(1)).toBe(false);
     expect(showsPager(2)).toBe(true);
+  });
+
+  it('does not care which mode the screen is in', () => {
+    // A form does not make "2 / 3" more or less useful — only the count decides.
+    expect(showsPager(3)).toBe(true);
+  });
+});
+
+describe('showsThumbs', () => {
+  it('follows the pager while reading', () => {
+    expect(showsThumbs(0, false)).toBe(false);
+    expect(showsThumbs(1, false)).toBe(false);
+    expect(showsThumbs(2, false)).toBe(true);
+  });
+
+  it('is ALWAYS on while editing, because the strip carries Add', () => {
+    // The failure this guards is total: with no photos and no strip there is no way to attach one,
+    // so the screen can never leave the state it is in.
+    expect(showsThumbs(0, true)).toBe(true);
+    expect(showsThumbs(1, true)).toBe(true);
+    expect(showsThumbs(9, true)).toBe(true);
   });
 });
 
@@ -106,10 +128,12 @@ describe('offsetForPage', () => {
 });
 
 describe('thumbStripOffset', () => {
+  const STEP = THUMB_SIZE + THUMB_GAP;
+
   it('steps one thumb plus one gap per photo', () => {
     expect(thumbStripOffset(0)).toBe(0);
-    expect(thumbStripOffset(1)).toBe(THUMB_SIZE + THUMB_GAP);
-    expect(thumbStripOffset(3)).toBe(3 * (THUMB_SIZE + THUMB_GAP));
+    expect(thumbStripOffset(1)).toBe(STEP);
+    expect(thumbStripOffset(3)).toBe(3 * STEP);
   });
 
   it('left-aligns rather than centring, so earlier photos stay in view', () => {
@@ -117,7 +141,18 @@ describe('thumbStripOffset', () => {
     expect(thumbStripOffset(2)).toBe(136);
   });
 
+  it('shifts by one tile when Add leads the strip', () => {
+    // Without this the strip scrolls one photo short of the one actually on the stage.
+    expect(thumbStripOffset(0, true)).toBe(STEP);
+    expect(thumbStripOffset(2, true)).toBe(3 * STEP);
+  });
+
+  it('defaults to no Add tile, which is the read case', () => {
+    expect(thumbStripOffset(2, false)).toBe(thumbStripOffset(2));
+  });
+
   it('never scrolls to a negative offset', () => {
     expect(thumbStripOffset(-1)).toBe(0);
+    expect(thumbStripOffset(-1, true)).toBe(STEP);
   });
 });

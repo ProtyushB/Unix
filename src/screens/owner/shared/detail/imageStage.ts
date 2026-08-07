@@ -39,13 +39,25 @@ export const THUMB_SIZE = 60;
 export const THUMB_GAP = 8;
 
 /**
- * Whether the pager chrome — counter, dots, thumbnail strip — is worth drawing.
+ * Whether the counter and dots are worth drawing.
  *
  * One photo has nothing to page between, and "1 / 1" beside a single dot is furniture that says
- * nothing. Zero photos gets the empty stage on its own.
+ * nothing. Zero photos gets the empty stage on its own. True in both modes — a form does not make
+ * "2 / 3" more or less useful.
  */
 export function showsPager(count: number): boolean {
   return count > 1;
+}
+
+/**
+ * Whether the strip under the stage is drawn.
+ *
+ * Wider than `showsPager` because the strip carries the Add tile: while editing it is the only way
+ * to attach a photo, so it has to be there at zero and at one, when there is nothing to page
+ * between and no reason to draw it for navigation alone.
+ */
+export function showsThumbs(count: number, editable: boolean): boolean {
+  return editable || showsPager(count);
 }
 
 /** "1 / 4" — the counter pill, one-based for the reader. */
@@ -88,7 +100,10 @@ export function offsetForPage(index: number, pageWidth: number): number {
  * Left-aligns the active thumb rather than centring it: centring hides the thumbs before it, and
  * the strip reads oldest-first, so keeping earlier photos in view is the more useful bias. Never
  * negative — the first thumb sits flush at 0.
+ *
+ * `hasAddTile` shifts everything by one tile, because while editing the strip is led by Add. Miss
+ * it and the strip scrolls one photo short of the one that is actually on the stage.
  */
-export function thumbStripOffset(index: number): number {
-  return Math.max(0, index) * (THUMB_SIZE + THUMB_GAP);
+export function thumbStripOffset(index: number, hasAddTile = false): number {
+  return (Math.max(0, index) + (hasAddTile ? 1 : 0)) * (THUMB_SIZE + THUMB_GAP);
 }
