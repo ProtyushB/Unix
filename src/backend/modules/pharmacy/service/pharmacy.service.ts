@@ -1,3 +1,9 @@
+import type {
+  InventoryQuery,
+  InventoryStatus,
+  InventoryType,
+  StatusChangeOptions,
+} from '../../shared/inventory.types';
 import {
   PharmacyApiInterface,
   BillableListOptions,
@@ -224,34 +230,51 @@ export class PharmacyService {
     return this.api.deleteBill(id);
   }
 
+  // ── Inventory ──────────────────────────────────────────────────────────────
+  // No update passthrough: batches are immutable and the backend has no PUT.
   async addInventoryBatch(data: Record<string, unknown>) {
     return this.api.addInventoryBatch(data);
-  }
-  async updateInventoryBatch(data: Record<string, unknown>) {
-    return this.api.updateInventoryBatch(data);
   }
   async getInventoryBatch(id: number) {
     return this.api.getInventoryBatch(id);
   }
-  async getInventoryBatchesByProduct(productId: number, businessId: number) {
-    return this.api.getInventoryBatchesByProduct(productId, businessId);
+  async getInventoryBatchesByProduct(
+    itemId: number,
+    businessId: number,
+    inventoryType?: InventoryType | null,
+  ) {
+    return this.api.getInventoryBatchesByProduct(itemId, businessId, inventoryType);
   }
-  async getInventoryBatchesByBusiness(businessId: number) {
-    return this.api.getInventoryBatchesByBusiness(businessId);
+  async getInventoryBatchesByBusiness(
+    businessId: number,
+    query: InventoryQuery = {},
+    page = 1,
+    limit = 20,
+  ) {
+    return this.api.getInventoryBatchesByBusiness(businessId, query, page, limit);
   }
-  async getTotalStock(productId: number, businessId: number) {
-    return this.api.getTotalStock(productId, businessId);
+  async getInventoryStatusCounts(businessId: number, query: InventoryQuery = {}) {
+    return this.api.getInventoryStatusCounts(businessId, query);
   }
-  async isAvailable(productId: number, businessId: number) {
-    return this.api.isAvailable(productId, businessId);
+  async getTotalStock(itemId: number, businessId: number, inventoryType?: InventoryType | null) {
+    return this.api.getTotalStock(itemId, businessId, inventoryType);
+  }
+  async isAvailable(itemId: number, businessId: number, inventoryType?: InventoryType | null) {
+    return this.api.isAvailable(itemId, businessId, inventoryType);
   }
   async getExpiringBatches(businessId: number, withinDays = 30) {
     return this.api.getExpiringBatches(businessId, withinDays);
   }
-  async updateBatchStatus(id: number, status: string) {
-    return this.api.updateBatchStatus(id, status);
+  async getAllowedTransitions(id: number) {
+    return this.api.getAllowedTransitions(id);
+  }
+  async updateBatchStatus(id: number, status: InventoryStatus, options: StatusChangeOptions = {}) {
+    return this.api.updateBatchStatus(id, status, options);
   }
   async deleteInventoryBatch(id: number) {
     return this.api.deleteInventoryBatch(id);
+  }
+  async disposeBatch(batchId: number) {
+    return this.api.disposeBatch(batchId);
   }
 }

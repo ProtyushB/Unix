@@ -1,4 +1,7 @@
 import {
+  todayIst,
+  addIstDays,
+  daysBetweenYmd,
   toYmd,
   parseYmd,
   addDays,
@@ -131,5 +134,50 @@ describe('labels', () => {
     expect(formatDayCompact(d(2025, 4, 18))).toBe('18 Apr');
     expect(formatDayCompact(d(2025, 10, 5))).toBe('5 Oct');
     expect(formatDayCompact(d(2025, 2, 28))).toBe('28 Feb');
+  });
+});
+
+describe('todayIst', () => {
+  it('is the IST day, not the device day', () => {
+    // 18:45 UTC on 6 Aug is already 00:15 on 7 Aug in Kolkata. A device in UTC would say the 6th,
+    // and would then disagree with every expiry rule the server enforces.
+    expect(todayIst(new Date('2026-08-06T18:45:00Z'))).toBe('2026-08-07');
+    // Ten minutes earlier is still the 6th there.
+    expect(todayIst(new Date('2026-08-06T18:15:00Z'))).toBe('2026-08-06');
+  });
+
+  it('zero-pads, so the string sorts and compares correctly', () => {
+    expect(todayIst(new Date('2026-01-05T06:00:00Z'))).toBe('2026-01-05');
+  });
+});
+
+describe('addIstDays', () => {
+  it('walks forward and backward from the IST day', () => {
+    const now = new Date('2026-08-07T06:00:00Z');
+    expect(addIstDays(0, now)).toBe('2026-08-07');
+    expect(addIstDays(1, now)).toBe('2026-08-08');
+    expect(addIstDays(-1, now)).toBe('2026-08-06');
+  });
+
+  it('rolls over months and years', () => {
+    expect(addIstDays(1, new Date('2026-08-31T06:00:00Z'))).toBe('2026-09-01');
+    expect(addIstDays(1, new Date('2026-12-31T06:00:00Z'))).toBe('2027-01-01');
+  });
+
+  it('starts from the IST day, so the offset does not silently lose a day', () => {
+    // Base resolves to 7 Aug IST even though it is still the 6th in UTC.
+    expect(addIstDays(1, new Date('2026-08-06T18:45:00Z'))).toBe('2026-08-08');
+  });
+});
+
+describe('daysBetweenYmd', () => {
+  it('counts whole calendar days in both directions', () => {
+    expect(daysBetweenYmd('2026-08-07', '2026-09-06')).toBe(30);
+    expect(daysBetweenYmd('2026-08-07', '2026-08-01')).toBe(-6);
+    expect(daysBetweenYmd('2026-08-07', '2026-08-07')).toBe(0);
+  });
+
+  it('is immune to the DST-style off-by-one a local Date subtraction can produce', () => {
+    expect(daysBetweenYmd('2028-02-28', '2028-03-01')).toBe(2);
   });
 });

@@ -14,6 +14,14 @@ import {
 } from './pharmacy.api.interface';
 import pharmacyApiClient from '../config/axios.instance';
 import { PHARMACY_ROUTES } from '../config/api.config';
+import {
+  compactParams,
+  type InventoryQuery,
+  type InventoryStatus,
+  type InventoryStatusCounts,
+  type InventoryType,
+  type StatusChangeOptions,
+} from '../../shared/inventory.types';
 
 export class PharmacyApiImpl extends PharmacyApiInterface {
   async getAllProducts(
@@ -320,42 +328,67 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.BILLS_BASE}/${id}`);
     return res.data;
   }
+  // ── Inventory ──────────────────────────────────────────────────────────────
+  // No update method: batches are immutable and the backend has no PUT. See the interface.
   async addInventoryBatch(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.INVENTORY_ADD, data);
-    return res.data;
-  }
-  async updateInventoryBatch(data: Record<string, unknown>): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.put(PHARMACY_ROUTES.INVENTORY_UPDATE, data);
+    // The trailing slash matters — `@PostMapping("/")` does not match a bare `/pharmacyInventory`.
+    const res = await pharmacyApiClient.post(`${PHARMACY_ROUTES.INVENTORY_BASE}/`, data);
     return res.data;
   }
   async getInventoryBatch(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.INVENTORY_VIEW}/${id}`);
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.INVENTORY_BASE}/${id}`);
     return res.data;
   }
   async getInventoryBatchesByProduct(
-    productId: number,
+    itemId: number,
     businessId: number,
+    inventoryType?: InventoryType | null,
   ): Promise<ApiResponse<unknown[]>> {
     const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_BY_PRODUCT, {
-      params: { productId, businessId },
+      // `itemId`, not `productId` — see the parlour impl.
+      params: compactParams({ itemId, businessId, inventoryType }),
     });
     return res.data;
   }
-  async getInventoryBatchesByBusiness(businessId: number): Promise<ApiResponse<unknown[]>> {
-    const res = await pharmacyApiClient.get(
-      `${PHARMACY_ROUTES.INVENTORY_BY_BUSINESS}/${businessId}`,
-    );
+  async getInventoryBatchesByBusiness(
+    businessId: number,
+    query: InventoryQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_BY_BUSINESS, {
+      // Paging is 1-BASED and the size param is `limit`, not `size`.
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
     return res.data;
   }
-  async getTotalStock(productId: number, businessId: number): Promise<ApiResponse<number>> {
+  async getInventoryStatusCounts(
+    businessId: number,
+    query: InventoryQuery = {},
+  ): Promise<ApiResponse<InventoryStatusCounts>> {
+    const { status: _ignored, sortBy: _s, sortDir: _d, ...filters } = query;
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_STATUS_COUNTS, {
+      params: compactParams({ businessId, ...filters }),
+    });
+    return res.data;
+  }
+  async getTotalStock(
+    itemId: number,
+    businessId: number,
+    inventoryType?: InventoryType | null,
+  ): Promise<ApiResponse<number>> {
     const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_TOTAL_STOCK, {
-      params: { productId, businessId },
+      params: compactParams({ itemId, businessId, inventoryType }),
     });
     return res.data;
   }
-  async isAvailable(productId: number, businessId: number): Promise<ApiResponse<boolean>> {
+  async isAvailable(
+    itemId: number,
+    businessId: number,
+    inventoryType?: InventoryType | null,
+  ): Promise<ApiResponse<boolean>> {
     const res = await pharmacyApiClient.get(PHARMACY_ROUTES.INVENTORY_IS_AVAILABLE, {
-      params: { productId, businessId },
+      params: compactParams({ itemId, businessId, inventoryType }),
     });
     return res.data;
   }
@@ -368,16 +401,31 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     });
     return res.data;
   }
-  async updateBatchStatus(id: number, status: string): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.put(
-      `${PHARMACY_ROUTES.INVENTORY_UPDATE_STATUS}/${id}`,
+  async getAllowedTransitions(id: number): Promise<ApiResponse<InventoryStatus[]>> {
+    const res = await pharmacyApiClient.get(
+      `${PHARMACY_ROUTES.INVENTORY_BASE}/${id}/allowedTransitions`,
+    );
+    return res.data;
+  }
+  async updateBatchStatus(
+    id: number,
+    status: InventoryStatus,
+    options: StatusChangeOptions = {},
+  ): Promise<ApiResponse<unknown>> {
+    // PATCH, not PUT, and everything rides as QUERY PARAMS — there is no request body.
+    const res = await pharmacyApiClient.patch(
+      `${PHARMACY_ROUTES.INVENTORY_BASE}/${id}/status`,
       null,
-      { params: { status } },
+      { params: compactParams({ status, ...options }) },
     );
     return res.data;
   }
   async deleteInventoryBatch(id: number): Promise<ApiResponse<unknown>> {
-    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.INVENTORY_DELETE}/${id}`);
+    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.INVENTORY_BASE}/${id}`);
+    return res.data;
+  }
+  async disposeBatch(batchId: number): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.post(`${PHARMACY_ROUTES.WASTAGE_DISPOSE}/${batchId}`);
     return res.data;
   }
 }
