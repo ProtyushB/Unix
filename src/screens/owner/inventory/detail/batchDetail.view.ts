@@ -63,6 +63,47 @@ export function showsEditCta(): boolean {
   return false;
 }
 
+/**
+ * Whether the picker offers "New Product".
+ *
+ * Only while composing a batch. In view mode the picker is unreachable anyway, but the rule is
+ * stated here beside its siblings rather than left implicit in JSX — that is the whole point of
+ * this mode machine.
+ */
+export function showsCreateProduct(mode: DetailMode): boolean {
+  return mode === 'add';
+}
+
+/**
+ * Whether to fetch the product catalog.
+ *
+ * Add mode only, and only when nothing is held and nothing is in flight. Clearing the held rows is
+ * therefore how the screen re-arms this after returning from creating a product — without a
+ * refetch the user would come back to a picker that does not list the thing they just made, which
+ * is the one outcome that would make the whole affordance pointless.
+ */
+export function shouldLoadCatalog(input: {
+  mode: DetailMode;
+  hasRows: boolean;
+  loading: boolean;
+}): boolean {
+  return input.mode === 'add' && !input.hasRows && !input.loading;
+}
+
+/**
+ * On regaining focus: do we reopen the picker because we left it to create a product?
+ *
+ * The first-focus skip is the app-wide convention (ProductsScreen and its three siblings do the
+ * same) — a screen fires focus once on mount, and acting on that would fight the mount-time fetch
+ * instead of resuming anything.
+ */
+export function shouldResumeProductPick(input: {
+  awaitingProduct: boolean;
+  isFirstFocus: boolean;
+}): boolean {
+  return input.awaitingProduct && !input.isFirstFocus;
+}
+
 /** The Product/Raw explainer under the segmented control. */
 export function typeDescription(type: string): string {
   return type === 'RAW_INVENTORY'

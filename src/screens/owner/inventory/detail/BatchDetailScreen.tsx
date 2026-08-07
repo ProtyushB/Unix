@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../../../hooks/useTheme';
@@ -18,7 +18,13 @@ import { canDeleteBatch, deleteBlockedReason, statusLabel } from '../batch.view'
 import { baseSaleUnit, saleUnitsOf, type SaleUnit } from '../batchUnits';
 import { BatchDetailBase } from './BatchDetailBase';
 import { catalogBadge } from './batchDetail.model';
-import { deriveDetailView, type DetailMode } from './batchDetail.view';
+import {
+  deriveDetailView,
+  shouldLoadCatalog,
+  shouldResumeProductPick,
+  showsCreateProduct,
+  type DetailMode,
+} from './batchDetail.view';
 import { parlourBatchSlots } from './ParlourBatchDetail';
 import { pharmacyBatchSlots } from './PharmacyBatchDetail';
 import { useBatchDetailForm } from './useBatchDetailForm';
@@ -33,6 +39,8 @@ interface Props {
   navigation?: {
     goBack?: () => void;
     setParams?: (params: Partial<RouteParams>) => void;
+    navigate?: (route: string, params?: Record<string, unknown>) => void;
+    addListener?: (event: string, cb: () => void) => (() => void) | undefined;
   };
 }
 
@@ -63,6 +71,10 @@ export function BatchDetailScreen({ route, navigation }: Props = {}) {
 
   const [sheet, setSheet] = useState<null | 'product' | 'unit'>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // The two halves of the "go make a product, then come back here" round trip.
+  const [pendingCreate, setPendingCreate] = useState(false);
+  const [awaitingProduct, setAwaitingProduct] = useState(false);
 
   const [catalog, setCatalog] = useState<Record<string, unknown>[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -120,8 +132,9 @@ export function BatchDetailScreen({ route, navigation }: Props = {}) {
   }, [mode, item?.id, item?.status, loadTransitions]);
 
   // The catalog is only needed to pick a product, so it is fetched when the add form opens.
+  // Dropping the held rows re-arms this — that is how a just-created product gets into the list.
   useEffect(() => {
-    if (mode !== 'add' || catalog.length || catalogLoading) return;
+    if (!shouldLoadCatalog({ mode, hasRows: catalog.length > 0, loading: catalogLoading })) return;
     setCatalogLoading(true);
     void activeModule
       .loadProductOptions?.(500)
@@ -131,6 +144,46 @@ export function BatchDetailScreen({ route, navigation }: Props = {}) {
       .finally(() => setCatalogLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, catalog.length, catalogLoading, moduleKey]);
+
+  /**
+   * Leave for the product create screen — but only once the picker Modal is actually down.
+   *
+   * The push is deferred to an effect rather than fired from the pill's onPress because a native
+   * stack push lands UNDERNEATH a Modal that is still mounted; the user would be left staring at
+   * the picker with an invisible screen behind it. The sheet closes itself first, `onClose` clears
+   * `sheet`, and only then does this run.
+   *
+   * `ProductDetail` is registered on the INVENTORY stack, so this is a push within the current
+   * stack and not a jump to the Products tab. That is what keeps this screen mounted — and with it
+   * every field the user has already typed into the batch form.
+   */
+  useEffect(() => {
+    if (!pendingCreate || sheet !== null) return;
+    setPendingCreate(false);
+    setAwaitingProduct(true);
+    navigation?.navigate?.('ProductDetail', { mode: 'add' });
+  }, [pendingCreate, sheet, navigation]);
+
+  /**
+   * Coming back from that trip: refresh the catalog and drop the user back in the picker.
+   *
+   * The first focus is skipped for the reason every screen in this app skips it — a screen fires
+   * focus on mount, and acting on that would reopen the picker over a form nobody has touched.
+   * Note the picker's own `query` and `picked` do NOT survive (the Modal is unmounted while we are
+   * away); the batch form underneath does, which is the state that actually matters.
+   */
+  const hasFocusedRef = useRef(false);
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      const isFirstFocus = !hasFocusedRef.current;
+      hasFocusedRef.current = true;
+      if (!shouldResumeProductPick({ awaitingProduct, isFirstFocus })) return;
+      setAwaitingProduct(false);
+      setCatalog([]);
+      setSheet('product');
+    });
+    return unsubscribe;
+  }, [navigation, awaitingProduct]);
 
   const onSaved = useCallback(() => {
     showToast('Batch added', 'success');
@@ -272,6 +325,9 @@ export function BatchDetailScreen({ route, navigation }: Props = {}) {
           loading={catalogLoading}
           error={null}
           alreadyAdded={[]}
+          onCreateNew={
+            showsCreateProduct(mode) ? () => setPendingCreate(true) : undefined
+          }
           onAdd={(rows) => {
             const picked = rows[0];
             if (!picked) return;
