@@ -60,6 +60,19 @@ export type CatalogStackParamList = {
 export type InventoryStackParamList = {
   InventoryMain: undefined;
   InventoryDetail: { batchId?: number; mode: 'view' | 'add' };
+  /**
+   * The SAME screen the catalog stack registers, deliberately mounted here a second time.
+   *
+   * "New Product" in the batch picker has to be a push inside THIS stack. Jumping to the Products
+   * tab instead would leave the Inventory stack, and the half-filled Add Batch form — four
+   * `useState` hooks living exactly as long as the screen is mounted — would be gone by the time
+   * the user came back. A push freezes the screen below rather than unmounting it, so the form is
+   * still there, and the product screen's own `goBack()` lands straight back on it.
+   *
+   * This is the one place Unix departs from Centrix, where the equivalent redirect flips tabs and
+   * loses the batch outright.
+   */
+  ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
 };
 
 /** The Services tab's stack. Same shape as the catalog's, for the same reasons. */
