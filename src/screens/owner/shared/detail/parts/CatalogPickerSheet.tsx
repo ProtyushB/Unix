@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,7 +11,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronLeft, Image as ImageIcon, Plus, Search } from 'lucide-react-native';
-import { createNewA11yLabel, createNewLabel, showsCreateNew } from '../catalogPicker.view';
+import {
+  activePicks,
+  createNewA11yLabel,
+  createNewLabel,
+  showsCreateNew,
+  togglePick,
+} from '../catalogPicker.view';
 import { useTheme } from '../../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../../theme/theme.types';
@@ -61,12 +67,22 @@ interface Props {
   /**
    * Shows a "New <noun>" pill in the app bar. Absent = no pill, which is the whole gate.
    *
-   * The sheet dismisses ITSELF before calling this — a caller that navigates would otherwise be
+   * The sheet closes ITSELF before calling this — a caller that navigates would otherwise be
    * pushing a screen underneath a Modal that is still up (see the never-two-Modals note on
-   * `OptionSheet`). Because dismissing also resets `query` and `picked`, do not pass this to a
-   * multi-select picker without deciding what happens to a selection in progress.
+   * `OptionSheet`). It closes via `handoff`, not `dismiss`, so an in-progress selection is left
+   * alone; a MULTI-select caller must also pass `picked`/`onPickedChange` for that to mean
+   * anything, since the round trip outlives this Modal's children.
    */
   onCreateNew?: () => void;
+  /**
+   * Controlled selection. Omit and the sheet keeps its own.
+   *
+   * Only needed alongside `onCreateNew` on a multi-select picker, where the ticks have to survive
+   * leaving the screen. Passing this makes the CALLER the owner — `onPickedChange` fires for every
+   * tick, and for the clear that follows a confirm or a cancel.
+   */
+  picked?: number[];
+  onPickedChange?: (next: number[]) => void;
   onAdd: (rows: CatalogRow[]) => void;
   onClose: () => void;
   onRetry?: () => void;
@@ -97,6 +113,8 @@ export function CatalogPickerSheet({
   alreadyAdded,
   singleSelect = false,
   onCreateNew,
+  picked,
+  onPickedChange,
   onAdd,
   onClose,
   onRetry,
@@ -105,9 +123,41 @@ export function CatalogPickerSheet({
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
-  const [picked, setPicked] = useState<number[]>([]);
+
+  /*
+    Selection is CONTROLLED when the caller passes `picked`, uncontrolled otherwise.
+    A multi-select caller that also offers `onCreateNew` has to own it: the round trip out to the
+    create screen and back is longer than this Modal's children live, so a selection kept in here
+    would be gone by the time the user returned. Callers that do neither keep the local state and
+    are unaffected.
+  */
+  const [ownPicked, setOwnPicked] = useState<number[]>([]);
+  const controlled = picked !== undefined;
+
+  /*
+    The ref is not an optimisation — it is what makes two taps in one React batch compose.
+
+    This used to be `setPicked(prev => …)`, whose functional form was safe against that by
+    construction. A controlled parent cannot be updated functionally, so without somewhere to read
+    the freshest value both taps would compute from the same rendered array and the second would
+    silently undo the first. Tapping two rows quickly is the ordinary way to use this screen.
+  */
+  const picksRef = useRef<number[]>([]);
+  const setPicks = (next: number[]) => {
+    picksRef.current = next;
+    if (controlled) onPickedChange?.(next);
+    else setOwnPicked(next);
+  };
 
   const added = useMemo(() => new Set(alreadyAdded), [alreadyAdded]);
+
+  // Ticks that are still real — see `activePicks`. A restored selection can contain a row that was
+  // committed to the record while the user was away.
+  const picks = useMemo(
+    () => activePicks(controlled ? (picked as number[]) : ownPicked, alreadyAdded),
+    [controlled, picked, ownPicked, alreadyAdded],
+  );
+  picksRef.current = picks;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -118,8 +168,21 @@ export function CatalogPickerSheet({
   }, [rows, query]);
 
   const reset = () => {
-    setPicked([]);
+    setPicks([]);
     setQuery('');
+  };
+
+  /**
+   * Leaving to go CREATE something, as opposed to cancelling.
+   *
+   * Closes without clearing the ticks — the user is coming straight back and expects to find their
+   * selection where they left it. The query IS cleared, deliberately: a stale search string would
+   * filter out the very row they went away to create, and "No product matches …" is the one
+   * outcome that makes the whole trip pointless.
+   */
+  const handoff = () => {
+    setQuery('');
+    onClose();
   };
 
   const toggle = (id: number) => {
@@ -135,11 +198,11 @@ export function CatalogPickerSheet({
       }
       return;
     }
-    setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setPicks(togglePick(picksRef.current, id));
   };
 
   const confirm = () => {
-    onAdd(rows.filter((r) => picked.includes(r.id)));
+    onAdd(rows.filter((r) => picks.includes(r.id)));
     reset();
     onClose();
   };
@@ -149,7 +212,7 @@ export function CatalogPickerSheet({
     onClose();
   };
 
-  const plural = picked.length === 1 ? noun : `${noun}s`;
+  const plural = picks.length === 1 ? noun : `${noun}s`;
 
   return (
     <Modal
@@ -182,7 +245,7 @@ export function CatalogPickerSheet({
           {showsCreateNew(onCreateNew) ? (
             <Pressable
               onPress={() => {
-                dismiss();
+                handoff();
                 onCreateNew?.();
               }}
               style={styles.createPill}
@@ -229,7 +292,7 @@ export function CatalogPickerSheet({
           contentContainerStyle={[styles.list, { paddingBottom: 110 + insets.bottom }]}
           renderItem={({ item }) => {
             const isAdded = added.has(item.id);
-            const isPicked = picked.includes(item.id);
+            const isPicked = picks.includes(item.id);
             return (
               <Pressable
                 style={[styles.row, (isPicked || isAdded) && styles.rowPicked]}
@@ -286,17 +349,17 @@ export function CatalogPickerSheet({
           }
         />
 
-        {picked.length ? (
+        {picks.length ? (
           <View style={[styles.footer, { paddingBottom: 16 + insets.bottom }]}>
             <Pressable
               style={styles.addButton}
               onPress={confirm}
               accessibilityRole="button"
-              accessibilityLabel={`Add ${picked.length} ${plural}`}
+              accessibilityLabel={`Add ${picks.length} ${plural}`}
             >
               <Plus size={16} color={theme.colors.onAccent ?? '#FFFFFF'} />
               <Text style={styles.addButtonText}>
-                Add {picked.length} {plural}
+                Add {picks.length} {plural}
               </Text>
             </Pressable>
           </View>

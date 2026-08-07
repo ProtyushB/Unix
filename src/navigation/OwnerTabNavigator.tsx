@@ -142,6 +142,8 @@ function OrdersNavigator() {
     <OrdersStack.Navigator screenOptions={{ headerShown: false }}>
       <OrdersStack.Screen name="OrdersMain" component={OrdersScreen} />
       <OrdersStack.Screen name="OrderDetail" component={OrderDetailScreen} />
+      {/* "New Product" from the picker. Same component and same reasoning as InventoryNavigator's. */}
+      <OrdersStack.Screen name="ProductDetail" component={ProductDetailScreen} />
     </OrdersStack.Navigator>
   );
 }
@@ -153,6 +155,8 @@ function AppointmentsNavigator() {
     <AppointmentsStack.Navigator screenOptions={{ headerShown: false }}>
       <AppointmentsStack.Screen name="AppointmentsMain" component={AppointmentsScreen} />
       <AppointmentsStack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
+      {/* "New Service" from the picker. Same component and same reasoning as InventoryNavigator's. */}
+      <AppointmentsStack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
     </AppointmentsStack.Navigator>
   );
 }

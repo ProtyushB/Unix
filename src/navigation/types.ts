@@ -94,12 +94,16 @@ export type ServicesStackParamList = {
 export type OrdersStackParamList = {
   OrdersMain: undefined;
   OrderDetail: { orderId?: number; mode: 'view' | 'edit' | 'add' };
+  /** "New Product" from the products picker. Same reason it is on the Inventory stack — see above. */
+  ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
 };
 
 /** The Appointments tab's stack. */
 export type AppointmentsStackParamList = {
   AppointmentsMain: undefined;
   AppointmentDetail: { appointmentId?: number; mode: 'view' | 'edit' | 'add' };
+  /** "New Service" from the services picker. Same reason it is on the Inventory stack — see above. */
+  ServiceDetail: { serviceId?: number; mode: 'view' | 'edit' | 'add' };
 };
 
 /** The Billing tab's stack. */

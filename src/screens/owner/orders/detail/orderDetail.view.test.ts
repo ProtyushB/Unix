@@ -10,6 +10,7 @@ import {
   isEditable,
   lockedReason,
   saveLabel,
+  showsCreateProduct,
   showsDelete,
   showsEditCta,
   validateOrder,
@@ -67,6 +68,14 @@ describe('mode gates', () => {
   it('shows the Edit FAB only in view', () => {
     expect(showsEditCta('view')).toBe(true);
     expect(showsEditCta('edit')).toBe(false);
+  });
+
+  it('offers New Product wherever the picker is reachable, not just while adding', () => {
+    // Deliberately wider than the batch screen's `mode === 'add'`: an order gains lines all through
+    // its life, so losing the pill on edit would be a hole in the middle of the same task.
+    expect(showsCreateProduct('add')).toBe(true);
+    expect(showsCreateProduct('edit')).toBe(true);
+    expect(showsCreateProduct('view')).toBe(false);
   });
 });
 
