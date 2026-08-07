@@ -14,6 +14,7 @@ import type {
   AppointmentsStackParamList,
   BillingStackParamList,
   CatalogStackParamList,
+  InventoryStackParamList,
   OrdersStackParamList,
   OwnerTabParamList,
   ProfileStackParamList,
@@ -21,7 +22,8 @@ import type {
 } from './types';
 
 import DashboardScreen from '../screens/owner/DashboardScreen';
-import { InventoryScreen } from '../screens/owner/InventoryScreen';
+import { InventoryScreen } from '../screens/owner/inventory/InventoryScreen';
+import { BatchDetailScreen } from '../screens/owner/inventory/detail/BatchDetailScreen';
 import { AccountScreen } from '../screens/owner/AccountScreen';
 import { OrdersScreen } from '../screens/owner/orders/OrdersScreen';
 import { OrderDetailScreen } from '../screens/owner/orders/detail/OrderDetailScreen';
@@ -84,6 +86,20 @@ function CatalogNavigator() {
       <CatalogStack.Screen name="ProductsMain" component={ProductsScreen} />
       <CatalogStack.Screen name="ProductDetail" component={ProductDetailScreen} />
     </CatalogStack.Navigator>
+  );
+}
+
+// ─── Inventory Stack ─────────────────────────────────────────────────────────
+
+const InventoryStack = createNativeStackNavigator<InventoryStackParamList>();
+
+/** Nested inside the Inventory tab for the same reason as the catalog's — see above. */
+function InventoryNavigator() {
+  return (
+    <InventoryStack.Navigator screenOptions={{ headerShown: false }}>
+      <InventoryStack.Screen name="InventoryMain" component={InventoryScreen} />
+      <InventoryStack.Screen name="InventoryDetail" component={BatchDetailScreen} />
+    </InventoryStack.Navigator>
   );
 }
 
@@ -275,7 +291,13 @@ export function OwnerTabNavigator() {
               <Tab.Screen name="Packages" component={PackagesScreen} />
               <Tab.Screen name="Subscriptions" component={SubscriptionsScreen} />
               <Tab.Screen name="ServicePlans" component={ServicePlansScreen} />
-              <Tab.Screen name="Inventory" component={InventoryScreen} />
+              <Tab.Screen
+                name="Inventory"
+                component={InventoryNavigator}
+                listeners={({ navigation }) => ({
+                  tabPress: () => navigation.navigate('Inventory', { screen: 'InventoryMain' }),
+                })}
+              />
               <Tab.Screen name="Consumptions" component={ConsumptionsScreen} />
               <Tab.Screen name="StockTransfers" component={StockTransfersScreen} />
               <Tab.Screen name="Wastage" component={WastageScreen} />

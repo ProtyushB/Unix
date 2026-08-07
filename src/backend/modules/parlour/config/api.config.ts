@@ -49,18 +49,24 @@ export const PARLOUR_ROUTES = {
   BILLS_BY_BUSINESS: '/parlourBill/business',
   BILLS_BY_CUSTOMER: '/parlourBill/customer',
 
-  // Inventory
-  // ⚠ Not yet audited against ParlourInventoryController, unlike everything above. Known wrong:
-  // INVENTORY_UPDATE has no backend at all (batches are immutable), UPDATE_STATUS is really
-  // PATCH /{id}/status, and BY_BUSINESS takes a query param rather than a path segment.
-  INVENTORY_ADD: '/parlourInventory/add',
-  INVENTORY_UPDATE: '/parlourInventory/update',
-  INVENTORY_VIEW: '/parlourInventory/view',
-  INVENTORY_BY_PRODUCT: '/parlourInventory/viewByProduct',
-  INVENTORY_BY_BUSINESS: '/parlourInventory/viewByBusiness',
+  // Inventory — audited against ParlourInventoryController 2026-08-07.
+  //
+  // Seven of the ten routes here used to be wrong (`/add`, `/view/{id}`, `/viewByProduct`,
+  // `/viewByBusiness/{id}`, `/updateStatus/{id}`, `/delete/{id}`, and a PUT `/update` with no
+  // backend at all), so the screen could not load or save anything. If you add a route, open the
+  // controller — do not pattern-match off the other resources, which do use `/add` and `/viewAll`.
+  //
+  // Ids are PATH SEGMENTS here, so most calls build off the base. Note POST create needs the
+  // TRAILING SLASH — `@PostMapping("/")` does not match a bare `/parlourInventory`.
+  INVENTORY_BASE: '/parlourInventory',
+  INVENTORY_BY_PRODUCT: '/parlourInventory/byProduct',
+  INVENTORY_BY_BUSINESS: '/parlourInventory/byBusiness',
+  INVENTORY_STATUS_COUNTS: '/parlourInventory/byBusiness/statusCounts',
   INVENTORY_TOTAL_STOCK: '/parlourInventory/totalStock',
   INVENTORY_IS_AVAILABLE: '/parlourInventory/isAvailable',
   INVENTORY_EXPIRING: '/parlourInventory/expiring',
-  INVENTORY_UPDATE_STATUS: '/parlourInventory/updateStatus',
-  INVENTORY_DELETE: '/parlourInventory/delete',
+
+  // Dispose is a WASTAGE endpoint, not an inventory one, and is @TabGated(WASTAGE) — it can 403
+  // while inventory works perfectly. See `canDispose` for the client-side gate.
+  WASTAGE_DISPOSE: '/parlourWastage/dispose',
 };

@@ -53,6 +53,49 @@ export function parseYmd(ymd: string): Date {
   return new Date(y, m - 1, d);
 }
 
+/**
+ * Today in **Asia/Kolkata**, as `YYYY-MM-DD`.
+ *
+ * Deliberately not the device's day. Every expiry rule in the system — the create validation, the
+ * EXPIRED sweep, the `expiredOnly` filter — is evaluated against the server's IST day, so a client
+ * comparing against its own timezone disagrees with the backend for anyone travelling, and for
+ * everyone during the hours the two days differ. `toYmd` remains correct for values the user reads
+ * off their own wall clock; this is for anything compared against a server boundary.
+ *
+ * `en-CA` is the shortest route to a zero-padded ISO day from `Intl` — it formats as `2026-08-07`.
+ */
+export function todayIst(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+/** `YYYY-MM-DD` for `n` days after today IST. Negative `n` goes backwards. */
+export function addIstDays(n: number, now: Date = new Date()): string {
+  const [y, m, d] = todayIst(now).split('-').map(Number);
+  // UTC arithmetic on a date already resolved to IST — the shift is done, so this is pure
+  // calendar maths and cannot re-introduce a timezone.
+  const shifted = new Date(Date.UTC(y, m - 1, d + n));
+  return shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * Whole days from `fromYmd` to `toYmd`, both `YYYY-MM-DD`. Negative when `toYmd` is in the past.
+ *
+ * Compares dates, not instants: both sides are pinned to UTC midnight, so the result is never off
+ * by one from a daylight-saving or timezone offset the way subtracting two local `Date`s can be.
+ */
+export function daysBetweenYmd(from: string, to: string): number {
+  const at = (s: string) => {
+    const [y, m, d] = s.split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((at(to) - at(from)) / 86400000);
+}
+
 /** Monday of the ISO week containing `d`. getDay() is 0=Sun..6=Sat, so shift Sunday to the end. */
 export function startOfIsoWeek(d: Date): Date {
   return addDays(atMidnight(d), -((d.getDay() + 6) % 7));

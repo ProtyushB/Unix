@@ -1,3 +1,11 @@
+import type {
+  InventoryQuery,
+  InventoryStatus,
+  InventoryStatusCounts,
+  InventoryType,
+  StatusChangeOptions,
+} from '../../shared/inventory.types';
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;
@@ -309,21 +317,49 @@ export abstract class ParlourApiInterface {
   abstract updateBill(billId: number, data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract deleteBill(id: number): Promise<ApiResponse<unknown>>;
 
-  // Inventory
+  // ── Inventory ──────────────────────────────────────────────────────────────
+  // There is deliberately NO update method: batches are immutable and the backend has no PUT.
+  // Correct stock via wastage/transfer/consumption, move lifecycle via `updateBatchStatus`, or
+  // delete an untouched batch.
   abstract addInventoryBatch(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
-  abstract updateInventoryBatch(data: Record<string, unknown>): Promise<ApiResponse<unknown>>;
   abstract getInventoryBatch(id: number): Promise<ApiResponse<unknown>>;
   abstract getInventoryBatchesByProduct(
-    productId: number,
+    itemId: number,
     businessId: number,
+    inventoryType?: InventoryType | null,
   ): Promise<ApiResponse<unknown[]>>;
-  abstract getInventoryBatchesByBusiness(businessId: number): Promise<ApiResponse<unknown[]>>;
-  abstract getTotalStock(productId: number, businessId: number): Promise<ApiResponse<number>>;
-  abstract isAvailable(productId: number, businessId: number): Promise<ApiResponse<boolean>>;
+  abstract getInventoryBatchesByBusiness(
+    businessId: number,
+    query?: InventoryQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  abstract getInventoryStatusCounts(
+    businessId: number,
+    query?: InventoryQuery,
+  ): Promise<ApiResponse<InventoryStatusCounts>>;
+  abstract getTotalStock(
+    itemId: number,
+    businessId: number,
+    inventoryType?: InventoryType | null,
+  ): Promise<ApiResponse<number>>;
+  abstract isAvailable(
+    itemId: number,
+    businessId: number,
+    inventoryType?: InventoryType | null,
+  ): Promise<ApiResponse<boolean>>;
   abstract getExpiringBatches(
     businessId: number,
     withinDays: number,
   ): Promise<ApiResponse<unknown[]>>;
-  abstract updateBatchStatus(id: number, status: string): Promise<ApiResponse<unknown>>;
+  /** The batch's OWN allowed moves — state-guarded server-side, so never cache it. */
+  abstract getAllowedTransitions(id: number): Promise<ApiResponse<InventoryStatus[]>>;
+  abstract updateBatchStatus(
+    id: number,
+    status: InventoryStatus,
+    options?: StatusChangeOptions,
+  ): Promise<ApiResponse<unknown>>;
   abstract deleteInventoryBatch(id: number): Promise<ApiResponse<unknown>>;
+  /** Write off an EXPIRED batch's remaining stock. Lives on the wastage controller. */
+  abstract disposeBatch(batchId: number): Promise<ApiResponse<unknown>>;
 }

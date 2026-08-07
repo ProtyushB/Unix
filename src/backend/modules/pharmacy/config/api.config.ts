@@ -41,17 +41,16 @@ export const PHARMACY_ROUTES = {
   BILLS_BY_BUSINESS: '/pharmacyBill/business',
   BILLS_BY_CUSTOMER: '/pharmacyBill/customer',
 
-  // Inventory
-  // ⚠ Not yet audited against PharmacyInventoryController, unlike everything above. Same three
-  // known defects as the parlour table.
-  INVENTORY_ADD: '/pharmacyInventory/add',
-  INVENTORY_UPDATE: '/pharmacyInventory/update',
-  INVENTORY_VIEW: '/pharmacyInventory/view',
-  INVENTORY_BY_PRODUCT: '/pharmacyInventory/viewByProduct',
-  INVENTORY_BY_BUSINESS: '/pharmacyInventory/viewByBusiness',
+  // Inventory — audited against PharmacyInventoryController 2026-08-07. The controller is
+  // byte-identical to the parlour one apart from its base path; see the parlour table for the note
+  // on what was wrong here before and why POST needs the trailing slash.
+  INVENTORY_BASE: '/pharmacyInventory',
+  INVENTORY_BY_PRODUCT: '/pharmacyInventory/byProduct',
+  INVENTORY_BY_BUSINESS: '/pharmacyInventory/byBusiness',
+  INVENTORY_STATUS_COUNTS: '/pharmacyInventory/byBusiness/statusCounts',
   INVENTORY_TOTAL_STOCK: '/pharmacyInventory/totalStock',
   INVENTORY_IS_AVAILABLE: '/pharmacyInventory/isAvailable',
   INVENTORY_EXPIRING: '/pharmacyInventory/expiring',
-  INVENTORY_UPDATE_STATUS: '/pharmacyInventory/updateStatus',
-  INVENTORY_DELETE: '/pharmacyInventory/delete',
+
+  WASTAGE_DISPOSE: '/pharmacyWastage/dispose',
 };
