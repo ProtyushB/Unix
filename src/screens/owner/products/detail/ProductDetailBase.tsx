@@ -18,7 +18,6 @@ import type { AppTheme } from '../../../../theme/theme.types';
 import { Badge } from '../../shared/detail/parts/Badge';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
-import { MediaStrip } from '../../shared/detail/parts/MediaStrip';
 import { ImageStage } from '../../shared/detail/parts/ImageStage';
 import { SaleUnitsEditor } from './parts/SaleUnitsEditor';
 import { SwitchRow } from '../../shared/detail/parts/SwitchRow';
@@ -220,15 +219,14 @@ export function ProductDetailBase({
           </View>
         ) : null}
 
-        {/* Two different components, not one with a flag. Reading is a 3:4 stage that pages and
-            never crops (`ImageStage`); editing is a row of 78px input tiles led by an Add button.
-            A product's photos are the first thing on the view screen and deserve the room — above a
-            form they would push every field below the fold. */}
-        {editable ? (
-          <MediaStrip uris={imageUris} onAdd={onAddImage} onRemove={onRemoveImage} />
-        ) : (
-          <ImageStage uris={imageUris} />
-        )}
+        {/* One component, both modes. Editing adds Add and Remove and changes nothing else, so a
+            photo is picked at exactly the size the customer-facing screen will show it. */}
+        <ImageStage
+          uris={imageUris}
+          editable={editable}
+          onAdd={onAddImage}
+          onRemove={onRemoveImage}
+        />
 
         {!editable ? (
           <View style={styles.titleBlock}>
