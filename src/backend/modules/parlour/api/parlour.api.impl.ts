@@ -22,6 +22,9 @@ import {
   type InventoryType,
   type StatusChangeOptions,
 } from '../../shared/inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
 
 export class ParlourApiImpl extends ParlourApiInterface {
   // ── Products ───────────────────────────────────────────────────────────────
@@ -443,6 +446,123 @@ export class ParlourApiImpl extends ParlourApiInterface {
   }
   async disposeBatch(batchId: number): Promise<ApiResponse<unknown>> {
     const res = await parlourApiClient.post(`${PARLOUR_ROUTES.WASTAGE_DISPOSE}/${batchId}`);
+    return res.data;
+  }
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  // The WORKED EXAMPLE for all three stock-movement features. Two of the family's three traps are
+  // visible here; the third (a bad enum being a 500 rather than a 400) is solved one layer up, in
+  // `parlour.service.ts`, because the fix is to never make the call.
+  //
+  // No update method: a consumption is immutable and the backend has no PUT.
+  async createConsumption(data: ConsumptionPayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ TRAP 1 — the TRAILING SLASH. `@PostMapping("/")` does not match a bare
+    // `/parlourConsumption`: the request 404s, and the body says nothing about why. Precedent and
+    // proof it is not a one-off: `addInventoryBatch` above needs exactly the same slash.
+    const res = await parlourApiClient.post(`${PARLOUR_ROUTES.CONSUMPTION_BASE}/`, data);
+    return res.data;
+  }
+  async getConsumption(id: number): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.CONSUMPTION_BASE}/${id}`);
+    return res.data;
+  }
+  async getConsumptionsByBusiness(
+    businessId: number,
+    query: ConsumptionQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.CONSUMPTION_BY_BUSINESS, {
+      // `compactParams`, never a bare spread: axios serialises `{reason: null}` as `reason=`, and
+      // Spring binds that empty string to a blank enum and answers 400 instead of reading it as
+      // "no filter". Dropping the key is the difference between an unfiltered list and an error.
+      //
+      // ⚠️ TRAP 2 — paging is 1-BASED and the size param is `limit`, not `size`. The clamp lives
+      // in the service so it cannot be skipped by a caller that reaches straight for the impl.
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async deleteConsumption(id: number): Promise<ApiResponse<unknown>> {
+    // Deleting RESTOCKS what was consumed — a reversal, not a tidy-up.
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.CONSUMPTION_BASE}/${id}`);
+    return res.data;
+  }
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // The consumption slice with wastage's routes and types. Same three traps, same answers; the enum
+  // one is solved a layer up in `parlour.service.ts`, because the fix is to never make the call.
+  //
+  // No update method: a wastage is immutable and the backend has no PUT.
+  async createWastage(data: WastagePayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ TRAP 1 — the TRAILING SLASH. `@PostMapping("/")` does not match a bare `/parlourWastage`:
+    // the request 404s with nothing in the body to say why. Same slash `addInventoryBatch` and
+    // `createConsumption` need.
+    const res = await parlourApiClient.post(`${PARLOUR_ROUTES.WASTAGE_BASE}/`, data);
+    return res.data;
+  }
+  async getWastage(id: number): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.WASTAGE_BASE}/${id}`);
+    return res.data;
+  }
+  async getWastageByBusiness(
+    businessId: number,
+    query: WastageQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.WASTAGE_BY_BUSINESS, {
+      // `compactParams`, never a bare spread: axios serialises `{reason: null}` as `reason=`, which
+      // Spring binds to a blank enum and answers 400 instead of reading as "no filter".
+      //
+      // ⚠️ TRAP 2 — paging is 1-BASED and the size param is `limit`, not `size`. The clamp lives in
+      // the service so a caller reaching straight for the impl cannot skip it.
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async deleteWastage(id: number): Promise<ApiResponse<unknown>> {
+    // Deleting RESTOCKS what was written off — a reversal, not a tidy-up.
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.WASTAGE_BASE}/${id}`);
+    return res.data;
+  }
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // The same two traps the consumption slice above carries, for the same reasons. The third (a bad
+  // enum being a 500 rather than a 400) is solved one layer up, in `parlour.service.ts`.
+  //
+  // No update method: a transfer is immutable and the backend has no PUT.
+  async createStockTransfer(data: StockTransferPayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ TRAP 1 — the TRAILING SLASH. `@PostMapping("/")` does not match a bare
+    // `/parlourStockTransfer`: the request 404s and the body says nothing about why.
+    const res = await parlourApiClient.post(`${PARLOUR_ROUTES.STOCK_TRANSFER_BASE}/`, data);
+    return res.data;
+  }
+  async getStockTransfer(id: number): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.STOCK_TRANSFER_BASE}/${id}`);
+    return res.data;
+  }
+  async getStockTransfersByBusiness(
+    businessId: number,
+    query: StockTransferQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.STOCK_TRANSFER_BY_BUSINESS, {
+      // `compactParams`, never a bare spread — see the consumption twin. There is no `reason` key
+      // to compact here: the transfer controller reads none, and `StockTransferQuery` omits it so
+      // that adding one is a compile error rather than a silently unfiltered list.
+      //
+      // ⚠️ TRAP 2 — paging is 1-BASED and the size param is `limit`, not `size`. The clamp lives in
+      // the service so it cannot be skipped by a caller that reaches straight for the impl.
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async deleteStockTransfer(id: number): Promise<ApiResponse<unknown>> {
+    // Deleting REVERSES the move — the quantity goes back to the source pool and the minted
+    // destination batch is removed. Refused with a 409 once that batch has been drawn from.
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.STOCK_TRANSFER_BASE}/${id}`);
     return res.data;
   }
 }

@@ -83,21 +83,44 @@ export function DetailField({
 
   const valueColor = tintColor(theme, value ? tint : 'muted');
 
+  /*
+    `required` and `error` render here too, not only in the editable branch above.
+
+    They used to render only there, and the effect was silent: a field that is READ-ONLY but still
+    validated — a picker trigger, a status chosen from a sheet, a date set by a calendar — dropped
+    its error on the floor. The user got a save that refused with nothing on screen explaining why,
+    and the label never showed the asterisk that would have warned them first.
+
+    Seven of these were live when this was found, across four screens: the bill's status, payment
+    status and date; the appointment's date, time and status; the order's status. All of them
+    validate, none of them could say so. It surfaced only because someone drove the consumption form
+    in a browser — nothing in this repo renders, so no test could have caught it.
+  */
   if (readLayout === 'block') {
     return (
       <View style={styles.block}>
-        <Text style={styles.blockLabel}>{label}</Text>
+        <View style={styles.labelRow}>
+          <Text style={styles.blockLabel}>{label}</Text>
+          {required ? <Text style={styles.required}>*</Text> : null}
+        </View>
         <Text style={[styles.blockValue, { color: valueColor }]}>{value || '—'}</Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
     );
   }
 
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, { color: valueColor }]} numberOfLines={2}>
-        {value || '—'}
-      </Text>
+    <View style={styles.rowWrap}>
+      <View style={styles.row}>
+        <View style={styles.labelRow}>
+          <Text style={styles.rowLabel}>{label}</Text>
+          {required ? <Text style={styles.required}>*</Text> : null}
+        </View>
+        <Text style={[styles.rowValue, { color: valueColor }]} numberOfLines={2}>
+          {value || '—'}
+        </Text>
+      </View>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
 }
@@ -124,6 +147,9 @@ function tintColor(theme: AppTheme, tint: ValueTint): string {
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     // ── Read: one line, value right-aligned ──────────────────────────────────
+    // The row keeps its own label/value line; the wrapper exists only so an error can sit UNDER it
+    // rather than being squeezed into the horizontal space beside the value.
+    rowWrap: { gap: 4 },
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
     rowLabel: { fontSize: 13, color: theme.palette.muted },
     rowValue: { flexShrink: 1, fontSize: 13, fontWeight: '500', textAlign: 'right' },

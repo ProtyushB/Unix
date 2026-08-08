@@ -40,6 +40,26 @@ export interface InventoryQuery {
   sortDir?: 'asc' | 'desc' | null;
 }
 
+/**
+ * One rung of a MIXED-unit stock movement — "2 strips" alongside "8 tablets" on one record.
+ *
+ * Lives here rather than in any one of consumption/wastage/stockTransfer because all three send the
+ * identical array under the identical key, and three structurally-identical copies would drift the
+ * first time one of them grew a field. It is deliberately NOT `SaleUnit` (`batchUnits.ts`): that one
+ * carries a `price` and describes a product's catalog ladder, whereas this describes a quantity
+ * ENTERED against that ladder — same two names, a third number, a different meaning.
+ *
+ * ⚠️ Stock transfer accepts this on the wire and then DISCARDS it: the server rebuilds the
+ * destination batch from the scalar total. See `stockTransfer.types.ts`.
+ */
+export interface StockUnitLine {
+  unit: string;
+  /** BASE units per one `unit`. The base rung is 1. */
+  perStock: number;
+  /** How many of `unit`, in LEVEL units — not multiplied out. */
+  qty: number;
+}
+
 /** Options for a status change. Both are optional; omitted keys let server defaults apply. */
 export interface StatusChangeOptions {
   userId?: number | null;

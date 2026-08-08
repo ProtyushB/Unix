@@ -14,11 +14,14 @@ import type {
   AppointmentsStackParamList,
   BillingStackParamList,
   CatalogStackParamList,
+  ConsumptionsStackParamList,
   InventoryStackParamList,
   OrdersStackParamList,
   OwnerTabParamList,
   ProfileStackParamList,
   ServicesStackParamList,
+  StockTransfersStackParamList,
+  WastageStackParamList,
 } from './types';
 
 import DashboardScreen from '../screens/owner/DashboardScreen';
@@ -38,9 +41,12 @@ import { ServiceDetailScreen } from '../screens/owner/services/detail/ServiceDet
 import { PackagesScreen } from '../screens/owner/PackagesScreen';
 import { SubscriptionsScreen } from '../screens/owner/SubscriptionsScreen';
 import { ServicePlansScreen } from '../screens/owner/ServicePlansScreen';
-import { ConsumptionsScreen } from '../screens/owner/ConsumptionsScreen';
-import { StockTransfersScreen } from '../screens/owner/StockTransfersScreen';
-import { WastageScreen } from '../screens/owner/WastageScreen';
+import { ConsumptionsScreen } from '../screens/owner/consumptions/ConsumptionsScreen';
+import { ConsumptionDetailScreen } from '../screens/owner/consumptions/detail/ConsumptionDetailScreen';
+import { StockTransfersScreen } from '../screens/owner/stockTransfers/StockTransfersScreen';
+import { StockTransferDetailScreen } from '../screens/owner/stockTransfers/detail/StockTransferDetailScreen';
+import { WastageScreen } from '../screens/owner/wastage/WastageScreen';
+import { WastageDetailScreen } from '../screens/owner/wastage/detail/WastageDetailScreen';
 import { PlaceholderScreen } from '../screens/owner/PlaceholderScreen';
 import { CustomersScreen } from '../screens/owner/CustomersScreen';
 import { EmployeesScreen } from '../screens/owner/EmployeesScreen';
@@ -106,6 +112,55 @@ function InventoryNavigator() {
       */}
       <InventoryStack.Screen name="ProductDetail" component={ProductDetailScreen} />
     </InventoryStack.Navigator>
+  );
+}
+
+// ─── Stock movement stacks ───────────────────────────────────────────────────
+//
+// Consumptions · Wastage · Stock Transfers. Three stacks, not one: they are three tabs, so a shared
+// stack would let Back out of a wastage land on a consumption the user never opened from there.
+//
+// Each is NESTED INSIDE its tab for the same reason the catalog is — see `CatalogNavigator` — and
+// each registers `ProductDetailScreen` for the same reason the inventory stack does: "New Product"
+// from the record form's picker must be a push within THIS stack, or the half-filled form is
+// unmounted while the user is away.
+
+const ConsumptionsStack = createNativeStackNavigator<ConsumptionsStackParamList>();
+
+function ConsumptionsNavigator() {
+  return (
+    <ConsumptionsStack.Navigator screenOptions={{ headerShown: false }}>
+      <ConsumptionsStack.Screen name="ConsumptionsMain" component={ConsumptionsScreen} />
+      <ConsumptionsStack.Screen name="ConsumptionDetail" component={ConsumptionDetailScreen} />
+      <ConsumptionsStack.Screen name="ProductDetail" component={ProductDetailScreen} />
+    </ConsumptionsStack.Navigator>
+  );
+}
+
+const WastageStack = createNativeStackNavigator<WastageStackParamList>();
+
+function WastageNavigator() {
+  return (
+    <WastageStack.Navigator screenOptions={{ headerShown: false }}>
+      <WastageStack.Screen name="WastageMain" component={WastageScreen} />
+      <WastageStack.Screen name="WastageDetail" component={WastageDetailScreen} />
+      <WastageStack.Screen name="ProductDetail" component={ProductDetailScreen} />
+    </WastageStack.Navigator>
+  );
+}
+
+const StockTransfersStack = createNativeStackNavigator<StockTransfersStackParamList>();
+
+function StockTransfersNavigator() {
+  return (
+    <StockTransfersStack.Navigator screenOptions={{ headerShown: false }}>
+      <StockTransfersStack.Screen name="StockTransfersMain" component={StockTransfersScreen} />
+      <StockTransfersStack.Screen
+        name="StockTransferDetail"
+        component={StockTransferDetailScreen}
+      />
+      <StockTransfersStack.Screen name="ProductDetail" component={ProductDetailScreen} />
+    </StockTransfersStack.Navigator>
   );
 }
 
@@ -308,9 +363,32 @@ export function OwnerTabNavigator() {
                   tabPress: () => navigation.navigate('Inventory', { screen: 'InventoryMain' }),
                 })}
               />
-              <Tab.Screen name="Consumptions" component={ConsumptionsScreen} />
-              <Tab.Screen name="StockTransfers" component={StockTransfersScreen} />
-              <Tab.Screen name="Wastage" component={WastageScreen} />
+              {/* Same `listeners` reset as the five stack tabs above: React Navigation restores a
+                  tab's nested state, so without this, leaving while a detail is open and coming
+                  back later lands on that detail rather than on the list the user expects. */}
+              <Tab.Screen
+                name="Consumptions"
+                component={ConsumptionsNavigator}
+                listeners={({ navigation }) => ({
+                  tabPress: () =>
+                    navigation.navigate('Consumptions', { screen: 'ConsumptionsMain' }),
+                })}
+              />
+              <Tab.Screen
+                name="StockTransfers"
+                component={StockTransfersNavigator}
+                listeners={({ navigation }) => ({
+                  tabPress: () =>
+                    navigation.navigate('StockTransfers', { screen: 'StockTransfersMain' }),
+                })}
+              />
+              <Tab.Screen
+                name="Wastage"
+                component={WastageNavigator}
+                listeners={({ navigation }) => ({
+                  tabPress: () => navigation.navigate('Wastage', { screen: 'WastageMain' }),
+                })}
+              />
               {/* No Expenses screen yet — the placeholder reads its title from the
                   route name, so this renders "Expenses / Coming soon". */}
               <Tab.Screen name="Expenses" component={PlaceholderScreen} />

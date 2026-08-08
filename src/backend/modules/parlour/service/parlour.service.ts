@@ -4,6 +4,12 @@ import type {
   InventoryType,
   StatusChangeOptions,
 } from '../../shared/inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import { isConsumptionReason } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
+import { isWastageReason } from '../../shared/wastage.types';
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+import { isStockTransferReason } from '../../shared/stockTransfer.types';
 import {
   ParlourApiInterface,
   BillableListOptions,
@@ -286,5 +292,141 @@ export class ParlourService {
   }
   async disposeBatch(batchId: number) {
     return this.api.disposeBatch(batchId);
+  }
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  //
+  // The WORKED EXAMPLE. This layer is not a passthrough for these endpoints — it is where the
+  // family's third trap is solved, and where the paging clamp lives so no caller can skip it.
+  //
+  // No update passthrough: a consumption is immutable and the backend has no PUT.
+  async createConsumption(data: ConsumptionPayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    if (!data?.itemId) throw new Error('A product is required');
+    // ⚠️ TRAP 3 — a bad enum is an HTTP **500**, not a 400.
+    //
+    // Spring cannot bind an unknown constant into the request body's enum, so the handler never
+    // runs: there is no validation error, no field name, and nothing in the response a screen could
+    // turn into a message. The user sees "something went wrong" and no way forward.
+    //
+    // So the guard runs BEFORE the axios call and throws locally. Same reasoning as
+    // `updateBillPayment`'s pre-flight checks: catching it here is a synchronous message instead of
+    // an opaque failure the user waited for.
+    if (!isConsumptionReason(data?.reason)) throw new Error('Pick a valid consumption reason');
+    // Zero is not a consumption, and a negative one would restock. `> 0` rather than a truthiness
+    // check so `'0'` and `NaN` are both refused rather than one of them slipping through.
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    return this.api.createConsumption(data);
+  }
+  async getConsumption(id: number) {
+    if (!id) throw new Error('Consumption ID is required');
+    return this.api.getConsumption(id);
+  }
+  async getConsumptionsByBusiness(
+    businessId: number,
+    query: ConsumptionQuery = {},
+    page = 1,
+    limit = 20,
+  ) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ TRAP 2 — `page` is 1-BASED. `page=0` is a 400, NOT "the first page", so an infinite-scroll
+    // list whose counter starts at zero fails on its very first request rather than on page two.
+    // Clamped here rather than at the call site because every caller would otherwise have to
+    // remember, and the one that forgets breaks the whole screen.
+    return this.api.getConsumptionsByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteConsumption(id: number) {
+    if (!id) throw new Error('Consumption ID is required');
+    return this.api.deleteConsumption(id);
+  }
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  //
+  // The consumption slice with wastage's types. Not a passthrough: this is where the bad-enum trap
+  // is solved and where the paging clamp lives so no caller can skip it.
+  //
+  // No update passthrough: a wastage is immutable and the backend has no PUT.
+  async createWastage(data: WastagePayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    // ⚠️ `batchId`, not `itemId`. A wastage is addressed by the BATCH it comes out of — the server
+    // derives the product and the pool from it. A payload carrying only an itemId is a 400 that
+    // names a field the form never showed anyone.
+    if (!data?.batchId) throw new Error('No stock is available to write off');
+    // ⚠️ TRAP 3 — a bad enum is an HTTP **500**, not a 400. Spring cannot bind an unknown constant
+    // into the request body's enum, so the handler never runs: no validation error, no field name,
+    // nothing a screen could turn into a message. The guard runs BEFORE the axios call.
+    //
+    // Note it accepts all EIGHT reasons, CORRECTION included. That is deliberate and is NOT the
+    // same list the form's chips render from (`WASTAGE_REASON_CHOICES`, seven): this guards what
+    // the wire may legally carry, not what a person may pick.
+    if (!isWastageReason(data?.reason)) throw new Error('Pick a valid wastage reason');
+    // Zero is not a write-off, and a negative one would restock. `> 0` rather than a truthiness
+    // check so `'0'` and `NaN` are both refused.
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    return this.api.createWastage(data);
+  }
+  async getWastage(id: number) {
+    if (!id) throw new Error('Wastage ID is required');
+    return this.api.getWastage(id);
+  }
+  async getWastageByBusiness(businessId: number, query: WastageQuery = {}, page = 1, limit = 20) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ TRAP 2 — `page` is 1-BASED. `page=0` is a 400, NOT "the first page", so a list whose
+    // counter starts at zero fails on its very first request rather than on page two.
+    return this.api.getWastageByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteWastage(id: number) {
+    if (!id) throw new Error('Wastage ID is required');
+    return this.api.deleteWastage(id);
+  }
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  //
+  // The consumption slice above, with its addressing field swapped: a transfer names the SOURCE
+  // BATCH, like a wastage, and the server derives the product and the source pool from it.
+  // Everything else — the pre-flight enum check, the paging clamp — is the same trap in the same
+  // place.
+  //
+  // No update passthrough: a transfer is immutable and the backend has no PUT.
+  async createStockTransfer(data: StockTransferPayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    // ⚠️ `sourceBatchId` is `@NotNull @Positive` and is what the controller addresses the whole
+    // transfer by. Guarded here rather than left to the server because a bean-validation 400 names
+    // a field the form never showed anyone — there is no batch picker, so "sourceBatchId must not be
+    // null" is unactionable. The client-side message names what the user can actually change.
+    if (!(Number(data?.sourceBatchId) > 0)) {
+      throw new Error('No stock is available in the source pool for this product');
+    }
+    // ⚠️ TRAP 3 — a bad enum is an HTTP **500**, not a 400. Spring cannot bind an unknown constant
+    // into the body's enum, so the handler never runs and there is nothing in the response a screen
+    // could turn into a message. The guard runs BEFORE the axios call. See `createConsumption`.
+    if (!isStockTransferReason(data?.reason)) throw new Error('Pick a valid transfer reason');
+    // Zero moves nothing and a negative one would move stock the other way. `> 0` rather than a
+    // truthiness check so `'0'` and `NaN` are both refused.
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    // The same-pool check cannot live here any more: only `destType` travels, and the source pool is
+    // whatever the named batch sits in. The form still refuses a same-pool pair before it gets this
+    // far — see `validateStockTransfer` — and the server refuses it as the last line.
+    return this.api.createStockTransfer(data);
+  }
+  async getStockTransfer(id: number) {
+    if (!id) throw new Error('Stock transfer ID is required');
+    return this.api.getStockTransfer(id);
+  }
+  async getStockTransfersByBusiness(
+    businessId: number,
+    query: StockTransferQuery = {},
+    page = 1,
+    limit = 20,
+  ) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ TRAP 2 — `page` is 1-BASED. `page=0` is a 400, NOT "the first page", so an infinite-scroll
+    // list whose counter starts at zero fails on its very first request. Clamped here rather than
+    // at the call site because every caller would otherwise have to remember.
+    return this.api.getStockTransfersByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteStockTransfer(id: number) {
+    if (!id) throw new Error('Stock transfer ID is required');
+    return this.api.deleteStockTransfer(id);
   }
 }

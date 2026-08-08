@@ -5,6 +5,9 @@ import type {
   InventoryType,
   StatusChangeOptions,
 } from '../../shared/inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -362,4 +365,78 @@ export abstract class ParlourApiInterface {
   abstract deleteInventoryBatch(id: number): Promise<ApiResponse<unknown>>;
   /** Write off an EXPIRED batch's remaining stock. Lives on the wastage controller. */
   abstract disposeBatch(batchId: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  //
+  // The WORKED EXAMPLE. The wastage and stock-transfer regions below are empty; build them by
+  // copying these four and swapping the types — read the impl and the service alongside, because
+  // the three traps this feature family carries are solved there rather than here.
+  //
+  // Four methods and no more: a consumption is IMMUTABLE, so there is no update anywhere in the
+  // chain. Correcting one means deleting it (which restocks) and recording it again.
+  //
+  // ⚠️ These list responses carry `totalPages` and NOTHING ELSE. `totalElements` is never set on
+  // them, so a screen cannot show a row count — do not add a `*Total` state cell that would have
+  // to invent one.
+  abstract createConsumption(data: ConsumptionPayload): Promise<ApiResponse<unknown>>;
+  abstract getConsumption(id: number): Promise<ApiResponse<unknown>>;
+  abstract getConsumptionsByBusiness(
+    businessId: number,
+    query?: ConsumptionQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Deleting RESTOCKS what was consumed. It is a reversal, not a tidy-up. */
+  abstract deleteConsumption(id: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  //
+  // The consumption slice above, with wastage's types. Four methods and no update: a wastage is
+  // IMMUTABLE — no PUT anywhere in the controller — so correcting one means deleting it (which
+  // RESTOCKS) and recording it again.
+  //
+  // ⚠️ `WastageQuery` carries no `inventoryType`, deliberately. The field is on every record and it
+  // IS in the sort whitelist, which makes a Product/Raw filter the obvious thing to add — and the
+  // controller reads no such query param, so it would look like it worked and return everything.
+  //
+  // ⚠️ Same `totalPages`-only envelope as consumption: `totalElements` is never set on these list
+  // responses, so no screen can show a row count and no `*Total` cell should exist to hold one.
+  abstract createWastage(data: WastagePayload): Promise<ApiResponse<unknown>>;
+  abstract getWastage(id: number): Promise<ApiResponse<unknown>>;
+  abstract getWastageByBusiness(
+    businessId: number,
+    query?: WastageQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Deleting RESTOCKS what was written off, back into the batches it came out of. */
+  abstract deleteWastage(id: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  //
+  // Four methods and no update, exactly like consumption: a transfer is IMMUTABLE. Correcting one
+  // means deleting it — which REVERSES the move — and recording it again.
+  //
+  // ⚠️ `StockTransferQuery` has no `reason` key, deliberately; the backend reads no such param.
+  // `reason` is SORTABLE and not FILTERABLE here, unlike on both siblings.
+  //
+  // ⚠️ The list response carries `totalPages` and NOTHING ELSE — no `totalElements`, so no row
+  // count and no `*Total` state cell.
+  abstract createStockTransfer(data: StockTransferPayload): Promise<ApiResponse<unknown>>;
+  /** One transfer, fully hydrated — it carries the FEFO `lines` ledger, NOT `deductions`. */
+  abstract getStockTransfer(id: number): Promise<ApiResponse<unknown>>;
+  abstract getStockTransfersByBusiness(
+    businessId: number,
+    query?: StockTransferQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /**
+   * Deleting REVERSES the move: the quantity goes back to the pool it came from and the minted
+   * destination batch is removed.
+   *
+   * ⚠️ Refused with a 409 `STOCK_MOVEMENT_LOCKED` once the destination batch has been drawn from.
+   * That refusal is protection, not a failure, and the hook layer resolves it rather than throwing.
+   */
+  abstract deleteStockTransfer(id: number): Promise<ApiResponse<unknown>>;
 }

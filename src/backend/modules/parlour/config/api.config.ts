@@ -69,4 +69,40 @@ export const PARLOUR_ROUTES = {
   // Dispose is a WASTAGE endpoint, not an inventory one, and is @TabGated(WASTAGE) — it can 403
   // while inventory works perfectly. See `canDispose` for the client-side gate.
   WASTAGE_DISPOSE: '/parlourWastage/dispose',
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  //
+  // The worked example the two slices below copy. Same shape as the inventory block: ids are PATH
+  // SEGMENTS, so GET-one and DELETE build off the base, and the list lives under `/byBusiness`.
+  //
+  // ⚠️ POST needs a TRAILING SLASH — `@PostMapping("/")` does not match a bare
+  // `/parlourConsumption`, and the 404 comes back with nothing in it to explain why. The slash is
+  // added at the call site rather than baked in here, matching `INVENTORY_BASE`, so the same
+  // constant still serves `GET /{id}` and `DELETE /{id}`.
+  CONSUMPTION_BASE: '/parlourConsumption',
+  CONSUMPTION_BY_BUSINESS: '/parlourConsumption/byBusiness',
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  //
+  // Same shape as the consumption pair above: ids are PATH SEGMENTS, so GET-one and DELETE build off
+  // the base, and the list lives under `/byBusiness`.
+  //
+  // ⚠️ POST needs a TRAILING SLASH, exactly as consumption and inventory do — `@PostMapping("/")`
+  // does not match a bare `/parlourWastage`, and the 404 carries nothing to explain itself. Added at
+  // the call site rather than baked in here so the same constant still serves `GET|DELETE /{id}`.
+  //
+  // Note `WASTAGE_DISPOSE` above shares this controller but is NOT this feature: it is inventory's
+  // Dispose action on one expired batch, and it is not the base to build the CRUD off.
+  WASTAGE_BASE: '/parlourWastage',
+  WASTAGE_BY_BUSINESS: '/parlourWastage/byBusiness',
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Shaped exactly like the consumption pair above: ids are PATH SEGMENTS, so GET-one and DELETE
+  // build off the base and the list lives under `/byBusiness`.
+  //
+  // ⚠️ POST needs a TRAILING SLASH — `@PostMapping("/")` does not match a bare
+  // `/parlourStockTransfer`, and the 404 says nothing about why. Added at the call site rather than
+  // baked in here so the same constant still serves `GET /{id}` and `DELETE /{id}`.
+  STOCK_TRANSFER_BASE: '/parlourStockTransfer',
+  STOCK_TRANSFER_BY_BUSINESS: '/parlourStockTransfer/byBusiness',
 };

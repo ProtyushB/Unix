@@ -26,7 +26,7 @@ Edit [`registry.tsx`](./registry.tsx) — one line per screen:
 
 ```ts
 { id: 'owner/wastage', title: 'Wastage', group: 'Owner',
-  load: () => import('../src/screens/owner/WastageScreen') },
+  load: () => import('../src/screens/owner/wastage/WastageScreen') },
 ```
 
 - `load` is a lazy `import()` so a screen that fails to bundle/run only breaks
