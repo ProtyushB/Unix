@@ -4,6 +4,12 @@ import type {
   InventoryType,
   StatusChangeOptions,
 } from '../../shared/inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import { isConsumptionReason } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
+import { isWastageReason } from '../../shared/wastage.types';
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+import { isStockTransferReason } from '../../shared/stockTransfer.types';
 import {
   PharmacyApiInterface,
   BillableListOptions,
@@ -276,5 +282,96 @@ export class PharmacyService {
   }
   async disposeBatch(batchId: number) {
     return this.api.disposeBatch(batchId);
+  }
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — see it for why the reason guard and the paging clamp live in this
+  // layer rather than in the impl or the screen.
+  async createConsumption(data: ConsumptionPayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    if (!data?.itemId) throw new Error('A product is required');
+    // ⚠️ A bad enum is an HTTP 500, not a 400 — throw locally instead. See the parlour service.
+    if (!isConsumptionReason(data?.reason)) throw new Error('Pick a valid consumption reason');
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    return this.api.createConsumption(data);
+  }
+  async getConsumption(id: number) {
+    if (!id) throw new Error('Consumption ID is required');
+    return this.api.getConsumption(id);
+  }
+  async getConsumptionsByBusiness(
+    businessId: number,
+    query: ConsumptionQuery = {},
+    page = 1,
+    limit = 20,
+  ) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ `page` is 1-BASED; `page=0` is a 400. See the parlour service.
+    return this.api.getConsumptionsByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteConsumption(id: number) {
+    if (!id) throw new Error('Consumption ID is required');
+    return this.api.deleteConsumption(id);
+  }
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — see it for why the reason guard and the paging clamp live in this
+  // layer, and for why `batchId` rather than `itemId` is the field that must be present.
+  async createWastage(data: WastagePayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    // ⚠️ `batchId`, not `itemId` — a wastage is addressed by the batch. See the parlour service.
+    if (!data?.batchId) throw new Error('No stock is available to write off');
+    // ⚠️ A bad enum is an HTTP 500, not a 400 — throw locally instead. Accepts all EIGHT reasons,
+    // CORRECTION included: this guards the wire, not the chip list.
+    if (!isWastageReason(data?.reason)) throw new Error('Pick a valid wastage reason');
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    return this.api.createWastage(data);
+  }
+  async getWastage(id: number) {
+    if (!id) throw new Error('Wastage ID is required');
+    return this.api.getWastage(id);
+  }
+  async getWastageByBusiness(businessId: number, query: WastageQuery = {}, page = 1, limit = 20) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ `page` is 1-BASED; `page=0` is a 400. See the parlour service.
+    return this.api.getWastageByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteWastage(id: number) {
+    if (!id) throw new Error('Wastage ID is required');
+    return this.api.deleteWastage(id);
+  }
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — read that file for why the enum guard runs BEFORE the request and
+  // why the transfer is addressed by its SOURCE BATCH rather than by a product and a pool.
+  async createStockTransfer(data: StockTransferPayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    // ⚠️ `@NotNull @Positive`, and the field the whole transfer is addressed by. See the parlour
+    // service for why the message names the stock rather than the field.
+    if (!(Number(data?.sourceBatchId) > 0)) {
+      throw new Error('No stock is available in the source pool for this product');
+    }
+    // ⚠️ A bad enum is an HTTP 500, not a 400. See the parlour service.
+    if (!isStockTransferReason(data?.reason)) throw new Error('Pick a valid transfer reason');
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    return this.api.createStockTransfer(data);
+  }
+  async getStockTransfer(id: number) {
+    if (!id) throw new Error('Stock transfer ID is required');
+    return this.api.getStockTransfer(id);
+  }
+  async getStockTransfersByBusiness(
+    businessId: number,
+    query: StockTransferQuery = {},
+    page = 1,
+    limit = 20,
+  ) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ `page` is 1-BASED; `page=0` is a 400. See the parlour service.
+    return this.api.getStockTransfersByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteStockTransfer(id: number) {
+    if (!id) throw new Error('Stock transfer ID is required');
+    return this.api.deleteStockTransfer(id);
   }
 }

@@ -19,6 +19,9 @@ import type {
   InventoryType,
   StatusChangeOptions,
 } from '../inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../consumption.types';
+import type { WastagePayload, WastageQuery } from '../wastage.types';
+import type { StockTransferPayload, StockTransferQuery } from '../stockTransfer.types';
 import { DmsService } from '../../../dms/service/dms.service';
 import { createEntityFolder } from '../../../dms/util/EntityFolderUtils';
 import { NativeFile, ResourceFileDto } from '../../../dms/api/file.api.interface';
@@ -316,6 +319,49 @@ interface ModuleService {
     businessId: number,
     inventoryType?: InventoryType | null,
   ): Promise<ServiceResult>;
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  // The WORKED EXAMPLE for the three stock-movement features. Four methods and no update: a
+  // consumption is immutable, so correcting one means deleting it (which restocks) and re-recording.
+  createConsumption(data: ConsumptionPayload): Promise<ServiceResult>;
+  /** One consumption, fully hydrated (it carries the FEFO `deductions` ledger). See `readOne`. */
+  getConsumption(id: number): Promise<ServiceResult>;
+  getConsumptionsByBusiness(
+    businessId: number,
+    query?: ConsumptionQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ServiceResult>;
+  deleteConsumption(id: number): Promise<ServiceResult>;
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Four methods and no update, same as consumption: a wastage is immutable, so correcting one
+  // means deleting it (which RESTOCKS) and re-recording.
+  createWastage(data: WastagePayload): Promise<ServiceResult>;
+  /** One wastage, fully hydrated (it carries the `deductions` ledger). See `readOne`. */
+  getWastage(id: number): Promise<ServiceResult>;
+  getWastageByBusiness(
+    businessId: number,
+    query?: WastageQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ServiceResult>;
+  deleteWastage(id: number): Promise<ServiceResult>;
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // The consumption four, with `StockTransferQuery` in place of `ConsumptionQuery` — note it has no
+  // `reason` key, deliberately, because the transfer controller reads no such param.
+  createStockTransfer(data: StockTransferPayload): Promise<ServiceResult>;
+  /** One transfer, fully hydrated (it carries the FEFO `lines` ledger). See `readOne`. */
+  getStockTransfer(id: number): Promise<ServiceResult>;
+  getStockTransfersByBusiness(
+    businessId: number,
+    query?: StockTransferQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ServiceResult>;
+  /** Deleting REVERSES the move. 409 `STOCK_MOVEMENT_LOCKED` once the destination batch is used. */
+  deleteStockTransfer(id: number): Promise<ServiceResult>;
 }
 
 // ─── Detail-screen reads ─────────────────────────────────────────────────────
@@ -418,6 +464,37 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     const [inventoryTotalPages, setInventoryTotalPages] = useState(1);
     /** Null when the server did not report it — never conflate "unknown" with zero. */
     const [inventoryTotal, setInventoryTotal] = useState<number | null>(null);
+
+    // ─── Consumption ─────────────────────────────────────────────────────────
+    // Two cells, and DELIBERATELY not a third.
+    //
+    // There is no `consumptionsTotal`: `/byBusiness` returns `totalPages` and nothing else —
+    // `totalElements` is never set on these endpoints — so a row count cannot be derived, and a
+    // cell holding one could only ever hold a guess. Inventory has an `inventoryTotal` because its
+    // counts endpoint genuinely reports one; these three have no such endpoint. The list subtitles
+    // therefore do not claim a count.
+    const [consumptions, setConsumptions] = useState<unknown[]>([]);
+    const [consumptionsTotalPages, setConsumptionsTotalPages] = useState(1);
+
+    // ─── Wastage ─────────────────────────────────────────────────────────────
+    // Two cells, and DELIBERATELY not a third — same reason as consumption: `/byBusiness` reports
+    // `totalPages` and no `totalElements`, so a `wastageTotal` could only ever hold a guess. The
+    // list subtitle therefore does not claim a record count (and there is no money total either —
+    // the endpoint reports no value figure).
+    const [wastage, setWastage] = useState<unknown[]>([]);
+    const [wastageTotalPages, setWastageTotalPages] = useState(1);
+
+    // ─── Stock Transfer ──────────────────────────────────────────────────────
+    // Two cells, and DELIBERATELY not a third — `/byBusiness` reports `totalPages` and nothing
+    // else, so there is no row count to hold and the list subtitle does not claim one.
+    //
+    // ⚠️ `stockTransfers` is a `useState` array, so its identity is stable between renders unless
+    // a load actually replaces it. The screen feeds it straight into a `useEffect` dependency;
+    // anything that rebuilt the array per render (a `.map()`, a `?? []` fallback on a fresh
+    // literal) would re-run that effect, re-setState, and spin the screen until React blanks it.
+    const [stockTransfers, setStockTransfers] = useState<unknown[]>([]);
+    const [stockTransfersTotalPages, setStockTransfersTotalPages] = useState(1);
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -1817,6 +1894,396 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       [service],
     );
 
+    // ═══════════════════════════════════════════════════════════════
+    // Stock movements — Consumption · Wastage · Stock Transfer
+    // ═══════════════════════════════════════════════════════════════
+
+    // ─── Consumption ─────────────────────────────────────────────────────────
+    //
+    // The WORKED EXAMPLE the other two regions copy. Four callbacks, matching the shapes already
+    // used elsewhere in this file rather than inventing new ones:
+    //
+    //   • the LIST writes shared state and takes `append`, like `loadInventoryByBusiness`
+    //   • the DETAIL read goes through `readOne` and writes NOTHING, like `loadProduct`
+    //
+    // That second rule is not tidiness — see the note on `readOne`. A detail read that touched the
+    // shared array would race the save it was fetching for, and one that touched `loading` would
+    // end the list screen's skeleton early, because `sawLoadingRef` watches exactly that flag.
+
+    /**
+     * One page of consumptions.
+     *
+     * `append` grows the list for infinite scroll. A failed append deliberately leaves the existing
+     * rows alone — blanking what the user is already reading because page 4 timed out is worse than
+     * simply not growing.
+     *
+     * The caller must pass the SAME `query` on every page: the server filters and sorts, so page 2
+     * of a different query is not the continuation of page 1.
+     *
+     * Only `totalPages` is captured. There is no row count to capture — see the state cells.
+     */
+    const loadConsumptionsByBusiness = useCallback(
+      async (
+        businessId: number,
+        query: ConsumptionQuery = {},
+        page = 1,
+        limit = 20,
+        append = false,
+      ) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.getConsumptionsByBusiness(businessId, query, page, limit);
+          if (response.success) {
+            const rows = Array.isArray(response.data) ? response.data : [];
+            setConsumptions((prev) => (append ? [...prev, ...rows] : rows));
+            setConsumptionsTotalPages(response.totalPages ?? 1);
+            return { success: true, data: rows };
+          }
+          setError(response.error || response.message || null);
+          if (!append) setConsumptions([]);
+          return { success: false, error: response.error };
+        } catch (err) {
+          const message = (err as Error).message || 'Failed to load consumptions';
+          setError(message);
+          if (!append) setConsumptions([]);
+          return { success: false, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /** Fetch ONE consumption for the detail screen. Contract and reasoning: see `readOne`. */
+    const loadConsumption = useCallback(
+      (id: number) => readOne(() => service.getConsumption(id), 'Failed to load consumption'),
+      [service],
+    );
+
+    /**
+     * Record a consumption.
+     *
+     * The service layer throws BEFORE the request on a bad reason — a bad enum comes back as an
+     * HTTP 500 with nothing readable in it, so the guard is the only thing standing between the
+     * user and an opaque failure. That throw lands in this catch and becomes the returned `error`,
+     * which is why the message it carries is written to be shown as-is.
+     */
+    const createConsumption = useCallback(
+      async (data: ConsumptionPayload) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.createConsumption(data);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to record consumption');
+        } catch (err) {
+          // Dig the server's reason out of the axios body rather than reporting "Request failed
+          // with status code 400": the refusals here name a field (not enough stock in the batch,
+          // quantity below zero) and that reason is the whole message.
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to record consumption';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /** Deleting RESTOCKS what was consumed. It is a reversal, not a tidy-up. */
+    const deleteConsumption = useCallback(
+      async (id: number) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.deleteConsumption(id);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to delete consumption');
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to delete consumption';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    // ─── Wastage ─────────────────────────────────────────────────────────────
+    // The consumption callbacks with wastage's types. Same two rules: the LIST writes shared state
+    // and takes `append`; the DETAIL read goes through `readOne` and writes NOTHING.
+
+    /**
+     * One page of wastage records.
+     *
+     * `append` grows the list for infinite scroll. A failed append deliberately leaves the existing
+     * rows alone — blanking what the user is already reading because page 4 timed out is worse than
+     * simply not growing.
+     *
+     * The caller must pass the SAME `query` on every page: the server filters and sorts, so page 2
+     * of a different query is not the continuation of page 1.
+     *
+     * Only `totalPages` is captured. There is no row count to capture — see the state cells.
+     */
+    const loadWastageByBusiness = useCallback(
+      async (
+        businessId: number,
+        query: WastageQuery = {},
+        page = 1,
+        limit = 20,
+        append = false,
+      ) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.getWastageByBusiness(businessId, query, page, limit);
+          if (response.success) {
+            const rows = Array.isArray(response.data) ? response.data : [];
+            setWastage((prev) => (append ? [...prev, ...rows] : rows));
+            setWastageTotalPages(response.totalPages ?? 1);
+            return { success: true, data: rows };
+          }
+          setError(response.error || response.message || null);
+          if (!append) setWastage([]);
+          return { success: false, error: response.error };
+        } catch (err) {
+          const message = (err as Error).message || 'Failed to load wastage';
+          setError(message);
+          if (!append) setWastage([]);
+          return { success: false, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /** Fetch ONE wastage for the detail screen. Contract and reasoning: see `readOne`. */
+    const loadWastage = useCallback(
+      (id: number) => readOne(() => service.getWastage(id), 'Failed to load wastage'),
+      [service],
+    );
+
+    /**
+     * Record a wastage.
+     *
+     * The service layer throws BEFORE the request on a bad reason — a bad enum comes back as an
+     * HTTP 500 with nothing readable in it — and that throw lands in this catch and becomes the
+     * returned `error`, which is why the message it carries is written to be shown as-is.
+     */
+    const createWastage = useCallback(
+      async (data: WastagePayload) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.createWastage(data);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to record wastage');
+        } catch (err) {
+          // Dig the server's reason out of the axios body rather than reporting "Request failed
+          // with status code 400": the refusals here name the shortfall (not enough stock left in
+          // the batches) and that reason is the whole message.
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to record wastage';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Deleting RESTOCKS what was written off, back into the batches it came out of.
+     *
+     * No `STOCK_MOVEMENT_LOCKED` branch here, unlike stock transfer: nothing downstream depends on
+     * a wastage the way a transfer's destination batch can be drawn from, so the delete is
+     * tab-gated and nothing else.
+     */
+    const deleteWastage = useCallback(
+      async (id: number) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.deleteWastage(id);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to delete wastage');
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to delete wastage';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    // ─── Stock Transfer ──────────────────────────────────────────────────────
+    // The consumption callbacks, with ONE addition — see `deleteStockTransfer` at the end.
+
+    /**
+     * One page of stock transfers.
+     *
+     * `append` grows the list for infinite scroll. A failed append deliberately leaves the existing
+     * rows alone — blanking what the user is already reading because page 4 timed out is worse than
+     * simply not growing.
+     *
+     * The caller must pass the SAME `query` on every page: the server filters and sorts, so page 2
+     * of a different query is not the continuation of page 1.
+     *
+     * Only `totalPages` is captured. There is no row count to capture — see the state cells.
+     */
+    const loadStockTransfersByBusiness = useCallback(
+      async (
+        businessId: number,
+        query: StockTransferQuery = {},
+        page = 1,
+        limit = 20,
+        append = false,
+      ) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.getStockTransfersByBusiness(businessId, query, page, limit);
+          if (response.success) {
+            const rows = Array.isArray(response.data) ? response.data : [];
+            setStockTransfers((prev) => (append ? [...prev, ...rows] : rows));
+            setStockTransfersTotalPages(response.totalPages ?? 1);
+            return { success: true, data: rows };
+          }
+          setError(response.error || response.message || null);
+          if (!append) setStockTransfers([]);
+          return { success: false, error: response.error };
+        } catch (err) {
+          const message = (err as Error).message || 'Failed to load stock transfers';
+          setError(message);
+          if (!append) setStockTransfers([]);
+          return { success: false, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /** Fetch ONE transfer for the detail screen. Contract and reasoning: see `readOne`. */
+    const loadStockTransfer = useCallback(
+      (id: number) => readOne(() => service.getStockTransfer(id), 'Failed to load stock transfer'),
+      [service],
+    );
+
+    /**
+     * Move stock between the two pools.
+     *
+     * The service layer throws BEFORE the request on a bad reason or a same-pool pair — a bad enum
+     * comes back as an HTTP 500 with nothing readable in it, so the guard is the only thing standing
+     * between the user and an opaque failure. That throw lands in this catch and becomes the
+     * returned `error`, which is why the messages it carries are written to be shown as-is.
+     */
+    const createStockTransfer = useCallback(
+      async (data: StockTransferPayload) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.createStockTransfer(data);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to record this transfer');
+        } catch (err) {
+          // Dig the server's reason out of the axios body: an over-draw refusal names the shortfall,
+          // and that reason is the whole message.
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to record this transfer';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Reverse the move: the quantity goes back to the pool it came from and the minted destination
+     * batch is removed.
+     *
+     * ⚠️ THE ONE WAY THIS SLICE DIFFERS FROM ITS CONSUMPTION TWIN. A 409 `STOCK_MOVEMENT_LOCKED`
+     * RESOLVES as `{ success: false, code, error }` rather than throwing, so the screen can say WHY:
+     * the destination batch has already been drawn from, and reversing the move would take back
+     * stock that has since been sold or consumed. That is the system protecting stock, not a
+     * failure, and "Could not delete" is the wrong thing to say about it.
+     *
+     * The `error` message is NOT rewritten here. The server's own sentence names the batch and the
+     * quantity; the screen decides how to frame it — see `deleteRefusalMessage`.
+     */
+    const deleteStockTransfer = useCallback(
+      async (id: number) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.deleteStockTransfer(id);
+          if (response.success) return { success: true, data: response.data };
+          return { success: false, error: response.error || response.message || null };
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to delete this transfer';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
     const clearError = useCallback(() => {
       setError(null);
     }, []);
@@ -1842,6 +2309,22 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       inventory,
       inventoryTotalPages,
       inventoryTotal,
+
+      // ─── Consumption ───────────────────────────────────────────────────────
+      // No `consumptionsTotal` — the endpoint reports no row count. See the state cells.
+      consumptions,
+      consumptionsTotalPages,
+
+      // ─── Wastage ───────────────────────────────────────────────────────────
+      // No `wastageTotal` — the endpoint reports no row count. See the state cells.
+      wastage,
+      wastageTotalPages,
+
+      // ─── Stock Transfer ────────────────────────────────────────────────────
+      // No `stockTransfersTotal` — the endpoint reports no row count. See the state cells.
+      stockTransfers,
+      stockTransfersTotalPages,
+
       loading,
       error,
 
@@ -1913,6 +2396,28 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       disposeBatch,
       getExpiringBatches,
       getTotalStock,
+
+      // ─── Consumption ───────────────────────────────────────────────────────
+      // No update — consumptions are immutable. Delete restocks.
+      loadConsumptionsByBusiness,
+      loadConsumption,
+      createConsumption,
+      deleteConsumption,
+
+      // ─── Wastage ───────────────────────────────────────────────────────────
+      // No update — wastage records are immutable. Delete restocks.
+      loadWastageByBusiness,
+      loadWastage,
+      createWastage,
+      deleteWastage,
+
+      // ─── Stock Transfer ────────────────────────────────────────────────────
+      // No update — transfers are immutable. Delete REVERSES the move, and can be refused with
+      // STOCK_MOVEMENT_LOCKED; see the callback for why that resolves rather than throws.
+      loadStockTransfersByBusiness,
+      loadStockTransfer,
+      createStockTransfer,
+      deleteStockTransfer,
 
       // Utility
       clearError,

@@ -53,4 +53,19 @@ export const PHARMACY_ROUTES = {
   INVENTORY_EXPIRING: '/pharmacyInventory/expiring',
 
   WASTAGE_DISPOSE: '/pharmacyWastage/dispose',
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  // Mirror of the parlour pair. ⚠️ POST needs a TRAILING SLASH — see the parlour table.
+  CONSUMPTION_BASE: '/pharmacyConsumption',
+  CONSUMPTION_BY_BUSINESS: '/pharmacyConsumption/byBusiness',
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Mirror of the parlour pair. ⚠️ POST needs a TRAILING SLASH — see the parlour table.
+  WASTAGE_BASE: '/pharmacyWastage',
+  WASTAGE_BY_BUSINESS: '/pharmacyWastage/byBusiness',
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Mirror of the parlour pair. ⚠️ POST needs a TRAILING SLASH — see the parlour table.
+  STOCK_TRANSFER_BASE: '/pharmacyStockTransfer',
+  STOCK_TRANSFER_BY_BUSINESS: '/pharmacyStockTransfer/byBusiness',
 };

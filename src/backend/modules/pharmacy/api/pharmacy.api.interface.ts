@@ -5,6 +5,9 @@ import type {
   InventoryType,
   StatusChangeOptions,
 } from '../../shared/inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -348,4 +351,46 @@ export abstract class PharmacyApiInterface {
   abstract deleteInventoryBatch(id: number): Promise<ApiResponse<unknown>>;
   /** Write off an EXPIRED batch's remaining stock. Lives on the wastage controller. */
   abstract disposeBatch(batchId: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — see it for the four-methods-and-no-update rule and for the note
+  // that these responses carry `totalPages` only, never `totalElements`.
+  abstract createConsumption(data: ConsumptionPayload): Promise<ApiResponse<unknown>>;
+  abstract getConsumption(id: number): Promise<ApiResponse<unknown>>;
+  abstract getConsumptionsByBusiness(
+    businessId: number,
+    query?: ConsumptionQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Deleting RESTOCKS what was consumed. */
+  abstract deleteConsumption(id: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — see it for the four-methods-and-no-update rule, for why
+  // `WastageQuery` carries no `inventoryType`, and for the `totalPages`-only envelope.
+  abstract createWastage(data: WastagePayload): Promise<ApiResponse<unknown>>;
+  abstract getWastage(id: number): Promise<ApiResponse<unknown>>;
+  abstract getWastageByBusiness(
+    businessId: number,
+    query?: WastageQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Deleting RESTOCKS what was written off. */
+  abstract deleteWastage(id: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Mirror of the parlour four — read that file for the full contract, including why
+  // `StockTransferQuery` carries no `reason` key and why delete can be refused with a 409.
+  abstract createStockTransfer(data: StockTransferPayload): Promise<ApiResponse<unknown>>;
+  abstract getStockTransfer(id: number): Promise<ApiResponse<unknown>>;
+  abstract getStockTransfersByBusiness(
+    businessId: number,
+    query?: StockTransferQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Deleting REVERSES the move. 409 `STOCK_MOVEMENT_LOCKED` once the destination batch is used. */
+  abstract deleteStockTransfer(id: number): Promise<ApiResponse<unknown>>;
 }
