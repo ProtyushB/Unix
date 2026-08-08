@@ -269,22 +269,50 @@ describe('validateStockTransfer', () => {
     }
   });
 
-  it('refuses a future transfer date against IST today, not the device day', () => {
-    expect(
-      validateStockTransfer(filled({ transferredAt: '2026-08-09T10:00:00' }), {
-        today: '2026-08-08',
-      }).transferredAt,
-    ).toBe('Transfer date cannot be in the future');
-    expect(
-      validateStockTransfer(filled({ transferredAt: '2026-08-08T23:00:00' }), {
-        today: '2026-08-08',
-      }).transferredAt,
-    ).toBeUndefined();
+  it('has NO date rule, because the payload cannot carry a date', () => {
+    // Both siblings validate their timestamp. This one has no `transferredAt` key on the payload —
+    // the controller ignores the field and stamps the row itself — and no date input on the form,
+    // so a rule here could never fire. A validator that cannot fire reads as live protection.
+    expect(validateStockTransfer(filled({ transferredAt: '2099-01-01T10:00:00' }))).toEqual({});
   });
 
   it('names the product first, so the toast points at the field furthest up the form', () => {
     const errors = validateStockTransfer(filled({ itemId: null, unitRows: [] }));
     expect(errorSummary(errors)).toBe('Pick a product');
+  });
+
+  it('refuses when the source pool resolved NO batch to draw from', () => {
+    // The payload is addressed by `sourceBatchId`. Without one the body fails bean validation, and
+    // the 400 names a field this form never showed anyone — there is no batch picker.
+    expect(validateStockTransfer(filled(), { sourceBatchId: null }).itemId).toBe(
+      'No stock to move from the Product pool for this product',
+    );
+  });
+
+  it('names the pool the batch was looked for in, so a flip changes the message', () => {
+    const flipped = filled({
+      sourceType: 'RAW_INVENTORY',
+      destType: 'PRODUCT_INVENTORY',
+      reason: 'RAW_TO_PRODUCT',
+    });
+    expect(validateStockTransfer(flipped, { sourceBatchId: null }).itemId).toBe(
+      'No stock to move from the Raw pool for this product',
+    );
+  });
+
+  it('tells "the pool has not answered yet" apart from "the pool holds nothing"', () => {
+    // `undefined` skips the rule; `null` is a refusal. Collapsing them would refuse every save in
+    // the moment between opening the form and the batches landing.
+    expect(validateStockTransfer(filled(), {}).itemId).toBeUndefined();
+    expect(validateStockTransfer(filled(), { sourceBatchId: undefined }).itemId).toBeUndefined();
+    expect(validateStockTransfer(filled(), { sourceBatchId: 41 }).itemId).toBeUndefined();
+  });
+
+  it('asks for a product before complaining about its batches', () => {
+    // Two errors on one field is noise; "Pick a product" is the useful half.
+    expect(validateStockTransfer(filled({ itemId: null }), { sourceBatchId: null }).itemId).toBe(
+      'Pick a product',
+    );
   });
 });
 

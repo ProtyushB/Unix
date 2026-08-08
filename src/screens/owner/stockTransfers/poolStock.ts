@@ -24,14 +24,52 @@ export interface PoolStock {
   baseQty: number;
   /** How many batches actually hold stock. An empty batch is not a place stock can be drawn from. */
   batchCount: number;
+  /**
+   * The batch a transfer of this product would START from, and the field the POST is addressed by.
+   *
+   * The LOWEST-ID ACTIVE batch that still has stock — the same rule `pickWriteOffBatch` uses for a
+   * wastage, and for the same reason: it is what the server itself starts from, so a client that
+   * named a different one would show the user one batch and have the stock come out of another.
+   * When the quantity is larger than that batch holds the server OVERFLOWS into the ones after it
+   * and reports what it actually took in `lines`; the client never splits the quantity, and there is
+   * no batch picker anywhere in this feature.
+   *
+   * Lowest id rather than nearest expiry despite the helper line saying "drawn FEFO": the two agree
+   * in the ordinary case (batches are created in receipt order) and the server, not this, decides
+   * the real draw order. What the client owns is only the STARTING point.
+   *
+   * Null when the pool holds nothing for this product — which `validateStockTransfer` turns into a
+   * message, because a payload without it is a 400 naming a field the form never showed anyone.
+   */
+  sourceBatchId: number | null;
 }
 
 /** Nothing at all, for a product the pool has never held. Distinct from "not looked up yet". */
-export const NO_POOL_STOCK: PoolStock = { itemId: 0, baseQty: 0, batchCount: 0 };
+export const NO_POOL_STOCK: PoolStock = {
+  itemId: 0,
+  baseQty: 0,
+  batchCount: 0,
+  sourceBatchId: null,
+};
 
 function num(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Whether a batch is stock the server will actually draw from.
+ *
+ * ACTIVE only. An ON_HOLD, QUARANTINED, EXPIRED or DEPLETED batch is not drawable, so counting one
+ * would inflate the ceiling and naming one as `sourceBatchId` would produce a refusal the user
+ * cannot act on.
+ *
+ * A MISSING status defaults to ACTIVE, matching `toBatchRow` and the server's own column default —
+ * the alternative is that a response which omits the field empties the whole picker. The query
+ * already asks for `status: 'ACTIVE'`; this is the second line, for a server that ignores it.
+ */
+function isDrawable(batch: BatchDto): boolean {
+  return (batch?.status ?? 'ACTIVE') === 'ACTIVE' && num(batch?.remainingQuantity) > 0;
 }
 
 /**
@@ -46,22 +84,32 @@ function num(v: unknown): number {
  *
  * ⚠️ The caller is responsible for having fetched ONE pool. Nothing in a `BatchDto` is checked
  * against a pool here, because a mixed list has no correct answer: totalling both pools would offer
- * the user stock the transfer cannot reach.
+ * the user stock the transfer cannot reach — and `sourceBatchId` would name a batch in the wrong
+ * pool, which the server would refuse.
+ *
+ * ⚠️ Response order is NOT relied on for `sourceBatchId`. The list is sorted by expiry server-side
+ * by default, so "the first one we saw" is not the lowest id; the minimum is taken explicitly.
  */
 export function aggregatePoolStock(batches: BatchDto[] | null | undefined): Map<number, PoolStock> {
   const out = new Map<number, PoolStock>();
   for (const batch of batches ?? []) {
     const itemId = batch?.itemId;
     if (itemId == null) continue;
+    if (!isDrawable(batch)) continue;
     const remaining = num(batch?.remainingQuantity);
-    if (!(remaining > 0)) continue;
     const key = Number(itemId);
+    // A batch with no id cannot be named in a payload, so it contributes to the totals but can
+    // never become the starting point.
+    const batchId = batch?.id == null ? null : Number(batch.id);
     const prev = out.get(key);
     if (prev) {
       prev.baseQty += remaining;
       prev.batchCount += 1;
+      if (batchId != null && (prev.sourceBatchId == null || batchId < prev.sourceBatchId)) {
+        prev.sourceBatchId = batchId;
+      }
     } else {
-      out.set(key, { itemId: key, baseQty: remaining, batchCount: 1 });
+      out.set(key, { itemId: key, baseQty: remaining, batchCount: 1, sourceBatchId: batchId });
     }
   }
   return out;

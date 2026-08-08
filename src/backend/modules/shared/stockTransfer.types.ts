@@ -103,38 +103,81 @@ export interface StockTransferQuery {
 /**
  * The POST body.
  *
- * `sourceType` and `destType` must DIFFER — a transfer is always cross-pool, and same-to-same is
- * rejected. They, not `reason`, are what decide the direction of the move.
+ * ⚠️ This is BATCH-addressed on the SOURCE side, the same shape `WastagePayload` uses. A transfer
+ * names the batch stock leaves, not the product: `sourceBatchId` is `@NotNull @Positive`, the
+ * controller forwards it positionally as the first argument to `transfer(...)`, and the server
+ * derives `itemId` AND `sourceType` from the batch it names. Only `destType` travels as its own key.
  *
- * `quantity` means one of two things depending on `unitLines` — level units on a single-level
- * record, BASE units on a mixed one. See `ConsumptionPayload` for the full note.
+ * (An earlier draft of this interface required `itemId` and `sourceType` and had no `sourceBatchId`
+ * at all. That was wrong about the controller in the one way that cannot be worked around: with no
+ * `sourceBatchId` the body fails BEAN VALIDATION, so every create was a 400 before the handler ran.
+ * The direction is still asked for on the form — the SOURCE pool is what decides which batch this
+ * is — it just does not travel as its own key.)
  *
- * ⚠️ `unitLines` is accepted on the wire and then DISCARDED: the server rebuilds the destination
- * batch from the scalar total, so a breakdown sent here never comes back and the detail screen has
- * nothing to render. That is why the transfer form passes `allowMultiple={false}` to
- * `UnitRowsEditor` — the UI must not promise a breakdown the round trip will lose. The field stays
- * on the type because the endpoint does accept it; it is the UI, not the wire, that says no.
+ * Which batch: the lowest-id ACTIVE batch with remaining stock for the chosen product in the SOURCE
+ * pool. The server overflows into later batches by itself and reports what it actually took in
+ * `lines`, so the client never splits the quantity and there is no batch picker anywhere here.
+ *
+ * `quantity` is in LEVEL units and `unitMultiplier` is that level's `perStock`; the server deducts
+ * `quantity × unitMultiplier` base units. There is no mixed-unit branch on this endpoint — see
+ * `unitLines` below.
  */
 export interface StockTransferPayload {
+  /**
+   * `@NotNull @Positive`.
+   *
+   * Only the tab-gate aspect ever reads it — the transfer itself is scoped by the batch — but it is
+   * validated all the same, so a null or a zero is a 400 before anything else is looked at.
+   */
   businessId: number;
-  itemId: number;
-  /** Denormalised so the row survives the product being deleted. Server fills it when omitted. */
-  itemName?: string | null;
-  /** The pool stock leaves. Must differ from `destType`. */
-  sourceType: InventoryType;
-  /** The pool stock arrives in. Must differ from `sourceType`. */
+  /**
+   * `@NotNull @Positive`. THE addressing field.
+   *
+   * ⚠️ There is deliberately no `itemId`, no `itemName` and no `sourceType` on this interface, and
+   * their absence is a decision rather than an oversight. The controller derives the product and the
+   * source pool FROM this batch; a client that sends them is stating facts the server never reads,
+   * which looks authoritative and is not. Do not add them back.
+   *
+   * The direction is still asked for on the form: the source pool is what decides WHICH batch this
+   * is, and flipping it has to re-resolve the id — the other pool holds different batches.
+   */
+  sourceBatchId: number;
+  /** `@NotNull`. The pool stock arrives in. The server refuses it when it equals the source's. */
   destType: InventoryType;
-  reason: StockTransferReason;
+  /** `@NotNull @Positive`. Zero moves nothing; a negative one would move stock the other way. */
   quantity: number;
-  /** The level's unit name, or null on a mixed record. Null is NOT the same as `''`. */
+  /** The level's unit name. Null is NOT the same as `''` — the server reads `''` as a real unit. */
   unitName?: string | null;
   unitMultiplier?: number | null;
-  /** ⚠️ Accepted and discarded server-side — see the note above. */
-  unitLines?: StockUnitLine[] | null;
-  /** IST wall clock, zone-less (`2026-08-08T14:30:00`). Server defaults to now when omitted. */
-  transferredAt?: string | null;
+  /** `@NotNull`. Guarded locally by `isStockTransferReason` — a bad enum is a 500, not a 400. */
+  reason: StockTransferReason;
   notes?: string | null;
+  /**
+   * The user who moved it. Declared because the DTO carries it; never sent, because this app has no
+   * user id to put in it — `session.storage` holds a profile and a business, not an account id.
+   * `WastagePayload.reportedBy` is unsent for exactly the same reason.
+   */
+  transferredBy?: number | null;
 }
+
+/*
+ * ⚠️ FIVE fields that used to be on the interface above and are NOT coming back:
+ *
+ *   `itemId`, `itemName`, `sourceType` — derived server-side from `sourceBatchId`. See the note on
+ *       that field. Sending them changes nothing and reads as though it does.
+ *
+ *   `transferredAt` — the controller ignores it and stamps the row itself. The Transfer Stock form
+ *       collects no date, so there was never a value to send; declaring the key invited someone to
+ *       add the field and then wonder why the timestamp never matched.
+ *
+ *   `unitLines` — ignored, not merely discarded. The server rebuilds the destination batch from the
+ *       scalar total, so a breakdown never survives the round trip and the detail screen would have
+ *       nothing to render. This is why the transfer form passes `allowMultiple={false}` to
+ *       `UnitRowsEditor` — the editor is clamped to one row, so the mixed branch of
+ *       `deriveUnitLinesPayload` is unreachable here by construction rather than by discipline.
+ *       `StockTransferDto.unitLines` still exists for reading a response through; the PAYLOAD has
+ *       no such key, so sending one is now a compile error rather than a silent no-op.
+ */
 
 // ─── Response ────────────────────────────────────────────────────────────────
 

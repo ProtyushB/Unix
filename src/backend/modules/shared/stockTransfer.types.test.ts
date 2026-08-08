@@ -114,38 +114,69 @@ describe('the ledger shape', () => {
 });
 
 describe('the create payload', () => {
-  it('carries two pools that must differ — the direction lives here, not in the reason', () => {
-    // `PRODUCT_TO_RAW` with `sourceType: 'RAW_INVENTORY'` is accepted by the server and is a lie in
-    // the audit log, so a form offering both has to derive the reason from the direction.
+  it('is addressed by the SOURCE BATCH, which is what the controller reads', () => {
+    // `sourceBatchId` is `@NotNull @Positive` and is forwarded positionally as the first argument to
+    // `transfer(...)`; the server derives the product and the source pool from the batch it names.
+    // Without it the body fails bean validation, so every create is a 400 before the handler runs.
     const payload: StockTransferPayload = {
       businessId: 7,
-      itemId: 21,
-      sourceType: 'PRODUCT_INVENTORY',
+      sourceBatchId: 41,
       destType: 'RAW_INVENTORY',
       reason: 'PRODUCT_TO_RAW',
       quantity: 700,
       unitName: 'ml',
       unitMultiplier: 1,
-      unitLines: null,
     };
-    expect(payload.sourceType).not.toBe(payload.destType);
+    expect(payload.sourceBatchId).toBeGreaterThan(0);
+    expect(payload.destType).toBe('RAW_INVENTORY');
   });
 
-  it('sends a null unitLines, because the server would discard a breakdown anyway', () => {
-    // Why the transfer form passes `allowMultiple={false}` to UnitRowsEditor: the server rebuilds
-    // the destination batch from the scalar total, so a breakdown never comes back and the detail
-    // screen has nothing to render.
+  it('has no `itemId`, `itemName` or `sourceType` — all three are derived from the batch', () => {
     const payload: StockTransferPayload = {
       businessId: 7,
-      itemId: 21,
-      sourceType: 'RAW_INVENTORY',
+      sourceBatchId: 41,
       destType: 'PRODUCT_INVENTORY',
       reason: 'RAW_TO_PRODUCT',
       quantity: 2,
       unitName: 'bottle',
       unitMultiplier: 500,
-      unitLines: null,
     };
-    expect(payload.unitLines).toBeNull();
+    // Reached through a cast because the type no longer admits them — which is the point: a client
+    // that sent them would be stating facts the server never reads.
+    const loose = payload as unknown as Record<string, unknown>;
+    expect(loose.itemId).toBeUndefined();
+    expect(loose.itemName).toBeUndefined();
+    expect(loose.sourceType).toBeUndefined();
+  });
+
+  it('has no `unitLines` key at all, so a breakdown cannot be sent even by accident', () => {
+    // It used to be declared and always null. Ignored server-side either way — the destination batch
+    // is rebuilt from the scalar total — but "declared and null" invited someone to fill it in.
+    // Removing the key makes that a compile error. It is also why the transfer form passes
+    // `allowMultiple={false}` to `UnitRowsEditor`: with one row the mixed branch is unreachable.
+    const payload: StockTransferPayload = {
+      businessId: 7,
+      sourceBatchId: 41,
+      destType: 'PRODUCT_INVENTORY',
+      reason: 'REBALANCE',
+      quantity: 2,
+      unitName: 'bottle',
+      unitMultiplier: 500,
+    };
+    expect((payload as unknown as Record<string, unknown>).unitLines).toBeUndefined();
+    // `StockTransferDto` still declares it, because a RESPONSE has to be readable through that shape.
+    const dto: StockTransferDto = { unitLines: null };
+    expect(dto.unitLines).toBeNull();
+  });
+
+  it('has no `transferredAt` — the controller ignores it and stamps the row itself', () => {
+    const payload: StockTransferPayload = {
+      businessId: 7,
+      sourceBatchId: 41,
+      destType: 'RAW_INVENTORY',
+      reason: 'CORRECTION',
+      quantity: 1,
+    };
+    expect((payload as unknown as Record<string, unknown>).transferredAt).toBeUndefined();
   });
 });

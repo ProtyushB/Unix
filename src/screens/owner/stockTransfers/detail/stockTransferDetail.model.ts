@@ -35,7 +35,11 @@ export interface StockTransferFormState {
    * the user lands on.
    */
   unitRows: StockUnitLine[];
-  /** IST wall clock, zone-less. Empty means "let the server stamp it". */
+  /**
+   * IST wall clock, zone-less. READ-ONLY in practice: the payload has no `transferredAt` key — the
+   * controller ignores it and stamps the row itself — so nothing on the form writes this. It is
+   * populated by `toFormState` only, so a saved record round-trips through the same shape.
+   */
   transferredAt: string;
   notes: string;
 }
@@ -88,55 +92,47 @@ export function toFormState(record: StockTransferDto | null): StockTransferFormS
 }
 
 /**
- * The POST body.
+ * The POST body — exactly the nine keys the controller reads, and no others.
  *
- * The quantity half is DONE and is the part worth reading: `deriveUnitLinesPayload` owns the choice
- * between the scalar and the mixed shape. On this form the rows are clamped to one, so it will
- * always take the scalar branch — but it is still called rather than inlined, because the clamp
- * lives in the hook and a future change there must not silently produce a payload this file built
- * by hand.
+ * ⚠️ This is BATCH-addressed on the source side. `sourceBatchId` is what the transfer is addressed
+ * by; the server derives the product AND the source pool from it. So `itemId`, `itemName` and
+ * `sourceType` are deliberately absent even though the form holds all three — it needs `sourceType`
+ * for its own direction logic and to decide WHICH batch this is, it just does not send it. See
+ * `StockTransferPayload` for the full list of what was dropped and why.
  *
- * ⚠️ `unitLines` is sent as whatever that call returns (null on the scalar branch) and the server
- * would DISCARD an array anyway. Do not "fix" the UI to allow a second row on the strength of this
- * field existing on the type: the endpoint accepts it and throws it away.
+ * The quantity half is the part worth reading: `deriveUnitLinesPayload` owns the choice between the
+ * scalar and the mixed shape. On this form the rows are clamped to one, so it always takes the
+ * scalar branch — but it is still called rather than inlined, because the clamp lives in the hook
+ * and a future change there must not silently produce a payload this file built by hand. Its
+ * `unitLines` result is DROPPED on the floor here: the payload has no such key, so a mixed entry
+ * would post its base total with `unitMultiplier: 1` and be correct about the amount, which is the
+ * safe way for an unreachable branch to fail.
  *
- * `sourceType` and `destType` must DIFFER — validated in `stockTransferDetail.view.ts`.
- *
- * Returns null when nothing has been entered, which the caller must treat as a validation failure
- * rather than posting a zero.
- *
- * The two fields that were left open, and what they settled on:
- *
- *   • `itemName` is NOT sent. The server fills it from `itemId`, and the only copy of it this form
- *     holds came from the picker — so sending it can only ever make the denormalised name WORSE
- *     (stale if the product was renamed between picking and saving) and never better.
- *   • `transferredAt` is sent as `trim() || null`. ⚠️ The empty string must become `null`, not `''`:
- *     Spring reads `''` as a malformed date and answers 400, whereas `null` means "stamp it now",
- *     which is exactly what an untouched form wants. `notes` below has the same shape.
+ * Returns null when nothing has been entered OR when no source batch could be resolved. Both are
+ * validation failures rather than things to post: a zero means nothing, and a body without
+ * `sourceBatchId` fails bean validation with a 400 naming a field the form never showed anyone.
  */
 export function buildCreatePayload(
   form: StockTransferFormState,
   businessId: number,
+  sourceBatchId: number | null,
 ): StockTransferPayload | null {
   const quantity = deriveUnitLinesPayload(form.unitRows);
   if (!quantity) return null;
+  if (sourceBatchId == null) return null;
 
   return {
     businessId,
-    itemId: form.itemId as number,
-    sourceType: form.sourceType,
+    // The addressing field. See above for why the product and the source pool are absent.
+    sourceBatchId,
     destType: form.destType,
     reason: form.reason,
-    // All four from one call — see above.
+    // Three of the four from one call — `unitLines` has no key on this payload.
     quantity: quantity.quantity,
     unitName: quantity.unitName,
     unitMultiplier: quantity.unitMultiplier,
-    unitLines: quantity.unitLines,
     // `|| null`, never the trimmed empty string: a whitespace-only note is not a note, and the
     // server stores `''` as one.
     notes: form.notes.trim() || null,
-    // Same shape, and here it is load-bearing rather than tidy: `''` is a 400, `null` is "stamp it
-    // now". No `itemName` — see the note above.
-    transferredAt: form.transferredAt.trim() || null,
   };
 }

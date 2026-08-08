@@ -60,6 +60,13 @@ interface Props {
  * One page of the source pool's ACTIVE batches is enough to answer every stock question this screen
  * asks. 500 is the same cap `loadProductOptions` uses on the catalog, and for the same reason: the
  * picker only needs a total, and paging silently would hide the fact that it was capped.
+ *
+ * ⚠️ What the cap costs, now that the aggregate also names `sourceBatchId`: past 500 ACTIVE batches
+ * in one pool the totals understate the stock and the resolved batch may not be the true lowest id.
+ * Both errors fall on the SAFE side — a low ceiling refuses a transfer that would have worked, and a
+ * higher-id starting batch simply has the server begin its overflow further along a list it walks
+ * itself. Neither can move the wrong stock. If a business ever gets near this, page it rather than
+ * raise the number.
  */
 const POOL_BATCH_LIMIT = 500;
 
@@ -294,6 +301,17 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
     [pool, engine.form.itemId],
   );
   const availableBaseQty: number | null = selectedStock ? selectedStock.baseQty : null;
+  /**
+   * The batch the POST is addressed by — the lowest-id ACTIVE batch with stock in the SOURCE pool.
+   *
+   * ⚠️ `undefined` while the pool has not answered, `null` once it has and there is nothing to draw
+   * from. `validateStockTransfer` treats those two differently on purpose: collapsing them would
+   * refuse every save in the moment between opening the form and the batches landing.
+   *
+   * Re-resolves with `selectedStock`, which is keyed on the source pool — so a direction flip picks
+   * a batch from the other pool without anything here having to remember to.
+   */
+  const sourceBatchId = selectedStock ? selectedStock.sourceBatchId : undefined;
   const availabilityText = useMemo(
     () => availabilityHelper(selectedStock, baseUnit, sourceType),
     [selectedStock, baseUnit, sourceType],
@@ -332,9 +350,9 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
   const onSave = useCallback(async () => {
     // The ceiling rides in as an argument — see `useStockTransferDetailForm.save` for why it cannot
     // be an input to the hook.
-    const result = await engine.save({ availableBaseQty, baseUnit });
+    const result = await engine.save({ availableBaseQty, baseUnit, sourceBatchId });
     if (!result.success && result.error) showToast(result.error, 'error');
-  }, [engine, availableBaseQty, baseUnit, showToast]);
+  }, [engine, availableBaseQty, baseUnit, sourceBatchId, showToast]);
 
   const onConfirmDelete = useCallback(async () => {
     setConfirmDelete(false);

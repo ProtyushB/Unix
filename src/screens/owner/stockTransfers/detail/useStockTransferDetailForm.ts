@@ -167,10 +167,14 @@ export function useStockTransferDetailForm({
   /**
    * Validate and POST.
    *
-   * The ceiling (`availableBaseQty`) arrives as an ARGUMENT rather than as an input to this hook,
-   * and that is not a style choice: it is derived from the source pool's batches keyed by the
-   * product this very form holds, so passing it in would make the hook depend on something derived
+   * `availableBaseQty` and `sourceBatchId` arrive as ARGUMENTS rather than as inputs to this hook,
+   * and that is not a style choice: both are derived from the source pool's batches keyed by the
+   * product this very form holds, so passing them in would make the hook depend on something derived
    * from its own state. One argument at the call site breaks the cycle.
+   *
+   * ⚠️ `sourceBatchId` is what the POST is addressed by — the server derives the product and the
+   * source pool from it — so the same value has to reach BOTH the validator and the payload builder.
+   * Reading it twice from one argument is what keeps those two in step.
    */
   const save = useCallback(
     async (limits: ValidateOptions = {}): Promise<SaveResult> => {
@@ -183,9 +187,9 @@ export function useStockTransferDetailForm({
         return { success: false, error: 'No business is selected.' };
       }
 
-      const payload = buildCreatePayload(form, businessId);
-      // Null means "nothing was entered". Distinct from a validation error only in where it was
-      // caught — the payload builder is the one that knows the row was blank.
+      const payload = buildCreatePayload(form, businessId, limits.sourceBatchId ?? null);
+      // Null means "nothing was entered" or "no source batch resolved". Both are already caught by
+      // the validator above; this is the builder refusing to assemble a body it knows is a 400.
       if (!payload) {
         return { success: false, error: 'Enter a quantity.' };
       }

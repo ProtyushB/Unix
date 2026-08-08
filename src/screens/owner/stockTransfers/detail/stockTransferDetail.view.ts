@@ -4,7 +4,7 @@ import type {
   StockTransferReason,
 } from '../../../../backend/modules/shared/stockTransfer.types';
 import { isStockTransferReason } from '../../../../backend/modules/shared/stockTransfer.types';
-import { todayIst } from '../../../../utils/dateRange';
+// No `todayIst` import, unlike both siblings: there is no date rule here. See `validateStockTransfer`.
 import { shouldResumeCatalogPick } from '../../shared/detail/catalogPicker.view';
 import {
   deriveUnitLinesPayload,
@@ -228,7 +228,16 @@ export interface ValidateOptions {
   availableBaseQty?: number | null;
   /** The product's base unit name, so the over-draw message names what it counted. */
   baseUnit?: string;
-  today?: string;
+  /**
+   * The batch the transfer would start from, resolved from the source pool — the field the POST is
+   * addressed by.
+   *
+   * ⚠️ `undefined` means "the caller is not checking this" and skips the rule; `null` means "we
+   * looked in the source pool and there is nothing to draw from", which is a refusal. The two must
+   * not be collapsed: defaulting an unresolved lookup to null would refuse every save on a form
+   * whose pool has not answered yet.
+   */
+  sourceBatchId?: number | null;
 }
 
 /**
@@ -241,18 +250,17 @@ export interface ValidateOptions {
  *   • a bad enum is an HTTP **500**, not a 400 — so `isStockTransferReason` is checked here as well
  *     as in the service, because by the time the service throws the user has already waited.
  *
- * The ceiling check re-runs on the DIRECTION too, not only on the quantity: flipping the direction
- * swaps which pool is the source, and with it how much there is to move.
+ * The ceiling check and the BATCH lookup both re-run on the DIRECTION, not only on the quantity:
+ * flipping the direction swaps which pool is the source, and with it both how much there is to move
+ * and which batch the move would start from.
  *
- * Dates are compared as `YYYY-MM-DD` against **IST** today, because that is the day the server
- * evaluates against — a device in another timezone would otherwise disagree for a whole day at a
- * time. (The form offers no date input today; the rule is here so it stays true if one appears.)
+ * There is no date rule here, unlike both siblings — see the note at the end of the function.
  */
 export function validateStockTransfer(
   form: StockTransferFormState,
   options: ValidateOptions = {},
 ): ValidationErrors {
-  const { availableBaseQty = null, baseUnit = 'unit', today = todayIst() } = options;
+  const { availableBaseQty = null, baseUnit = 'unit' } = options;
   const errors: ValidationErrors = {};
 
   if (form.itemId == null) errors.itemId = 'Pick a product';
@@ -260,6 +268,22 @@ export function validateStockTransfer(
   if (!isCrossPool(form.sourceType, form.destType)) {
     // A same-pool transfer moves nothing, and the server refuses it.
     errors.sourceType = 'Source and destination must be different pools';
+  }
+
+  /*
+    No batch to start from.
+
+    Only asked once a product is chosen — before that "Pick a product" is the useful complaint and
+    two errors would just be noise. `undefined` means the caller is not checking; `null` means the
+    source pool was looked in and holds nothing drawable.
+
+    Worth catching here rather than letting the server answer: the payload is addressed by
+    `sourceBatchId`, so without one the request fails bean validation with a 400 naming a field this
+    form never showed anyone — there is no batch picker to send the user back to. The message names
+    the thing they CAN change, which is the direction or the product.
+  */
+  if (form.itemId != null && options.sourceBatchId === null) {
+    errors.itemId = `No stock to move from the ${poolLabel(form.sourceType)} pool for this product`;
   }
 
   // `deriveUnitLinesPayload` returns null for an entry that is blank or all zeroes, and THAT null is
@@ -285,9 +309,17 @@ export function validateStockTransfer(
     errors.reason = `Reason says ${form.reason === 'PRODUCT_TO_RAW' ? 'Product → Raw' : 'Raw → Product'}, but the stock moves the other way`;
   }
 
-  if (form.transferredAt && form.transferredAt.slice(0, 10) > today) {
-    errors.transferredAt = 'Transfer date cannot be in the future';
-  }
+  /*
+    There is deliberately NO `transferredAt` rule, and its absence is worth a note because both
+    sibling features have one.
+
+    `StockTransferPayload` has no such key — the controller ignores the field and stamps the row
+    itself — so the value cannot travel, the form offers no date input, and `form.transferredAt` is
+    `''` on every code path that reaches this function. A future-date check here would be a rule that
+    can never fire, which reads as live protection and is not. It was removed rather than left in
+    when the payload was corrected; if the endpoint ever grows the field, add the input and the rule
+    back together.
+  */
 
   return errors;
 }

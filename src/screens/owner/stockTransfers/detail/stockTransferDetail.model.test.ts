@@ -1,4 +1,9 @@
-import { buildCreatePayload, emptyForm, toFormState } from './stockTransferDetail.model';
+import {
+  buildCreatePayload,
+  emptyForm,
+  toFormState,
+  type StockTransferFormState,
+} from './stockTransferDetail.model';
 
 describe('emptyForm', () => {
   it('starts on a CROSS-pool pair — a same-pool transfer moves nothing', () => {
@@ -42,117 +47,108 @@ describe('toFormState', () => {
 });
 
 describe('buildCreatePayload', () => {
-  it('sends the SCALAR shape, which is all a clamped-to-one form can produce', () => {
-    const payload = buildCreatePayload(
-      { ...emptyForm(), itemId: 21, unitRows: [{ unit: 'bottle', perStock: 500, qty: 2 }] },
+  /** The form as the screen would hand it over, plus the batch the source pool resolved to. */
+  const build = (over: Partial<StockTransferFormState> = {}, batchId: number | null = 41) =>
+    buildCreatePayload(
+      {
+        ...emptyForm(),
+        itemId: 21,
+        unitRows: [{ unit: 'ml', perStock: 1, qty: 200 }],
+        ...over,
+      },
       7,
+      batchId,
     );
-    expect(payload).toMatchObject({
+
+  it('sends the SCALAR shape, which is all a clamped-to-one form can produce', () => {
+    expect(build({ unitRows: [{ unit: 'bottle', perStock: 500, qty: 2 }] })).toMatchObject({
       businessId: 7,
-      itemId: 21,
       quantity: 2,
       unitName: 'bottle',
       unitMultiplier: 500,
-      unitLines: null,
     });
   });
 
-  it('carries BOTH pools, and they differ', () => {
-    const payload = buildCreatePayload(
-      { ...emptyForm(), itemId: 21, unitRows: [{ unit: 'ml', perStock: 1, qty: 200 }] },
-      7,
-    );
-    expect(payload?.sourceType).not.toBe(payload?.destType);
+  it('is addressed by the SOURCE BATCH, not by a product and a pool', () => {
+    // `sourceBatchId` is `@NotNull @Positive`; the controller forwards it as the first argument to
+    // `transfer(...)` and derives `itemId` and `sourceType` from the batch it names.
+    expect(build({}, 41)?.sourceBatchId).toBe(41);
   });
 
-  it('never sends a breakdown, because the server would discard one', () => {
-    // The rows are clamped to one upstream; this pins the consequence at the payload.
-    const payload = buildCreatePayload(
-      { ...emptyForm(), itemId: 21, unitRows: [{ unit: 'ml', perStock: 1, qty: 200 }] },
-      7,
-    );
-    expect(payload?.unitLines).toBeNull();
-  });
-
-  it('emits NO unitLines array on any entry the form can produce', () => {
-    // `allowMultiple={false}` clamps the editor to one row, so `deriveUnitLinesPayload` can only
-    // ever take the scalar branch. The key stays on the body — the endpoint does accept it — but it
-    // is never an ARRAY, because the server would take the breakdown and throw it away, leaving the
-    // detail screen the user lands on with nothing to render.
-    const entries = [
-      [{ unit: 'ml', perStock: 1, qty: 200 }],
-      [{ unit: 'bottle', perStock: 500, qty: 2 }],
-      // Even if a second row somehow reached the builder, this must still not become an array on
-      // the wire — hence the clamp upstream, and hence this row in the table.
-      [{ unit: 'bottle', perStock: 500, qty: 1 }],
-    ];
-    for (const unitRows of entries) {
-      const payload = buildCreatePayload({ ...emptyForm(), itemId: 21, unitRows }, 7);
-      expect(Object.keys(payload!)).toContain('unitLines');
-      expect(Array.isArray(payload!.unitLines)).toBe(false);
-      expect(payload!.unitLines).toBeNull();
-    }
+  it('still sends the DESTINATION pool, which is the one end the server cannot derive', () => {
+    expect(build()?.destType).toBe('RAW_INVENTORY');
+    expect(
+      build({ sourceType: 'RAW_INVENTORY', destType: 'PRODUCT_INVENTORY' })?.destType,
+    ).toBe('PRODUCT_INVENTORY');
   });
 
   it('sends exactly the keys the controller reads, and no others', () => {
-    // Most of the DTO is ignored server-side. Sending a field the controller drops is not free —
+    // 12 of the DTO's 20 fields are ignored server-side. Sending one that is dropped is not free —
     // it reads as a promise the record does not keep the next time someone opens this file.
-    const payload = buildCreatePayload(
-      { ...emptyForm(), itemId: 21, unitRows: [{ unit: 'ml', perStock: 1, qty: 200 }] },
-      7,
-    );
-    expect(Object.keys(payload!).sort()).toEqual(
+    expect(Object.keys(build()!).sort()).toEqual(
       [
         'businessId',
         'destType',
-        'itemId',
         'notes',
         'quantity',
         'reason',
-        'sourceType',
-        'transferredAt',
-        'unitLines',
+        'sourceBatchId',
         'unitMultiplier',
         'unitName',
       ].sort(),
     );
-    // Not `itemName`: the server denormalises it from `itemId`, and the copy this form holds could
-    // only ever be staler than the server's.
-    expect(Object.keys(payload!)).not.toContain('itemName');
   });
 
-  it('sends null, never an empty string, for an untouched timestamp', () => {
-    // ⚠️ Spring reads `''` as a malformed date and answers 400. `null` means "stamp it now".
-    const payload = buildCreatePayload(
-      { ...emptyForm(), itemId: 21, unitRows: [{ unit: 'ml', perStock: 1, qty: 200 }] },
-      7,
-    );
-    expect(payload?.transferredAt).toBeNull();
-    expect(payload?.notes).toBeNull();
+  it('omits the five fields the server derives or ignores, and never emits `unitLines`', () => {
+    /*
+      The whole point of the corrected payload, pinned key by key:
+
+        itemId / itemName / sourceType — derived from `sourceBatchId`. The FORM still holds all
+            three (it needs `sourceType` to decide which batch this is); it just stops sending them.
+        transferredAt — ignored; the server stamps the row itself.
+        unitLines — ignored, and now has no key on the type at all, so a breakdown cannot be sent
+            even by accident. That is what `allowMultiple={false}` on `UnitRowsEditor` protects: with
+            one row `deriveUnitLinesPayload` can only take the scalar branch.
+    */
+    const entries = [
+      [{ unit: 'ml', perStock: 1, qty: 200 }],
+      [{ unit: 'bottle', perStock: 500, qty: 2 }],
+      // Even if a second row somehow reached the builder, no breakdown may reach the wire.
+      [
+        { unit: 'bottle', perStock: 500, qty: 1 },
+        { unit: 'ml', perStock: 1, qty: 8 },
+      ],
+    ];
+    for (const unitRows of entries) {
+      const keys = Object.keys(build({ unitRows })!);
+      for (const dropped of ['itemId', 'itemName', 'sourceType', 'transferredAt', 'unitLines']) {
+        expect(keys).not.toContain(dropped);
+      }
+    }
   });
 
-  it('passes a real timestamp through as the zone-less IST wall clock it is', () => {
-    const payload = buildCreatePayload(
-      {
-        ...emptyForm(),
-        itemId: 21,
-        transferredAt: '2026-08-06T14:30:00',
-        notes: '  opened for treatments  ',
-        unitRows: [{ unit: 'ml', perStock: 1, qty: 200 }],
-      },
-      7,
-    );
-    expect(payload?.transferredAt).toBe('2026-08-06T14:30:00');
-    expect(payload?.notes).toBe('opened for treatments');
+  it('keeps the form holding `sourceType` even though the payload drops it', () => {
+    // The direction control, the picker helper and the over-draw ceiling all read it. Dropping it
+    // from the FORM as well as the payload would take the form's own direction logic with it.
+    const form = { ...emptyForm(), sourceType: 'RAW_INVENTORY' as const };
+    expect(form.sourceType).toBe('RAW_INVENTORY');
+    expect(Object.keys(build({ sourceType: 'RAW_INVENTORY' })!)).not.toContain('sourceType');
+  });
+
+  it('sends null, never an empty string, for an untouched note', () => {
+    // A whitespace-only note is not a note, and the server stores `''` as one.
+    expect(build()?.notes).toBeNull();
+    expect(build({ notes: '  opened for treatments  ' })?.notes).toBe('opened for treatments');
   });
 
   it('is null when nothing is entered, so the caller fails validation instead of posting a zero', () => {
-    expect(buildCreatePayload({ ...emptyForm(), itemId: 21 }, 7)).toBeNull();
-    expect(
-      buildCreatePayload(
-        { ...emptyForm(), itemId: 21, unitRows: [{ unit: 'ml', perStock: 1, qty: 0 }] },
-        7,
-      ),
-    ).toBeNull();
+    expect(build({ unitRows: [] })).toBeNull();
+    expect(build({ unitRows: [{ unit: 'ml', perStock: 1, qty: 0 }] })).toBeNull();
+  });
+
+  it('is null when no source batch resolved, rather than posting a body that is a 400', () => {
+    // Without `sourceBatchId` the body fails bean validation, and the 400 names a field this form
+    // never showed anyone — there is no batch picker to send the user back to.
+    expect(build({}, null)).toBeNull();
   });
 });

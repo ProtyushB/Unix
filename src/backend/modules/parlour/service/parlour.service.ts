@@ -382,19 +382,20 @@ export class ParlourService {
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   //
-  // The consumption slice above, plus ONE extra guard: a transfer has two ends, and they must
-  // differ. Everything else — the pre-flight enum check, the paging clamp — is the same trap in
-  // the same place.
+  // The consumption slice above, with its addressing field swapped: a transfer names the SOURCE
+  // BATCH, like a wastage, and the server derives the product and the source pool from it.
+  // Everything else — the pre-flight enum check, the paging clamp — is the same trap in the same
+  // place.
   //
   // No update passthrough: a transfer is immutable and the backend has no PUT.
   async createStockTransfer(data: StockTransferPayload) {
     if (!data?.businessId) throw new Error('Business ID is required');
-    if (!data?.itemId) throw new Error('A product is required');
-    // ⚠️ A same-pool transfer moves NOTHING and the server refuses it. Checked before the enum
-    // guard because it is the more specific complaint: "Product → Product" is a direction mistake,
-    // not a reason mistake, and naming the reason first would send the user to the wrong control.
-    if (data?.sourceType === data?.destType) {
-      throw new Error('A transfer must move stock between the two pools');
+    // ⚠️ `sourceBatchId` is `@NotNull @Positive` and is what the controller addresses the whole
+    // transfer by. Guarded here rather than left to the server because a bean-validation 400 names
+    // a field the form never showed anyone — there is no batch picker, so "sourceBatchId must not be
+    // null" is unactionable. The client-side message names what the user can actually change.
+    if (!(Number(data?.sourceBatchId) > 0)) {
+      throw new Error('No stock is available in the source pool for this product');
     }
     // ⚠️ TRAP 3 — a bad enum is an HTTP **500**, not a 400. Spring cannot bind an unknown constant
     // into the body's enum, so the handler never runs and there is nothing in the response a screen
@@ -403,6 +404,9 @@ export class ParlourService {
     // Zero moves nothing and a negative one would move stock the other way. `> 0` rather than a
     // truthiness check so `'0'` and `NaN` are both refused.
     if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    // The same-pool check cannot live here any more: only `destType` travels, and the source pool is
+    // whatever the named batch sits in. The form still refuses a same-pool pair before it gets this
+    // far — see `validateStockTransfer` — and the server refuses it as the last line.
     return this.api.createStockTransfer(data);
   }
   async getStockTransfer(id: number) {

@@ -342,13 +342,14 @@ export class PharmacyService {
   }
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
-  // Mirror of the parlour slice — read that file for why the enum guard runs BEFORE the request
-  // and why the two pools are checked first.
+  // Mirror of the parlour slice — read that file for why the enum guard runs BEFORE the request and
+  // why the transfer is addressed by its SOURCE BATCH rather than by a product and a pool.
   async createStockTransfer(data: StockTransferPayload) {
     if (!data?.businessId) throw new Error('Business ID is required');
-    if (!data?.itemId) throw new Error('A product is required');
-    if (data?.sourceType === data?.destType) {
-      throw new Error('A transfer must move stock between the two pools');
+    // ⚠️ `@NotNull @Positive`, and the field the whole transfer is addressed by. See the parlour
+    // service for why the message names the stock rather than the field.
+    if (!(Number(data?.sourceBatchId) > 0)) {
+      throw new Error('No stock is available in the source pool for this product');
     }
     // ⚠️ A bad enum is an HTTP 500, not a 400. See the parlour service.
     if (!isStockTransferReason(data?.reason)) throw new Error('Pick a valid transfer reason');
