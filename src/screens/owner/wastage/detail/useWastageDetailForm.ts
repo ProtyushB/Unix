@@ -5,6 +5,7 @@ import { clampUnitRows } from '../../inventory/batchUnits';
 import {
   buildCreatePayload,
   emptyForm,
+  enteredBaseQty,
   toFormState,
   type WastageFormState,
 } from './wastageDetail.model';
@@ -16,13 +17,7 @@ interface SaveResult {
   error?: string | null;
 }
 
-/**
- * What this hook needs from the module hook.
- *
- * FEATURE: neither method exists yet — `useModuleService.ts` has a labelled but EMPTY
- * `─── Wastage ───` region. Fill it by copying the consumption slice, then pass the real
- * `activeModule` in; the names below are the ones to create.
- */
+/** What this hook needs from the module hook — `activeModule`'s wastage slice, structurally. */
 interface ModuleApi {
   createWastage(data: WastagePayload): Promise<SaveResult>;
   deleteWastage(id: number): Promise<SaveResult>;
@@ -34,6 +29,17 @@ interface UseWastageDetailFormInput {
   item: WastageDto | null;
   moduleApi: ModuleApi;
   businessId: number | null;
+  /**
+   * The batch a write-off would start from, for the chosen product AND pool — the screen resolves
+   * it with `pickWriteOffBatch` and re-resolves it whenever either of those two fields changes.
+   *
+   * Null means the chosen pool holds no ACTIVE stock. It is the ADDRESSING field on the payload:
+   * without it there is nothing to post, which is why it is an input here rather than something
+   * this hook could derive.
+   */
+  batchId: number | null;
+  /** Stock on hand in the chosen pool, base units. Null = not yet known, which is not zero. */
+  availableBaseQty: number | null;
   onSaved: (saved: WastageDto) => void;
   onDeleted: () => void;
 }
@@ -54,6 +60,8 @@ export function useWastageDetailForm({
   item,
   moduleApi,
   businessId,
+  batchId,
+  availableBaseQty,
   onSaved,
   onDeleted,
 }: UseWastageDetailFormInput) {
@@ -110,7 +118,11 @@ export function useWastageDetailForm({
   }, []);
 
   const save = useCallback(async (): Promise<SaveResult> => {
-    const found = validateWastage(form);
+    const found = validateWastage(form, {
+      batchId,
+      availableBaseQty,
+      enteredBaseQty: enteredBaseQty(form),
+    });
     setErrors(found);
     if (hasErrors(found)) {
       return { success: false, error: errorSummary(found) };
@@ -119,9 +131,10 @@ export function useWastageDetailForm({
       return { success: false, error: 'No business is selected.' };
     }
 
-    const payload = buildCreatePayload(form, businessId);
-    // Null means "nothing was entered". Distinct from a validation error only in where it was
-    // caught — the payload builder is the one that knows every row was blank.
+    const payload = buildCreatePayload(form, businessId, batchId);
+    // Null means "nothing was entered, or there is no batch to draw from". Distinct from a
+    // validation error only in where it was caught — the payload builder is the one that knows
+    // every row was blank.
     if (!payload) {
       return { success: false, error: 'Enter a quantity.' };
     }
@@ -141,7 +154,7 @@ export function useWastageDetailForm({
     } finally {
       setSaving(false);
     }
-  }, [form, businessId, moduleApi, onSaved]);
+  }, [form, businessId, batchId, availableBaseQty, moduleApi, onSaved]);
 
   const remove = useCallback(async (): Promise<SaveResult> => {
     if (item?.id == null) {

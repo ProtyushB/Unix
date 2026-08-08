@@ -6,6 +6,8 @@ import type {
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 import { isConsumptionReason } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
+import { isWastageReason } from '../../shared/wastage.types';
 import {
   PharmacyApiInterface,
   BillableListOptions,
@@ -311,7 +313,31 @@ export class PharmacyService {
   }
 
   // ─── Wastage ───────────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  // Mirror of the parlour slice — see it for why the reason guard and the paging clamp live in this
+  // layer, and for why `batchId` rather than `itemId` is the field that must be present.
+  async createWastage(data: WastagePayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    // ⚠️ `batchId`, not `itemId` — a wastage is addressed by the batch. See the parlour service.
+    if (!data?.batchId) throw new Error('No stock is available to write off');
+    // ⚠️ A bad enum is an HTTP 500, not a 400 — throw locally instead. Accepts all EIGHT reasons,
+    // CORRECTION included: this guards the wire, not the chip list.
+    if (!isWastageReason(data?.reason)) throw new Error('Pick a valid wastage reason');
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    return this.api.createWastage(data);
+  }
+  async getWastage(id: number) {
+    if (!id) throw new Error('Wastage ID is required');
+    return this.api.getWastage(id);
+  }
+  async getWastageByBusiness(businessId: number, query: WastageQuery = {}, page = 1, limit = 20) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ `page` is 1-BASED; `page=0` is a 400. See the parlour service.
+    return this.api.getWastageByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteWastage(id: number) {
+    if (!id) throw new Error('Wastage ID is required');
+    return this.api.deleteWastage(id);
+  }
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   // Empty on purpose — copy the consumption slice above.

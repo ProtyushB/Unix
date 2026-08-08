@@ -23,6 +23,7 @@ import {
   type StatusChangeOptions,
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 
 export class ParlourApiImpl extends ParlourApiInterface {
   // ── Products ───────────────────────────────────────────────────────────────
@@ -488,7 +489,42 @@ export class ParlourApiImpl extends ParlourApiInterface {
   }
 
   // ─── Wastage ───────────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  // The consumption slice with wastage's routes and types. Same three traps, same answers; the enum
+  // one is solved a layer up in `parlour.service.ts`, because the fix is to never make the call.
+  //
+  // No update method: a wastage is immutable and the backend has no PUT.
+  async createWastage(data: WastagePayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ TRAP 1 — the TRAILING SLASH. `@PostMapping("/")` does not match a bare `/parlourWastage`:
+    // the request 404s with nothing in the body to say why. Same slash `addInventoryBatch` and
+    // `createConsumption` need.
+    const res = await parlourApiClient.post(`${PARLOUR_ROUTES.WASTAGE_BASE}/`, data);
+    return res.data;
+  }
+  async getWastage(id: number): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.WASTAGE_BASE}/${id}`);
+    return res.data;
+  }
+  async getWastageByBusiness(
+    businessId: number,
+    query: WastageQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.WASTAGE_BY_BUSINESS, {
+      // `compactParams`, never a bare spread: axios serialises `{reason: null}` as `reason=`, which
+      // Spring binds to a blank enum and answers 400 instead of reading as "no filter".
+      //
+      // ⚠️ TRAP 2 — paging is 1-BASED and the size param is `limit`, not `size`. The clamp lives in
+      // the service so a caller reaching straight for the impl cannot skip it.
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async deleteWastage(id: number): Promise<ApiResponse<unknown>> {
+    // Deleting RESTOCKS what was written off — a reversal, not a tidy-up.
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.WASTAGE_BASE}/${id}`);
+    return res.data;
+  }
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   // Empty on purpose — copy the consumption slice above.

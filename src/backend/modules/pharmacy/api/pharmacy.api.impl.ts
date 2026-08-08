@@ -23,6 +23,7 @@ import {
   type StatusChangeOptions,
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 
 export class PharmacyApiImpl extends PharmacyApiInterface {
   async getAllProducts(
@@ -460,7 +461,33 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
   }
 
   // ─── Wastage ───────────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  // Mirror of the parlour slice — see it for the trailing-slash and 1-based-paging notes.
+  async createWastage(data: WastagePayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ The trailing slash matters — see the parlour impl.
+    const res = await pharmacyApiClient.post(`${PHARMACY_ROUTES.WASTAGE_BASE}/`, data);
+    return res.data;
+  }
+  async getWastage(id: number): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.WASTAGE_BASE}/${id}`);
+    return res.data;
+  }
+  async getWastageByBusiness(
+    businessId: number,
+    query: WastageQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.WASTAGE_BY_BUSINESS, {
+      // compactParams and 1-based paging — see the parlour impl.
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async deleteWastage(id: number): Promise<ApiResponse<unknown>> {
+    // Deleting RESTOCKS what was written off.
+    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.WASTAGE_BASE}/${id}`);
+    return res.data;
+  }
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   // Empty on purpose — copy the consumption slice above.

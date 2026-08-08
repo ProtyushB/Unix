@@ -20,6 +20,7 @@ import type {
   StatusChangeOptions,
 } from '../inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../consumption.types';
+import type { WastagePayload, WastageQuery } from '../wastage.types';
 import { DmsService } from '../../../dms/service/dms.service';
 import { createEntityFolder } from '../../../dms/util/EntityFolderUtils';
 import { NativeFile, ResourceFileDto } from '../../../dms/api/file.api.interface';
@@ -333,7 +334,18 @@ interface ModuleService {
   deleteConsumption(id: number): Promise<ServiceResult>;
 
   // ─── Wastage ───────────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  // Four methods and no update, same as consumption: a wastage is immutable, so correcting one
+  // means deleting it (which RESTOCKS) and re-recording.
+  createWastage(data: WastagePayload): Promise<ServiceResult>;
+  /** One wastage, fully hydrated (it carries the `deductions` ledger). See `readOne`. */
+  getWastage(id: number): Promise<ServiceResult>;
+  getWastageByBusiness(
+    businessId: number,
+    query?: WastageQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ServiceResult>;
+  deleteWastage(id: number): Promise<ServiceResult>;
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   // Empty on purpose — copy the consumption slice above.
@@ -452,7 +464,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     const [consumptionsTotalPages, setConsumptionsTotalPages] = useState(1);
 
     // ─── Wastage ─────────────────────────────────────────────────────────────
-    // Empty on purpose — copy the consumption cells above. Two cells only, for the same reason.
+    // Two cells, and DELIBERATELY not a third — same reason as consumption: `/byBusiness` reports
+    // `totalPages` and no `totalElements`, so a `wastageTotal` could only ever hold a guess. The
+    // list subtitle therefore does not claim a record count (and there is no money total either —
+    // the endpoint reports no value figure).
+    const [wastage, setWastage] = useState<unknown[]>([]);
+    const [wastageTotalPages, setWastageTotalPages] = useState(1);
 
     // ─── Stock Transfer ──────────────────────────────────────────────────────
     // Empty on purpose — copy the consumption cells above. Two cells only, for the same reason.
@@ -1992,7 +2009,126 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     );
 
     // ─── Wastage ─────────────────────────────────────────────────────────────
-    // Empty on purpose — copy the consumption callbacks above.
+    // The consumption callbacks with wastage's types. Same two rules: the LIST writes shared state
+    // and takes `append`; the DETAIL read goes through `readOne` and writes NOTHING.
+
+    /**
+     * One page of wastage records.
+     *
+     * `append` grows the list for infinite scroll. A failed append deliberately leaves the existing
+     * rows alone — blanking what the user is already reading because page 4 timed out is worse than
+     * simply not growing.
+     *
+     * The caller must pass the SAME `query` on every page: the server filters and sorts, so page 2
+     * of a different query is not the continuation of page 1.
+     *
+     * Only `totalPages` is captured. There is no row count to capture — see the state cells.
+     */
+    const loadWastageByBusiness = useCallback(
+      async (
+        businessId: number,
+        query: WastageQuery = {},
+        page = 1,
+        limit = 20,
+        append = false,
+      ) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.getWastageByBusiness(businessId, query, page, limit);
+          if (response.success) {
+            const rows = Array.isArray(response.data) ? response.data : [];
+            setWastage((prev) => (append ? [...prev, ...rows] : rows));
+            setWastageTotalPages(response.totalPages ?? 1);
+            return { success: true, data: rows };
+          }
+          setError(response.error || response.message || null);
+          if (!append) setWastage([]);
+          return { success: false, error: response.error };
+        } catch (err) {
+          const message = (err as Error).message || 'Failed to load wastage';
+          setError(message);
+          if (!append) setWastage([]);
+          return { success: false, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /** Fetch ONE wastage for the detail screen. Contract and reasoning: see `readOne`. */
+    const loadWastage = useCallback(
+      (id: number) => readOne(() => service.getWastage(id), 'Failed to load wastage'),
+      [service],
+    );
+
+    /**
+     * Record a wastage.
+     *
+     * The service layer throws BEFORE the request on a bad reason — a bad enum comes back as an
+     * HTTP 500 with nothing readable in it — and that throw lands in this catch and becomes the
+     * returned `error`, which is why the message it carries is written to be shown as-is.
+     */
+    const createWastage = useCallback(
+      async (data: WastagePayload) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.createWastage(data);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to record wastage');
+        } catch (err) {
+          // Dig the server's reason out of the axios body rather than reporting "Request failed
+          // with status code 400": the refusals here name the shortfall (not enough stock left in
+          // the batches) and that reason is the whole message.
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to record wastage';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Deleting RESTOCKS what was written off, back into the batches it came out of.
+     *
+     * No `STOCK_MOVEMENT_LOCKED` branch here, unlike stock transfer: nothing downstream depends on
+     * a wastage the way a transfer's destination batch can be drawn from, so the delete is
+     * tab-gated and nothing else.
+     */
+    const deleteWastage = useCallback(
+      async (id: number) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.deleteWastage(id);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to delete wastage');
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to delete wastage';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
 
     // ─── Stock Transfer ──────────────────────────────────────────────────────
     // Empty on purpose — copy the consumption callbacks above, with ONE addition:
@@ -2036,7 +2172,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       consumptionsTotalPages,
 
       // ─── Wastage ───────────────────────────────────────────────────────────
-      // Empty on purpose — copy the consumption pair above.
+      // No `wastageTotal` — the endpoint reports no row count. See the state cells.
+      wastage,
+      wastageTotalPages,
 
       // ─── Stock Transfer ────────────────────────────────────────────────────
       // Empty on purpose — copy the consumption pair above.
@@ -2121,7 +2259,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       deleteConsumption,
 
       // ─── Wastage ───────────────────────────────────────────────────────────
-      // Empty on purpose — copy the consumption block above.
+      // No update — wastage records are immutable. Delete restocks.
+      loadWastageByBusiness,
+      loadWastage,
+      createWastage,
+      deleteWastage,
 
       // ─── Stock Transfer ────────────────────────────────────────────────────
       // Empty on purpose — copy the consumption block above. `deleteStockTransfer` needs the

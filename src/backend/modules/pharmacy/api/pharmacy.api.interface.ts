@@ -6,6 +6,7 @@ import type {
   StatusChangeOptions,
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -365,7 +366,18 @@ export abstract class PharmacyApiInterface {
   abstract deleteConsumption(id: number): Promise<ApiResponse<unknown>>;
 
   // ─── Wastage ───────────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  // Mirror of the parlour slice — see it for the four-methods-and-no-update rule, for why
+  // `WastageQuery` carries no `inventoryType`, and for the `totalPages`-only envelope.
+  abstract createWastage(data: WastagePayload): Promise<ApiResponse<unknown>>;
+  abstract getWastage(id: number): Promise<ApiResponse<unknown>>;
+  abstract getWastageByBusiness(
+    businessId: number,
+    query?: WastageQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Deleting RESTOCKS what was written off. */
+  abstract deleteWastage(id: number): Promise<ApiResponse<unknown>>;
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   // Empty on purpose — copy the consumption slice above.

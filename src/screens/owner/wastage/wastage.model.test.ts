@@ -1,4 +1,4 @@
-import { listSubtitle, toWastageRow, wastageName } from './wastage.model';
+import { listSubtitle, notesSnippet, toWastageRow, wastageName } from './wastage.model';
 
 describe('wastageName', () => {
   it('prefers the denormalised name, which is why it is denormalised', () => {
@@ -65,9 +65,49 @@ describe('listSubtitle', () => {
     // `/byBusiness` returns `totalPages` and nothing else, and there is no money total either.
     expect(listSubtitle(false)).not.toMatch(/\d/);
     expect(listSubtitle(true)).not.toMatch(/\d/);
+    expect(listSubtitle(true, 'asc')).not.toMatch(/\d/);
   });
 
   it('says so when the list is narrowed', () => {
     expect(listSubtitle(true)).toMatch(/filtered/i);
+    expect(listSubtitle(false)).toMatch(/Stock written off/);
+  });
+
+  it('reports the order it is ACTUALLY in, not a hardcoded "newest first"', () => {
+    // The sheet can flip the list to ascending, so the one figure this subtitle is allowed to
+    // state was also the one it used to get wrong.
+    expect(listSubtitle(false, 'desc')).toContain('newest first');
+    expect(listSubtitle(false, 'asc')).toContain('oldest first');
+    expect(listSubtitle(true, 'asc')).toBe('Filtered · oldest first');
+  });
+});
+
+describe('notesSnippet', () => {
+  it('keeps a short note whole', () => {
+    expect(notesSnippet('Left in the sun')).toBe('Left in the sun');
+  });
+
+  it('collapses newlines, so a pasted note is not cut at its first line break', () => {
+    expect(notesSnippet('Left in\nthe sun')).toBe('Left in the sun');
+  });
+
+  it('truncates a long note with a single ellipsis character', () => {
+    const snippet = notesSnippet('x'.repeat(80));
+    expect(snippet).toHaveLength(49);
+    expect(snippet.endsWith('…')).toBe(true);
+  });
+
+  it('treats whitespace-only and non-strings as no note at all', () => {
+    expect(notesSnippet('   ')).toBe('');
+    expect(notesSnippet(null)).toBe('');
+    expect(notesSnippet(undefined)).toBe('');
+    expect(notesSnippet(42)).toBe('');
+  });
+});
+
+describe('toWastageRow — the note', () => {
+  it('carries the note onto the row so the card need not reach into the DTO', () => {
+    expect(toWastageRow({ notes: 'Left in the sun' }).notesSnippet).toBe('Left in the sun');
+    expect(toWastageRow({}).notesSnippet).toBe('');
   });
 });
