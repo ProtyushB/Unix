@@ -12,13 +12,28 @@ import type { WastageDto, WastagePayload } from '../../../../backend/modules/sha
 import type { AppTheme } from '../../../../theme/theme.types';
 import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { CatalogPickerSheet, type CatalogRow } from '../../shared/detail/parts/CatalogPickerSheet';
-import { baseSaleUnit, saleUnitsOf, type SaleUnit } from '../../inventory/batchUnits';
+import { OptionSheet } from '../../shared/detail/parts/OptionSheet';
+import {
+  baseSaleUnit,
+  formatStockedQty,
+  saleUnitsOf,
+  type SaleUnit,
+} from '../../inventory/batchUnits';
 import { WastageDetailBase } from './WastageDetailBase';
 import {
+  availabilityHelper,
+  availableBaseQty as sumAvailableBaseQty,
+  pickWriteOffBatch,
+  recordBaseUnit,
+  type WriteOffBatch,
+} from './wastageDetail.model';
+import {
   deriveDetailView,
+  pickerHelper,
   shouldLoadCatalog,
   shouldResumeProductPick,
   showsCreateProduct,
+  showsPickerStock,
   type DetailMode,
 } from './wastageDetail.view';
 import { parlourWastageSlots } from './ParlourWastageDetail';
@@ -40,24 +55,34 @@ interface Props {
   };
 }
 
+interface WastageModuleApi {
+  loadWastage: (id: number) => Promise<{ success: boolean; data?: unknown; error?: string | null }>;
+  createWastage: (
+    data: WastagePayload,
+  ) => Promise<{ success: boolean; data?: unknown; error?: string | null }>;
+  deleteWastage: (id: number) => Promise<{ success: boolean; error?: string | null }>;
+}
+
 /**
- * FEATURE: the module-hook wiring — do this FIRST.
+ * The module hook's wastage slice, wrapped so its identity is stable between renders.
  *
- * `useModuleService.ts` carries a labelled but EMPTY `─── Wastage ───` region at each of its four
- * edit sites. Fill it by copying the consumption slice, then replace the three bodies below with
- * `activeModule.loadWastage`, `.createWastage` and `.deleteWastage` and delete this function — the
- * signatures already match `loadConsumption` / `createConsumption` / `deleteConsumption` exactly.
- *
- * Until then the screen loads nothing and saves nothing, and says so rather than failing silently.
+ * The `useMemo` is load-bearing rather than an optimisation: this object is handed to
+ * `useWastageDetailForm`, which puts it in a `useCallback` dependency list. A fresh object literal
+ * per render would rebuild `save` and `remove` on every render — and the sibling list screen has
+ * already been bitten once by exactly this shape of bug, where a new identity per render drove an
+ * effect that set state into a loop. Jest here never renders, so nothing would catch it.
  */
-function useWastageRecordApi(_activeModule: unknown) {
-  const notWired = { success: false, error: 'Wastage is not wired to the module hook yet.' };
-  return {
-    loadOne: async (_id: number): Promise<{ success: boolean; data?: unknown; error?: string }> =>
-      notWired,
-    createWastage: async (_data: WastagePayload) => notWired,
-    deleteWastage: async (_id: number) => notWired,
-  };
+function useWastageRecordApi(activeModule: WastageModuleApi, moduleKey: string) {
+  const { loadWastage, createWastage, deleteWastage } = activeModule;
+  return useMemo(
+    () => ({
+      loadOne: (id: number) => loadWastage(id),
+      createWastage: (data: WastagePayload) => createWastage(data),
+      deleteWastage: (id: number) => deleteWastage(id),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loadWastage, createWastage, deleteWastage, moduleKey],
+  );
 }
 
 /**
@@ -76,7 +101,7 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
   const pharmacy = usePharmacy();
   const moduleKey = (selectedModule || '').toUpperCase();
   const activeModule = moduleKey === 'PHARMACY' ? pharmacy : parlour;
-  const recordApi = useWastageRecordApi(activeModule);
+  const recordApi = useWastageRecordApi(activeModule, moduleKey);
 
   const wastageId = route?.params?.wastageId;
   const mode: DetailMode = route?.params?.mode === 'add' ? 'add' : 'view';
@@ -87,7 +112,36 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
   const [businessId, setBusinessId] = useState<number | null>(null);
 
   const [sheet, setSheet] = useState<null | 'product' | 'unit'>(null);
+  /** Which unit row the unit sheet is editing. Null when the sheet is not up. */
+  const [unitRowIndex, setUnitRowIndex] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  /**
+   * The chosen product's batches IN THE CHOSEN POOL.
+   *
+   * One request answers three questions at once — which batch to address the payload to, how much
+   * is on hand, and what the printed batch numbers are — which is why it is a batch list rather
+   * than a `getTotalStock` call. Frozen empty-array default so its identity is stable when nothing
+   * has been fetched.
+   */
+  const [batches, setBatches] = useState<WriteOffBatch[] | null>(null);
+
+  /**
+   * Stock on hand for the chosen product IN THE CHOSEN POOL, and the batch to address the write-off
+   * to.
+   *
+   * Both come off the ONE batch fetch below, because both answers are in it and a `getTotalStock`
+   * call would give only the first. Null until it answers — null is NOT zero, and the quantity
+   * roll-up drops its " of N available" tail rather than claiming an empty shelf.
+   *
+   * `writeOffBatchId` is the payload's addressing field: the lowest-id ACTIVE batch with stock. The
+   * server overflows into later batches by itself, so this is a starting point rather than a split.
+   */
+  const availableBaseQty = useMemo(
+    () => (batches ? sumAvailableBaseQty(batches) : null),
+    [batches],
+  );
+  const writeOffBatchId = useMemo(() => pickWriteOffBatch(batches), [batches]);
 
   // The two halves of the "go make a product, then come back here" round trip.
   const [pendingCreate, setPendingCreate] = useState(false);
@@ -183,8 +237,9 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
   }, [navigation, showToast]);
 
   const onDeleted = useCallback(() => {
-    // FEATURE: say that the stock came BACK — a delete here is a reversal.
-    showToast('Wastage deleted', 'success');
+    // Says the stock came BACK. A delete here is a reversal, and a bare "Deleted" hides the thing
+    // the user most needs to know about what just happened to their inventory.
+    showToast('Wastage deleted · stock restocked', 'success');
     navigation?.goBack?.();
   }, [navigation, showToast]);
 
@@ -193,9 +248,46 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
     item,
     moduleApi: recordApi,
     businessId,
+    batchId: writeOffBatchId,
+    availableBaseQty,
     onSaved,
     onDeleted,
   });
+
+  /**
+   * The chosen product's batches in the chosen pool.
+   *
+   * ⚠️ Re-runs on the POOL as well as on the product. That is the difference from consumption,
+   * where the pool is fixed to RAW: here the same product can hold different stock in each pool, so
+   * switching the toggle changes the available figure, the batch the payload addresses, AND the
+   * ceiling the validator checks against. Watching only `itemId` would leave all three describing
+   * the pool the user just switched away from.
+   *
+   * In view mode it reads the SAVED record's product and pool instead, purely so the ledger can
+   * print batch numbers rather than ids.
+   */
+  const scopeItemId = mode === 'add' ? engine.form.itemId : (item?.itemId ?? null);
+  const scopePool =
+    mode === 'add' ? engine.form.inventoryType : (item?.inventoryType ?? 'PRODUCT_INVENTORY');
+  useEffect(() => {
+    if (businessId == null || scopeItemId == null) {
+      setBatches(null);
+      return;
+    }
+    let alive = true;
+    void activeModule
+      .loadInventoryByProduct?.(scopeItemId, businessId, scopePool)
+      .then((res: { success: boolean; data?: unknown }) => {
+        if (!alive) return;
+        // `[]` on failure rather than null: null means "not asked yet" and would leave the form
+        // claiming the answer is still coming.
+        setBatches(res?.success ? ((res.data as WriteOffBatch[]) ?? []) : []);
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, scopeItemId, scopePool, moduleKey]);
 
   /** The chosen product's ladder, for the unit picker on each row and every base-unit label. */
   const selected = useMemo(
@@ -203,45 +295,75 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
     [catalog, engine.form.itemId],
   );
   const saleUnits: SaleUnit[] = useMemo(() => saleUnitsOf(selected), [selected]);
-  const baseUnit = useMemo(
+  const catalogBaseUnit = useMemo(
     () =>
       baseSaleUnit(saleUnits)?.unit ||
       String((selected as { stockUnit?: string })?.stockUnit || 'unit'),
     [saleUnits, selected],
   );
+  // The read screen never fetches the catalog, so the base unit has to come off the record there —
+  // otherwise the hero renders "600 unit" for a row the list already shows as "600 ml".
+  const baseUnit = mode === 'add' ? catalogBaseUnit : recordBaseUnit(item, catalogBaseUnit);
+
+  const availabilityLine = useMemo(
+    () => availabilityHelper(batches, baseUnit),
+    [batches, baseUnit],
+  );
+  /** Batch id → printed number, so the ledger names batches rather than numbering them. */
+  const batchNumbers = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const b of batches ?? []) {
+      if (b?.id != null && b?.batchNumber) map[Number(b.id)] = String(b.batchNumber);
+    }
+    return map;
+  }, [batches]);
 
   /**
-   * FEATURE: stock on hand for the chosen product IN THE CHOSEN POOL, in base units.
+   * The picker rows: name · brand · type chip · price on the left, stock on the right.
    *
-   * `getTotalStock(itemId, businessId, form.inventoryType)` is the call, and it has to re-run when
-   * the POOL changes as well as when the product does — that is the difference from consumption,
-   * where the pool is fixed. Null until it answers; null is NOT zero, and the roll-up drops its
-   * " of N available" tail rather than claiming the shelf is empty.
-   */
-  const availableBaseQty: number | null = null;
-
-  /**
-   * FEATURE: the picker rows.
+   * `price` stays required — the stock slot sits BESIDE it, not instead of it — and there is no
+   * thumbnail, which the shared sheet dropped for every caller.
    *
-   * The mockup's row is name · brand · type chip · price on the left, and the stock total with its
-   * breakdown on the right. `price` stays required — the stock slot sits BESIDE it, not instead of
-   * it. Fill `stock` from `getTotalStock` + `formatStockedQty`, and set `disabled` + `disabledNote`
-   * at zero so the row is inert rather than a guaranteed refusal. ⚠️ The figure shown must be for
-   * the POOL currently selected on the form, or the picker promises stock the save cannot draw.
+   * ⚠️ The stock figure is only drawn for the PRODUCT pool. `availableQuantity` on a catalog row is
+   * the SELLABLE figure and there is no per-product raw figure on the list, so showing it while the
+   * form is set to Raw would promise stock the save cannot draw. On Raw the rows carry no stock and
+   * no zero-disable — see `showsPickerStock`, and note the picker's own helper line names whichever
+   * pool it is describing so the two can never disagree.
    */
+  const showStock = showsPickerStock(engine.form.inventoryType);
   const catalogRows: CatalogRow[] = useMemo(
     () =>
       catalog.map((p) => {
-        const row = p as { id: number; name?: string; brand?: string; price?: number };
+        const row = p as {
+          id: number;
+          name?: string;
+          brand?: string;
+          price?: number;
+          productType?: string;
+          availableQuantity?: number | null;
+        };
+        const qty = row.availableQuantity;
+        const known = showStock && qty !== null && qty !== undefined;
+        const total = Number(qty ?? 0);
+        const units = saleUnitsOf(p);
+        const unit = baseSaleUnit(units)?.unit || 'unit';
         return {
           id: Number(row.id),
           name: String(row.name ?? `Product #${row.id}`),
           price: Number(row.price ?? 0),
           subtitle: row.brand ? String(row.brand) : undefined,
+          badge: row.productType
+            ? { label: String(row.productType), tone: 'muted' as const }
+            : undefined,
+          stock: known ? { total: formatStockedQty(total, null, unit), breakdown: null } : null,
+          // Inert at zero rather than a guaranteed refusal: tapping it could only ever produce a
+          // server "no stock" the user cannot act on from inside the picker.
+          disabled: known && total <= 0,
+          disabledNote: known && total <= 0 ? 'No stock in this pool' : null,
           raw: p,
         };
       }),
-    [catalog],
+    [catalog, showStock],
   );
 
   const onSave = useCallback(async () => {
@@ -292,11 +414,16 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
         ladderSize={saleUnits.length}
         baseUnit={baseUnit}
         availableBaseQty={availableBaseQty}
+        availabilityLine={availabilityLine}
+        batchNumbers={batchNumbers}
         saving={engine.saving}
         onFieldChange={engine.setField}
         onPickProduct={() => setSheet('product')}
         onChangeUnitRows={(rows) => engine.setUnitRows(rows)}
-        onPickRowUnit={() => setSheet('unit')}
+        onPickRowUnit={(index) => {
+          setUnitRowIndex(index);
+          setSheet('unit');
+        }}
         onBack={() => navigation?.goBack?.()}
         onSave={mode === 'add' ? onSave : undefined}
         onDelete={mode === 'view' && item ? () => setConfirmDelete(true) : undefined}
@@ -309,7 +436,8 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
           singleSelect
           title="Select Product"
           subtitle={mode === 'add' ? 'New wastage' : ''}
-          helper="Showing stock in the Product pool"
+          // Names whichever pool the stock column is actually describing — see `showsPickerStock`.
+          helper={pickerHelper(engine.form.inventoryType)}
           searchPlaceholder="Search name or brand"
           noun="product"
           rows={catalogRows}
@@ -333,9 +461,36 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
         />
       ) : null}
 
-      {/* FEATURE: the per-row unit sheet. An `OptionSheet` over `saleUnits`, writing the chosen
-          rung's `unit` and `perStock` back into that row. Never mount it while the picker is up —
-          two Modals at once is the never-two-Modals rule. */}
+      {/* The per-row unit picker. Gated on `sheet === 'unit'` and therefore never mounted while
+          the product picker is up — two Modals at once is the never-two-Modals rule, and on
+          react-native-web the loser's portal stays mounted and eats taps. */}
+      {sheet === 'unit' && unitRowIndex !== null ? (
+        <OptionSheet
+          visible
+          title="Unit"
+          options={saleUnits.map((u) => ({
+            value: u.unit,
+            label: u.unit,
+            sub: u.perStock > 1 ? `${u.perStock} ${baseUnit} per ${u.unit}` : undefined,
+          }))}
+          selected={engine.form.unitRows[unitRowIndex]?.unit ?? null}
+          onSelect={(value) => {
+            const rung = saleUnits.find((u) => u.unit === value);
+            if (!rung) return;
+            // Both fields together: `perStock` is what the quantity is multiplied by, so writing the
+            // name without it would convert the entry through the previous rung's multiplier.
+            engine.setUnitRows(
+              engine.form.unitRows.map((r, i) =>
+                i === unitRowIndex ? { ...r, unit: rung.unit, perStock: rung.perStock } : r,
+              ),
+            );
+          }}
+          onClose={() => {
+            setSheet(null);
+            setUnitRowIndex(null);
+          }}
+        />
+      ) : null}
 
       {confirmDelete ? (
         <ConfirmDialog

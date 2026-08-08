@@ -1,5 +1,7 @@
+import type { WastageReason } from '../../../../backend/modules/shared/wastage.types';
+import { isWastageReason } from '../../../../backend/modules/shared/wastage.types';
 import { shouldResumeCatalogPick } from '../../shared/detail/catalogPicker.view';
-import type { WastageFormState } from './wastageDetail.model';
+import type { BatchBreakdownRow, WastageFormState } from './wastageDetail.model';
 
 /**
  * The Wastage Detail screen's mode/view machine and its validation.
@@ -102,39 +104,186 @@ export function poolDescription(type: string): string {
     : 'Sellable stock — decremented on orders.';
 }
 
-// FEATURE: `appBarTitle(mode, record)` and `appBarSubtitle(mode)` — copy, so they belong here where
-// FEATURE: a test can pin them. See `batchDetail.view.ts` for the shape.
+/**
+ * The line under the picker's search box.
+ *
+ * Names the pool it is showing, because the picker's stock column is only truthful for one of them
+ * — see `showsPickerStock`. The board draws the Product-pool wording; the Raw one exists so the
+ * sentence never describes a figure that is not on screen.
+ */
+export function pickerHelper(type: string): string {
+  return type === 'RAW_INVENTORY'
+    ? 'Showing stock in the Raw pool'
+    : 'Showing stock in the Product pool';
+}
+
+/**
+ * Whether the picker draws a stock figure at all.
+ *
+ * PRODUCT only, and this is a real limitation rather than a preference: the catalog list carries
+ * `availableQuantity`, which is the SELLABLE figure, and there is no per-product raw figure on it.
+ * Showing the sellable number while the form is set to Raw would promise stock the save cannot
+ * draw — the exact thing that makes a picker untrustworthy — and fetching a raw total per row would
+ * be one request per product in the catalog.
+ *
+ * So on the Raw pool the rows simply carry no stock slot and no zero-disable, which is how the
+ * three shipped pickers already render. The Available line on the form still reports the real Raw
+ * figure once a product is chosen, because that one is a single request.
+ */
+export function showsPickerStock(type: string): boolean {
+  return type !== 'RAW_INVENTORY';
+}
+
+// ─── App bar ─────────────────────────────────────────────────────────────────
+
+/** "Record Wastage" while composing; the product's own name once saved. */
+export function appBarTitle(mode: DetailMode, itemName: string): string {
+  return mode === 'add' ? 'Record Wastage' : itemName || 'Wastage';
+}
+
+/** "Write off stock" under the title while composing. Nothing in view mode. */
+export function appBarSubtitle(mode: DetailMode): string {
+  return mode === 'add' ? 'Write off stock' : '';
+}
+
+/** The form's one CTA. Named for what it does, not "Save". */
+export function saveCtaLabel(): string {
+  return 'Record wastage';
+}
+
+/**
+ * The read screen's one destructive action.
+ *
+ * "Delete & restock", not "Delete": the restock is the consequence a user cannot undo by mistake
+ * and cannot discover from the word Delete. It is stated on the button, in the confirm dialog, and
+ * again in the sentence under the button.
+ */
+export function deleteCtaLabel(): string {
+  return 'Delete & restock';
+}
+
+// ─── Notes ───────────────────────────────────────────────────────────────────
+
+/**
+ * Whether a note is compulsory.
+ *
+ * Only for `OTHER`, and it is the whole point of that chip: "Other" on its own records that
+ * something was lost and nothing about what, which makes the row unauditable. Every other reason is
+ * self-describing, so a note there stays optional.
+ *
+ * Takes the reason rather than the whole form so the label and the validator cannot disagree.
+ */
+export function notesRequired(reason: WastageReason | null | undefined): boolean {
+  return reason === 'OTHER';
+}
+
+/** "Notes" / "Notes *" — the asterisk appears exactly when `notesRequired` says it should. */
+export function notesLabel(reason: WastageReason | null | undefined): string {
+  return notesRequired(reason) ? 'Notes (required)' : 'Notes';
+}
+
+// ─── The batch ledger ────────────────────────────────────────────────────────
+
+/**
+ * "Deducted oldest-first across 2 batches" — the caption above the breakdown table.
+ *
+ * Says "oldest-first" because that is the server's rule and the user did not choose any of these
+ * batches: the form asked for a product, a pool and a quantity, and the ledger below is the answer
+ * to "so where did it actually come from?".
+ *
+ * Empty at zero rows, so the caller draws no card rather than a caption over nothing.
+ */
+export function batchBreakdownCaption(count: number): string {
+  if (count <= 0) return '';
+  return `Deducted oldest-first across ${count} ${count === 1 ? 'batch' : 'batches'}`;
+}
+
+/**
+ * "Restocks 400 ml to BATCH-260620-04 and 200 ml to BATCH-260715-11."
+ *
+ * Sits under Delete & restock and is the reason that button is not called Delete. Built from the
+ * same ledger the breakdown table draws, so the promise and the table can never disagree.
+ *
+ * Empty when there is no ledger — a record whose deductions were not enriched cannot promise
+ * anything specific, and a vague "restocks the stock" adds nothing to the button's own label.
+ */
+export function restockSentence(rows: BatchBreakdownRow[]): string {
+  if (!rows.length) return '';
+  const parts = rows.map((r) => `${r.qtyText} to ${r.batchLabel}`);
+  if (parts.length === 1) return `Restocks ${parts[0]}.`;
+  const last = parts[parts.length - 1];
+  return `Restocks ${parts.slice(0, -1).join(', ')} and ${last}.`;
+}
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 export type ValidationErrors = Record<string, string>;
 
+/** Everything the validator needs beyond the form itself. */
+export interface WastageValidationContext {
+  /**
+   * The batch the write-off would start from — `pickWriteOffBatch`'s answer for the chosen product
+   * AND pool. Null means there is no ACTIVE stock in that pool, which is a refusal rather than a
+   * quantity problem.
+   */
+  batchId: number | null;
+  /** Stock on hand IN THE CHOSEN POOL, in base units. Null = not known yet, which is not zero. */
+  availableBaseQty: number | null;
+  /** What the rows add up to, in base units — `enteredBaseQty(form)`. */
+  enteredBaseQty: number;
+}
+
 /**
- * FEATURE: the create rules.
+ * The create rules, mirroring `validateBatch`'s habit of naming the field rather than the form.
  *
- * Deliberately EMPTY rather than half-written — a validator that passes some checks reads as
- * complete and is trusted. What has to go in, and why each one is worth catching on the client:
+ * Every one of these is also enforced somewhere behind the client, and every one is caught here
+ * anyway, because the server's version of the refusal is worse to read:
  *
- *   • `itemId` — "Pick a product". Nothing else on the form means anything without it.
- *   • `inventoryType` — must be set. There is no defensible default: the same product can hold
- *     stock in both pools, and writing off the sellable one when the user meant the consumable one
- *     is a silent loss of real stock.
- *   • quantity — at least one unit row above zero. `deriveUnitLinesPayload` returns null for an
- *     empty entry, and that null is the signal; do not post a zero.
- *   • quantity ≤ available stock IN THE CHOSEN POOL. Switching the pool changes the ceiling, so
- *     this check has to re-run on that field too, not only on the quantity.
- *   • `reason` — must satisfy `isWastageReason`. The service guards this too, and that guard is the
- *     last line rather than the first: a bad enum is an HTTP 500 with nothing readable in it.
- *     ⚠️ Validate against the full eight-member union, not the seven chips — a form seeded from an
- *     existing CORRECTION record would otherwise fail its own validation.
- *   • `reportedAt` — not in the future, compared as `YYYY-MM-DD` against **IST** today
- *     (`todayIst()`), because that is the day the server evaluates against.
+ *   • `itemId` — nothing else on the form means anything without a product.
+ *   • pool — has no defensible default, so the *consequence* of the choice is what gets checked:
+ *     with a product and a pool chosen and no `batchId` resolved, the pool the user is looking at
+ *     holds no active stock. Writing off the sellable pool when they meant the consumable one is a
+ *     silent loss of real stock, so this refuses rather than falling back to the other pool.
+ *   • quantity — at least one row above zero, and no more than the pool actually holds. The ceiling
+ *     moves when the POOL changes, not only when the quantity does, which is why the available
+ *     figure is a parameter rather than something read off the form.
+ *   • `reason` — must satisfy `isWastageReason`. ⚠️ The full EIGHT-member union, not the seven
+ *     chips: a form seeded from an existing CORRECTION record would otherwise fail its own
+ *     validation. The service guards this too and that guard is the last line, not the first — a
+ *     bad enum reaching Spring is an HTTP 500 with nothing readable in it.
+ *   • `notes` — required when the reason is OTHER; see `notesRequired`.
  *
- * Mirror `validateBatch` in `batchDetail.view.ts`, including its habit of returning a message that
- * names the field rather than a generic one.
+ * There is deliberately NO `reportedAt` rule. The form collects no date (the server stamps it), and
+ * unlike consumption's `consumedAt` the server runs no date validation on this column either — so a
+ * future-date check here would guard a field that cannot be set and a rule that does not exist.
  */
-export function validateWastage(_form: WastageFormState): ValidationErrors {
-  return {};
+export function validateWastage(
+  form: WastageFormState,
+  ctx: WastageValidationContext,
+): ValidationErrors {
+  const errors: ValidationErrors = {};
+
+  if (form.itemId == null) errors.itemId = 'Pick a product';
+
+  if (!isWastageReason(form.reason)) errors.reason = 'Pick a reason';
+
+  if (!(ctx.enteredBaseQty > 0)) {
+    errors.quantity = 'Enter a quantity';
+  } else if (ctx.availableBaseQty !== null && ctx.enteredBaseQty > ctx.availableBaseQty) {
+    errors.quantity = `Only ${ctx.availableBaseQty} available in this pool`;
+  }
+
+  // Checked after the quantity so a blank form leads with "Pick a product" / "Enter a quantity"
+  // rather than with a pool complaint about a product nobody has chosen yet.
+  if (form.itemId != null && ctx.batchId == null) {
+    errors.inventoryType = 'No active stock in this pool — check the Inventory Type';
+  }
+
+  if (notesRequired(form.reason) && !form.notes.trim()) {
+    errors.notes = 'Say what happened';
+  }
+
+  return errors;
 }
 
 export function hasErrors(errors: ValidationErrors): boolean {

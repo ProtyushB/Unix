@@ -83,9 +83,18 @@ export const PARLOUR_ROUTES = {
   CONSUMPTION_BY_BUSINESS: '/parlourConsumption/byBusiness',
 
   // ─── Wastage ───────────────────────────────────────────────────────────────
-  // Empty on purpose. Add `WASTAGE_BASE` / `WASTAGE_BY_BUSINESS` here, shaped exactly like the
-  // consumption pair above. (`WASTAGE_DISPOSE` already exists — it belongs to inventory's Dispose
-  // action, not to the wastage LIST, and is not the base to build the CRUD off.)
+  //
+  // Same shape as the consumption pair above: ids are PATH SEGMENTS, so GET-one and DELETE build off
+  // the base, and the list lives under `/byBusiness`.
+  //
+  // ⚠️ POST needs a TRAILING SLASH, exactly as consumption and inventory do — `@PostMapping("/")`
+  // does not match a bare `/parlourWastage`, and the 404 carries nothing to explain itself. Added at
+  // the call site rather than baked in here so the same constant still serves `GET|DELETE /{id}`.
+  //
+  // Note `WASTAGE_DISPOSE` above shares this controller but is NOT this feature: it is inventory's
+  // Dispose action on one expired batch, and it is not the base to build the CRUD off.
+  WASTAGE_BASE: '/parlourWastage',
+  WASTAGE_BY_BUSINESS: '/parlourWastage/byBusiness',
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   // Empty on purpose. Add `STOCK_TRANSFER_BASE` / `STOCK_TRANSFER_BY_BUSINESS` here — see the

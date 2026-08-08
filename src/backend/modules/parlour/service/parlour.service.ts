@@ -6,6 +6,8 @@ import type {
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 import { isConsumptionReason } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
+import { isWastageReason } from '../../shared/wastage.types';
 import {
   ParlourApiInterface,
   BillableListOptions,
@@ -337,8 +339,44 @@ export class ParlourService {
   }
 
   // ─── Wastage ───────────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above, guard with `isWastageReason`, and keep
-  // the same `Math.max(1, page)` clamp.
+  //
+  // The consumption slice with wastage's types. Not a passthrough: this is where the bad-enum trap
+  // is solved and where the paging clamp lives so no caller can skip it.
+  //
+  // No update passthrough: a wastage is immutable and the backend has no PUT.
+  async createWastage(data: WastagePayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    // ⚠️ `batchId`, not `itemId`. A wastage is addressed by the BATCH it comes out of — the server
+    // derives the product and the pool from it. A payload carrying only an itemId is a 400 that
+    // names a field the form never showed anyone.
+    if (!data?.batchId) throw new Error('No stock is available to write off');
+    // ⚠️ TRAP 3 — a bad enum is an HTTP **500**, not a 400. Spring cannot bind an unknown constant
+    // into the request body's enum, so the handler never runs: no validation error, no field name,
+    // nothing a screen could turn into a message. The guard runs BEFORE the axios call.
+    //
+    // Note it accepts all EIGHT reasons, CORRECTION included. That is deliberate and is NOT the
+    // same list the form's chips render from (`WASTAGE_REASON_CHOICES`, seven): this guards what
+    // the wire may legally carry, not what a person may pick.
+    if (!isWastageReason(data?.reason)) throw new Error('Pick a valid wastage reason');
+    // Zero is not a write-off, and a negative one would restock. `> 0` rather than a truthiness
+    // check so `'0'` and `NaN` are both refused.
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    return this.api.createWastage(data);
+  }
+  async getWastage(id: number) {
+    if (!id) throw new Error('Wastage ID is required');
+    return this.api.getWastage(id);
+  }
+  async getWastageByBusiness(businessId: number, query: WastageQuery = {}, page = 1, limit = 20) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ TRAP 2 — `page` is 1-BASED. `page=0` is a 400, NOT "the first page", so a list whose
+    // counter starts at zero fails on its very first request rather than on page two.
+    return this.api.getWastageByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteWastage(id: number) {
+    if (!id) throw new Error('Wastage ID is required');
+    return this.api.deleteWastage(id);
+  }
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   // Empty on purpose — copy the consumption slice above and guard with `isStockTransferReason`.

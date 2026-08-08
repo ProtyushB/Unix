@@ -114,27 +114,37 @@ describe('the ledger shape', () => {
 });
 
 describe('the create payload', () => {
-  it('requires the pool, because the same product can hold stock in both', () => {
-    // Writing off the sellable pool when the user meant the consumable one is a silent loss of
-    // real stock, so there is no default worth guessing.
+  it('is addressed by the BATCH, and does not declare the three fields the server overwrites', () => {
+    // ⚠️ Corrected against `WastageDto.java` while building the feature. An earlier draft of this
+    // file made `itemId` + `inventoryType` the required addressing fields and had no `batchId` at
+    // all, so every create would have failed its `@NotNull @Positive batchId`.
+    //
+    // `inventoryType`, `itemId` and `itemName` ARE mapped server-side and then unconditionally
+    // overwritten in `recordWastage` from the named batch, so they are not on the interface: a
+    // client that sent them would be stating three facts the server discards. The pool is still
+    // asked for on the form — it decides WHICH batch — it just does not travel as its own key.
     const payload: WastagePayload = {
       businessId: 7,
-      itemId: 21,
-      inventoryType: 'RAW_INVENTORY',
+      batchId: 88,
       reason: 'EXPIRED',
       quantity: 100,
       unitName: 'ml',
       unitMultiplier: 1,
       unitLines: null,
     };
-    expect(payload.inventoryType).toBe('RAW_INVENTORY');
+    expect(payload.batchId).toBe(88);
+    // Read through an index signature rather than off the type — the point of the assertion is that
+    // the KEY is absent, and naming it on a typed payload would be a compile error instead.
+    const keys = Object.keys(payload);
+    expect(keys).not.toContain('itemId');
+    expect(keys).not.toContain('itemName');
+    expect(keys).not.toContain('inventoryType');
   });
 
   it('describes a mixed record with a BASE total and a multiplier of 1', () => {
     const payload: WastagePayload = {
       businessId: 7,
-      itemId: 21,
-      inventoryType: 'PRODUCT_INVENTORY',
+      batchId: 88,
       reason: 'DAMAGED',
       quantity: 600,
       unitName: null,

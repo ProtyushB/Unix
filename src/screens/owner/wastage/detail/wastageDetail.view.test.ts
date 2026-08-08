@@ -1,14 +1,25 @@
 import {
+  appBarSubtitle,
+  appBarTitle,
+  batchBreakdownCaption,
+  deleteCtaLabel,
   deriveDetailView,
   errorSummary,
   hasErrors,
   isEditable,
+  notesLabel,
+  notesRequired,
+  pickerHelper,
   poolDescription,
+  restockSentence,
+  saveCtaLabel,
   shouldLoadCatalog,
   shouldResumeProductPick,
   showsCreateProduct,
   showsDelete,
   showsEditCta,
+  showsPickerStock,
+  validateWastage,
   type DetailViewInput,
 } from './wastageDetail.view';
 
@@ -97,5 +108,164 @@ describe('error helpers', () => {
     expect(errorSummary({ itemId: 'Pick a product', quantity: 'Enter a quantity' })).toBe(
       'Pick a product',
     );
+  });
+});
+
+describe('app-bar copy', () => {
+  it('names the action while composing and the item once saved', () => {
+    expect(appBarTitle('add', '')).toBe('Record Wastage');
+    expect(appBarTitle('view', 'Vitamin C Serum')).toBe('Vitamin C Serum');
+    // Never a nameless bar — a record whose product was deleted still has to render.
+    expect(appBarTitle('view', '')).toBe('Wastage');
+  });
+
+  it('explains the form and says nothing on the read screen', () => {
+    expect(appBarSubtitle('add')).toBe('Write off stock');
+    expect(appBarSubtitle('view')).toBe('');
+  });
+
+  it('names both CTAs for what they DO rather than "Save" and "Delete"', () => {
+    expect(saveCtaLabel()).toBe('Record wastage');
+    // The restock is the consequence a user cannot discover from the word Delete.
+    expect(deleteCtaLabel()).toBe('Delete & restock');
+  });
+});
+
+describe('picker copy', () => {
+  it('names whichever pool the stock column is describing', () => {
+    expect(pickerHelper('PRODUCT_INVENTORY')).toBe('Showing stock in the Product pool');
+    expect(pickerHelper('RAW_INVENTORY')).toBe('Showing stock in the Raw pool');
+  });
+
+  it('draws a stock figure only for the pool the catalog actually reports', () => {
+    // `availableQuantity` on a catalog row is the SELLABLE figure and there is no raw counterpart,
+    // so showing it on the Raw pool would promise stock the save cannot draw.
+    expect(showsPickerStock('PRODUCT_INVENTORY')).toBe(true);
+    expect(showsPickerStock('RAW_INVENTORY')).toBe(false);
+  });
+});
+
+describe('notes', () => {
+  it('is compulsory only for OTHER, which says nothing on its own', () => {
+    expect(notesRequired('OTHER')).toBe(true);
+    expect(notesRequired('EXPIRED')).toBe(false);
+    expect(notesRequired(null)).toBe(false);
+  });
+
+  it('carries the requirement in the label, so the asterisk cannot disagree with the refusal', () => {
+    expect(notesLabel('OTHER')).toMatch(/required/i);
+    expect(notesLabel('DAMAGED')).toBe('Notes');
+  });
+});
+
+describe('the batch ledger copy', () => {
+  it('says how many batches, and that the server chose them oldest-first', () => {
+    expect(batchBreakdownCaption(2)).toBe('Deducted oldest-first across 2 batches');
+    expect(batchBreakdownCaption(1)).toBe('Deducted oldest-first across 1 batch');
+  });
+
+  it('is empty at zero rows, so no caption hangs over nothing', () => {
+    expect(batchBreakdownCaption(0)).toBe('');
+  });
+
+  it('promises the restock batch by batch', () => {
+    expect(
+      restockSentence([
+        { batchId: 4, batchLabel: 'BATCH-260620-04', qtyText: '400 ml' },
+        { batchId: 11, batchLabel: 'BATCH-260715-11', qtyText: '200 ml' },
+      ]),
+    ).toBe('Restocks 400 ml to BATCH-260620-04 and 200 ml to BATCH-260715-11.');
+  });
+
+  it('reads naturally for one batch and for three', () => {
+    expect(restockSentence([{ batchId: 4, batchLabel: 'B-4', qtyText: '400 ml' }])).toBe(
+      'Restocks 400 ml to B-4.',
+    );
+    expect(
+      restockSentence([
+        { batchId: 1, batchLabel: 'B-1', qtyText: '1 ml' },
+        { batchId: 2, batchLabel: 'B-2', qtyText: '2 ml' },
+        { batchId: 3, batchLabel: 'B-3', qtyText: '3 ml' },
+      ]),
+    ).toBe('Restocks 1 ml to B-1, 2 ml to B-2 and 3 ml to B-3.');
+  });
+
+  it('promises nothing when the record carries no ledger', () => {
+    expect(restockSentence([])).toBe('');
+  });
+});
+
+describe('validateWastage', () => {
+  const form = {
+    itemId: 21,
+    itemName: 'Vitamin C Serum',
+    inventoryType: 'PRODUCT_INVENTORY' as const,
+    reason: 'DAMAGED' as const,
+    unitRows: [],
+    reportedAt: '',
+    notes: '',
+  };
+  const ctx = { batchId: 88, availableBaseQty: 1000, enteredBaseQty: 100 };
+
+  it('passes a filled-in form', () => {
+    expect(validateWastage(form, ctx)).toEqual({});
+  });
+
+  it('demands a product first — nothing else on the form means anything without one', () => {
+    expect(validateWastage({ ...form, itemId: null }, ctx).itemId).toBe('Pick a product');
+  });
+
+  it('refuses a zero, rather than posting a movement that means nothing', () => {
+    expect(validateWastage(form, { ...ctx, enteredBaseQty: 0 }).quantity).toBe('Enter a quantity');
+  });
+
+  it('caps the quantity at what the CHOSEN POOL holds', () => {
+    // The ceiling moves when the pool changes, not only when the quantity does — which is why the
+    // available figure is a parameter rather than something read off the form.
+    expect(validateWastage(form, { ...ctx, enteredBaseQty: 1001 }).quantity).toMatch(/1000/);
+    expect(validateWastage(form, { ...ctx, enteredBaseQty: 1000 }).quantity).toBeUndefined();
+  });
+
+  it('does not invent a ceiling before the stock figure is known', () => {
+    // Null is "not answered yet", not "the shelf is empty".
+    expect(
+      validateWastage(form, { ...ctx, availableBaseQty: null, enteredBaseQty: 99999 }).quantity,
+    ).toBeUndefined();
+  });
+
+  it('refuses when the chosen pool holds no active stock, and names the field that fixes it', () => {
+    expect(validateWastage(form, { ...ctx, batchId: null }).inventoryType).toMatch(
+      /Inventory Type/,
+    );
+  });
+
+  it('does not complain about the pool before a product has been picked', () => {
+    const errors = validateWastage({ ...form, itemId: null }, { ...ctx, batchId: null });
+    expect(errors.inventoryType).toBeUndefined();
+  });
+
+  it('accepts all EIGHT reasons, not just the seven chips', () => {
+    // A form seeded from an existing CORRECTION record would otherwise fail its own validation.
+    expect(validateWastage({ ...form, reason: 'CORRECTION' }, ctx).reason).toBeUndefined();
+    expect(validateWastage({ ...form, reason: 'NONSENSE' as never }, ctx).reason).toBe(
+      'Pick a reason',
+    );
+  });
+
+  it('requires a note for OTHER and only for OTHER', () => {
+    expect(validateWastage({ ...form, reason: 'OTHER' }, ctx).notes).toBe('Say what happened');
+    expect(validateWastage({ ...form, reason: 'OTHER', notes: '  ' }, ctx).notes).toBe(
+      'Say what happened',
+    );
+    expect(
+      validateWastage({ ...form, reason: 'OTHER', notes: 'Dropped' }, ctx).notes,
+    ).toBeUndefined();
+    expect(validateWastage({ ...form, reason: 'LOST' }, ctx).notes).toBeUndefined();
+  });
+
+  it('has NO future-date rule, because there is no date field and no server rule to mirror', () => {
+    // Unlike consumption's `consumedAt`, the server runs no date validation on `reportedAt` — and
+    // the form collects no date at all, so a check here would guard nothing.
+    expect(validateWastage({ ...form, reportedAt: '2099-01-01T00:00:00' }, ctx)).toEqual({});
   });
 });

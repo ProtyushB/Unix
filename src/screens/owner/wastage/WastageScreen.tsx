@@ -4,6 +4,7 @@ import {
   Modal,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -32,14 +33,26 @@ import { useAppContext } from '../../../context/AppContext';
 import { useParlour } from '../../../backend/modules/parlour/hook/useParlour';
 import { usePharmacy } from '../../../backend/modules/pharmacy/hook/usePharmacy';
 import { getSelectedBusinessId } from '../../../backend/modules/shared/hook/useModuleService';
-import type { WastageDto, WastageQuery } from '../../../backend/modules/shared/wastage.types';
+import { useIsTabEnabled } from '../../../backend/tab-config';
+import type {
+  WastageDto,
+  WastageQuery,
+  WastageReason,
+} from '../../../backend/modules/shared/wastage.types';
+import { WASTAGE_REASON_CHOICES } from '../../../backend/modules/shared/wastage.types';
 import type { AppTheme } from '../../../theme/theme.types';
 import { listSubtitle, toWastageRow, type WastageRow } from './wastage.model';
 import {
   DEFAULT_FILTERS,
+  REASON_CHIPS,
+  appliedFilterChips,
+  cardMetaLine,
   deriveWastageView,
   hasActiveFilters,
   headerCollapses,
+  poolLabel,
+  quickActionsFor,
+  reasonLabel,
   showsFab,
   toQuery,
   type WastageFilters,
@@ -68,53 +81,54 @@ const LIST_TOP_PAD = SECTION_GAP;
 const SIDE_PAD = 16;
 
 /**
- * FEATURE: the module-hook wiring — do this FIRST.
+ * The module hook's wastage slice, narrowed to what this screen uses.
  *
- * `useModuleService.ts` carries a labelled but EMPTY `─── Wastage ───` region at each of its four
- * edit sites, and this adapter stands in until it is filled, so that everything else on this screen
- * (paging, debounce, refresh, the view machine, the first-focus skip) is real code rather than a
- * sketch.
+ * ⚠️ REFERENCE STABILITY IS THE CONTRACT HERE, not tidiness. `rows` feeds a `useEffect` dependency
+ * whose body calls `setRows`. The stub this replaced returned a fresh `[]` on every render, so the
+ * effect re-ran, set state, re-rendered, and looped until React gave up with "Maximum update depth
+ * exceeded" — with the whole suite green, because jest in this repo runs in node and never renders.
  *
- * To finish it: fill those four regions by copying the consumption slice, then replace the four
- * bodies below with `activeModule.wastages`, `.wastagesTotalPages`, `.loadWastageByBusiness` and
- * `.deleteWastage` and delete this function. The signatures already match
- * `loadConsumptionsByBusiness` exactly.
- *
- * Until then the screen sits on its LOADING skeleton, which is correct rather than broken: nothing
- * has been requested, so `loadedOnce` is false, and claiming "No wastage yet" about data we never
- * asked for would be a lie.
+ * `activeModule.wastage` is a `useState` cell, so its identity only changes when the data does,
+ * which is exactly the property that was missing. The `useMemo` around the object keeps the
+ * WRAPPER stable too; `moduleKey` is in the dependency list because switching module swaps which
+ * hook instance is being read, and the callbacks below belong to one of them.
  */
-/**
- * Frozen so the stub cannot spin the screen.
- *
- * `rows` feeds a `useEffect` dependency. Returning a fresh `[]` from this function meant a new
- * array identity on every render, so the effect re-ran, called `setRows` with another new array,
- * re-rendered, and looped until React gave up with "Maximum update depth exceeded". Jest never
- * renders anything in this repo, so nothing caught it — the whole suite stayed green.
- *
- * The replacement must keep this property: whatever `rows` becomes, it has to be a value that is
- * reference-stable between renders when the data has not changed.
- */
-const NO_WASTAGE_ROWS: WastageDto[] = [];
-
-function useWastageListApi(_activeModule: unknown) {
+function useWastageListApi(
+  activeModule: {
+    wastage: unknown[];
+    wastageTotalPages: number;
+    loadWastageByBusiness: (
+      businessId: number,
+      query?: WastageQuery,
+      page?: number,
+      limit?: number,
+      append?: boolean,
+    ) => Promise<unknown>;
+    deleteWastage: (id: number) => Promise<{ success: boolean; error?: string | null }>;
+  },
+  moduleKey: string,
+) {
+  const rows = activeModule.wastage as WastageDto[];
+  const totalPages = activeModule.wastageTotalPages;
+  const loadWastageByBusiness = activeModule.loadWastageByBusiness;
+  const deleteWastage = activeModule.deleteWastage;
   return useMemo(
     () => ({
-      rows: NO_WASTAGE_ROWS,
-      totalPages: 1,
+      rows,
+      totalPages,
       load: (
-        _businessId: number,
-        _query: WastageQuery & { search: string | null },
-        _page: number,
-        _limit: number,
-        _append: boolean,
-      ) => {},
-      remove: async (_id: number): Promise<{ success: boolean; error?: string | null }> => ({
-        success: false,
-        error: 'Wastage is not wired to the module hook yet.',
-      }),
+        businessId: number,
+        query: WastageQuery,
+        page: number,
+        limit: number,
+        append: boolean,
+      ) => {
+        void loadWastageByBusiness(businessId, query, page, limit, append);
+      },
+      remove: (id: number) => deleteWastage(id),
     }),
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, totalPages, loadWastageByBusiness, deleteWastage, moduleKey],
   );
 }
 
@@ -152,7 +166,10 @@ export function WastageScreen({ navigation }: WastageScreenProps = {}) {
   const pharmacy = usePharmacy();
   const moduleKey = (selectedModule || '').toUpperCase();
   const activeModule = moduleKey === 'PHARMACY' ? pharmacy : parlour;
-  const listApi = useWastageListApi(activeModule);
+  const listApi = useWastageListApi(activeModule, moduleKey);
+  // The endpoint is `@TabGated(WASTAGE)`: with the tab off, delete 403s. Gated in the sheet rather
+  // than hidden — see `quickActionsFor`.
+  const wastageEnabled = useIsTabEnabled('WASTAGE');
 
   const [businessId, setBusinessId] = useState<number | null>(null);
   const [mode, setMode] = useState<'browse' | 'search'>('browse');
@@ -229,12 +246,21 @@ export function WastageScreen({ navigation }: WastageScreenProps = {}) {
     return unsubscribe;
   }, [navigation, reload]);
 
-  // FEATURE: the base unit is the PRODUCT's, not a constant — resolve it per row once the list
-  // FEATURE: response is known to carry one (or hydrate it from the catalog).
-  const baseUnit = 'unit';
+  /**
+   * The DTOs mapped to rows.
+   *
+   * ⚠️ `listRows` MUST be reference-stable between renders when the data has not changed. It is a
+   * `useState` cell inside the module hook, so it is — but this effect calls `setRows`, so anything
+   * that handed back a fresh array per render would re-run it, set state, re-render, and loop until
+   * React gave up. That exact bug shipped here once, with the whole suite green: jest in this repo
+   * runs in node and renders nothing, so no test can catch it.
+   *
+   * No base unit is passed: `toWastageRow` recovers it from each record, because the list has no
+   * catalog to read a product ladder off and 'unit' would render "600 unit" for 600 ml.
+   */
   const listRows = listApi.rows;
   useEffect(() => {
-    setRows(listRows.map((w) => toWastageRow(w, baseUnit)));
+    setRows(listRows.map((w) => toWastageRow(w)));
     loadingMoreRef.current = false;
   }, [listRows]);
 
@@ -323,14 +349,23 @@ export function WastageScreen({ navigation }: WastageScreenProps = {}) {
       showToast(res?.error || 'Could not delete this wastage', 'error');
       return;
     }
-    // FEATURE: the toast copy. Say that the stock came BACK — a delete here is a reversal, and a
-    // FEATURE: bare "Deleted" hides the thing the user most needs to know.
-    showToast('Wastage deleted', 'success');
+    // Says the stock came BACK. A delete here is a reversal, and a bare "Deleted" hides the thing
+    // the user most needs to know about what just happened to their inventory.
+    showToast('Wastage deleted · stock restocked', 'success');
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRecord, moduleKey, reload, showToast]);
 
   const clearFilters = useCallback(() => setFilters(DEFAULT_FILTERS), []);
+
+  /** What is narrowing the list, in words — the filtered-empty hero names it back to the user. */
+  const applied = useMemo(() => appliedFilterChips(filters), [filters]);
+
+  /** The long-press sheet's rows. The delete gate is the WASTAGE tab and nothing else. */
+  const actions = useMemo(
+    () => quickActionsFor(activeRecord, { wastageEnabled }),
+    [activeRecord, wastageEnabled],
+  );
 
   // ─── Body ─────────────────────────────────────────────────────────────────
 
@@ -371,8 +406,6 @@ export function WastageScreen({ navigation }: WastageScreenProps = {}) {
     />
   );
 
-  // FEATURE: every headline and subtext below. The STRUCTURE — which view gets a hero, which hero
-  // FEATURE: gets a CTA, and which CTA — is settled; only the words are open.
   let body: React.ReactNode;
   if (view === 'LOADING') {
     body = (
@@ -446,7 +479,10 @@ export function WastageScreen({ navigation }: WastageScreenProps = {}) {
         style={bodyInset}
         icon={<SlidersHorizontal size={40} color={palette.muted} />}
         headline="No wastage matches these filters"
-        subtext="Nothing here for the selected reason. Try widening it."
+        // Names what is actually applied rather than assuming it is the reason — the sheet can
+        // narrow by sort order too, and "Nothing here for the selected reason" would be a lie
+        // about a list nobody filtered by reason.
+        subtext={`Nothing here for ${applied.join(' · ')}. Try widening it.`}
         ctaLabel="Clear filters"
         ctaIcon={<X size={18} color="#ffffff" />}
         onCta={clearFilters}
@@ -501,7 +537,7 @@ export function WastageScreen({ navigation }: WastageScreenProps = {}) {
               </View>
             </View>
             {/* No count and no total — see `listSubtitle`. */}
-            <Text style={styles.subtitle}>{listSubtitle(filtered)}</Text>
+            <Text style={styles.subtitle}>{listSubtitle(filtered, filters.sortDir)}</Text>
           </View>
 
           <View style={styles.searchRow}>
@@ -524,14 +560,38 @@ export function WastageScreen({ navigation }: WastageScreenProps = {}) {
           </View>
 
           {/*
-            FEATURE: the reason chip row, and the applied-filter chips that replace it once the
-            FEATURE: sheet has been used. Model both on InventoryScreen's pair — a horizontal
-            FEATURE: ScrollView with `styles.chipScroll` / `styles.chipRow`, whose gutter is
-            FEATURE: horizontal PADDING on the scroll content so chips scroll under the edge.
-            FEATURE: ⚠️ Render from `WASTAGE_REASON_CHOICES` (seven), not `WASTAGE_REASONS` (eight):
-            FEATURE: CORRECTION is a value the system writes, not one a person may pick.
-            FEATURE: There are no per-chip counts, because no endpoint reports any.
+            The reason chips. Seven plus an All head — drawn from `REASON_CHIPS`, which is built on
+            `WASTAGE_REASON_CHOICES` and therefore excludes CORRECTION. No per-chip counts: no
+            endpoint reports any, and an invented number is worse than none.
           */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipScroll}
+            contentContainerStyle={styles.chipRow}
+          >
+            {REASON_CHIPS.map((chip) => {
+              const active = filters.reason === chip.value;
+              return (
+                <Pressable
+                  key={chip.value}
+                  onPress={() => setFilters((prev) => ({ ...prev, reason: chip.value }))}
+                  style={[styles.sheetChip, active && styles.sheetChipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.sheetChipText, active && styles.sheetChipTextActive]}>
+                    {chip.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* No second "applied filters" strip. Everything narrowing the list is already on screen
+              — the reason on the chip row above, the sort order in the subtitle, and the filter
+              button itself tints when either is set. A strip repeating the reason chip 40px under
+              the reason chip reads as two different controls for one filter. */}
         </>
       )}
     </CollapsingHeader>
@@ -556,14 +616,59 @@ export function WastageScreen({ navigation }: WastageScreenProps = {}) {
           </View>
 
           {/*
-            FEATURE: the sheet body — a Reason block over a Sort block. Chips come from
-            FEATURE: `WASTAGE_REASON_CHOICES` plus an 'ALL' head; sort is the two directions.
-            FEATURE: ⚠️ Do NOT add a Product/Raw toggle. `inventoryType` is on every record and is
-            FEATURE: sortable, which makes the toggle the obvious thing to build — and the endpoint
-            FEATURE: reads no such param, so it would look like it worked and return everything.
-            FEATURE: The Apply button carries NO count — nothing reports one.
-          */}
+            Reason over Sort, and NOTHING ELSE.
 
+            ⚠️ In particular there is no Product/Raw toggle here. `inventoryType` is on every record
+            and it IS in the sort whitelist, which makes the toggle the obvious thing to add — and
+            the endpoint reads no such query param, so it would look like it worked and quietly
+            return the unfiltered list. Type is a per-card badge on this screen, nothing more.
+          */}
+          <Text style={styles.sheetLabel}>Reason</Text>
+          <View style={styles.sheetChipWrap}>
+            {(['ALL', ...WASTAGE_REASON_CHOICES] as (WastageReason | 'ALL')[]).map((value) => {
+              const active = draftFilters.reason === value;
+              return (
+                <Pressable
+                  key={value}
+                  onPress={() => setDraftFilters((prev) => ({ ...prev, reason: value }))}
+                  style={[styles.sheetChip, active && styles.sheetChipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.sheetChipText, active && styles.sheetChipTextActive]}>
+                    {value === 'ALL' ? 'All Reasons' : reasonLabel(value)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.sheetLabel}>Sort</Text>
+          <View style={styles.sheetChipWrap}>
+            {(
+              [
+                ['desc', 'Newest first'],
+                ['asc', 'Oldest first'],
+              ] as ['asc' | 'desc', string][]
+            ).map(([dir, label]) => {
+              const active = draftFilters.sortDir === dir;
+              return (
+                <Pressable
+                  key={dir}
+                  onPress={() => setDraftFilters((prev) => ({ ...prev, sortDir: dir }))}
+                  style={[styles.sheetChip, active && styles.sheetChipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.sheetChipText, active && styles.sheetChipTextActive]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* No count on Apply — nothing reports one. */}
           <Pressable
             style={styles.applyButton}
             onPress={() => {
@@ -581,23 +686,37 @@ export function WastageScreen({ navigation }: WastageScreenProps = {}) {
       {sheet === 'actions' && activeRecord ? (
         <SheetShell styles={styles} onClose={() => setSheet(null)}>
           {/*
-            FEATURE: the actions sheet body. A wastage is IMMUTABLE, so the list is short — View
-            FEATURE: detail, and Delete (which RESTOCKS). No status change, no edit. Drive it from a
-            FEATURE: `quickActionsFor` in `wastage.view.ts`, following `batch.view.ts`'s rule that a
-            FEATURE: blocked action is disabled WITH A REASON rather than hidden.
+            Short, because a wastage is IMMUTABLE: View, and Delete (which restocks). No status
+            change, no edit. A blocked Delete is DISABLED with its reason on the row rather than
+            hidden — an action that silently disappears reads as a bug, and the user would have no
+            way to learn that the Wastage tab switch is what took it away.
           */}
-          <Pressable style={styles.actionRow} onPress={() => openDetail(activeRecord)}>
-            <Text style={styles.actionLabel}>View wastage</Text>
-          </Pressable>
-          <Pressable
-            style={styles.actionRow}
-            onPress={() => {
-              setSheet(null);
-              setDialog('delete');
-            }}
-          >
-            <Text style={[styles.actionLabel, styles.actionLabelDestructive]}>Delete wastage</Text>
-          </Pressable>
+          {actions.map((action) => (
+            <Pressable
+              key={action.id}
+              style={[styles.actionRow, action.disabled && styles.actionRowDisabled]}
+              disabled={action.disabled}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !!action.disabled }}
+              onPress={() => {
+                if (action.id === 'view') {
+                  openDetail(activeRecord);
+                  return;
+                }
+                setSheet(null);
+                setDialog('delete');
+              }}
+            >
+              <View style={styles.actionCopy}>
+                <Text
+                  style={[styles.actionLabel, action.destructive && styles.actionLabelDestructive]}
+                >
+                  {action.label}
+                </Text>
+                {action.sub ? <Text style={styles.actionSub}>{action.sub}</Text> : null}
+              </View>
+            </Pressable>
+          ))}
         </SheetShell>
       ) : null}
 
@@ -622,14 +741,15 @@ export function WastageScreen({ navigation }: WastageScreenProps = {}) {
 type Styles = ReturnType<typeof createStyles>;
 
 /**
- * FEATURE: the card.
+ * One list row: name and quantity on top, then the reason chip and the pool badge, then the
+ * timestamp with the note after a `·`.
  *
- * The mockup's row is: item name, the written-off quantity, a reason chip, the pool it came out of,
- * and the timestamp. This placeholder draws the strings the model already produces so the list is
- * navigable while the real card is built; it is not the design.
+ * Every string comes off `WastageRow` or a tested function in `wastage.view.ts` — the card never
+ * reaches into the DTO, because a mapping written inside a `.tsx` cannot be tested at all here.
  *
- * Keep every string it shows coming from `WastageRow` — the card must not reach into the DTO, or
- * the mapping stops being testable.
+ * The POOL badge is the one piece of information only this feature's rows carry: a consumption is
+ * always RAW and a transfer has two ends, so "which stock did this destroy?" is a question only a
+ * wastage row can answer. It is a badge and NOT a filter — see the filter sheet.
  */
 function WastageCard({
   row,
@@ -642,6 +762,8 @@ function WastageCard({
   onPress: () => void;
   onLongPress: () => void;
 }) {
+  const pool = poolLabel(row.inventoryType);
+  const meta = cardMetaLine(row);
   return (
     <Pressable
       onPress={onPress}
@@ -649,17 +771,33 @@ function WastageCard({
       delayLongPress={250}
       style={styles.card}
       accessibilityRole="button"
-      accessibilityLabel={`${row.name}, ${row.qtyText}`}
+      accessibilityLabel={`${row.name}, ${row.qtyText}, ${reasonLabel(row.reason)}`}
     >
-      <Text style={styles.cardName} numberOfLines={1}>
-        {row.name}
-      </Text>
-      <Text style={styles.cardMeta} numberOfLines={1}>
-        {row.qtyText}
-      </Text>
-      {row.whenText ? (
+      <View style={styles.cardTop}>
+        <Text style={styles.cardName} numberOfLines={1}>
+          {row.name}
+        </Text>
+        <Text style={styles.cardQty} numberOfLines={1}>
+          {row.qtyText}
+        </Text>
+      </View>
+
+      <View style={styles.cardChips}>
+        {row.reason ? (
+          <View style={styles.reasonChip}>
+            <Text style={styles.reasonChipText}>{reasonLabel(row.reason)}</Text>
+          </View>
+        ) : null}
+        {pool ? (
+          <View style={styles.poolBadge}>
+            <Text style={styles.poolBadgeText}>{pool}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {meta ? (
         <Text style={styles.cardMeta} numberOfLines={1}>
-          {row.whenText}
+          {meta}
         </Text>
       ) : null}
     </Pressable>
@@ -814,8 +952,32 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: palette.divider,
     },
-    cardName: { fontSize: 15, fontWeight: '600', color: palette.onSurface },
+    cardTop: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+    cardName: { flex: 1, fontSize: 15, fontWeight: '600', color: palette.onSurface },
+    cardQty: { fontSize: 13.5, fontWeight: '700', color: palette.onSurface },
+    cardChips: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
     cardMeta: { fontSize: 11.5, color: palette.muted },
+
+    // The reason reads as the row's classification, so it is tinted; the pool is a neutral fact
+    // about which shelf the loss came off, so it is outlined. Two chips of the same weight side by
+    // side would make the reader work out which one is the headline.
+    reasonChip: {
+      paddingVertical: 2,
+      paddingHorizontal: 8,
+      borderRadius: 999,
+      backgroundColor: colors.softBg,
+      borderWidth: 1,
+      borderColor: colors.primary + '40',
+    },
+    reasonChipText: { fontSize: 10.5, fontWeight: '700', color: colors.primary },
+    poolBadge: {
+      paddingVertical: 2,
+      paddingHorizontal: 8,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: palette.divider,
+    },
+    poolBadgeText: { fontSize: 10.5, fontWeight: '600', color: palette.muted },
 
     footerSpinner: { paddingVertical: 18 },
 
@@ -907,8 +1069,12 @@ function createStyles(theme: AppTheme) {
     applyLabel: { fontSize: 14.5, fontWeight: '700', color: colors.onAccent ?? '#FFFFFF' },
 
     actionRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13 },
+    // Dimmed rather than removed — the row still has to explain WHY it cannot be tapped.
+    actionRowDisabled: { opacity: 0.45 },
+    actionCopy: { flex: 1, gap: 2 },
     actionLabel: { fontSize: 14.5, color: palette.onSurface },
     actionLabelDestructive: { color: palette.error },
+    actionSub: { fontSize: 11.5, color: palette.muted },
     sheetTail: { height: 4 },
   });
 }

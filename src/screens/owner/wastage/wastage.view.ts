@@ -1,4 +1,10 @@
-import type { WastageQuery, WastageReason } from '../../../backend/modules/shared/wastage.types';
+import type { InventoryType } from '../../../backend/modules/shared/inventory.types';
+import type {
+  WastageDto,
+  WastageQuery,
+  WastageReason,
+} from '../../../backend/modules/shared/wastage.types';
+import { WASTAGE_REASON_CHOICES } from '../../../backend/modules/shared/wastage.types';
 
 /**
  * The Wastage screen's view state machine and its filter mapping.
@@ -110,16 +116,130 @@ export function toQuery(f: WastageFilters): WastageQuery {
   };
 }
 
-// FEATURE: `appliedFilterChips(f)` and `reasonLabel(reason)` — "EXPIRED" → "Expired". Both are
-// FEATURE: copy, so both belong here where a test can pin them.
-//
-// FEATURE: ⚠️ Draw the CHIPS from `WASTAGE_REASON_CHOICES` (seven) and resolve LABELS from the full
-// FEATURE: `WastageReason` union (eight). `CORRECTION` is a value the system writes and a record can
-// FEATURE: carry, but not one a person may pick — see the note in `wastage.types.ts`. A label
-// FEATURE: function that only knew the seven would render a blank where an existing record's reason
-// FEATURE: goes.
+// ─── Labels ──────────────────────────────────────────────────────────────────
 
-// FEATURE: `quickActionsFor(dto)` — the long-press sheet's actions. A wastage is immutable, so the
-// FEATURE: list is short: View, and Delete (which RESTOCKS). No status change and no edit. Model it
-// FEATURE: on `quickActionsFor` in `batch.view.ts`, including its rule that a blocked action is
-// FEATURE: DISABLED with a reason rather than hidden.
+/**
+ * "EXPIRED" → "Expired".
+ *
+ * ⚠️ Resolves ALL EIGHT reasons, `CORRECTION` included, while the chips below offer only seven.
+ * That asymmetry is the point: `CORRECTION` is a value the system writes and a record can carry
+ * without being a button, so a label function that only knew the chip list would render a blank
+ * where an existing record's reason goes. See the two arrays in `wastage.types.ts`.
+ *
+ * Null reads as an em dash rather than an empty string — a row with no reason still has a slot.
+ */
+const REASON_LABELS: Record<WastageReason, string> = {
+  EXPIRED: 'Expired',
+  DAMAGED: 'Damaged',
+  SPILLED: 'Spilled',
+  CONTAMINATED: 'Contaminated',
+  THEFT: 'Theft',
+  LOST: 'Lost',
+  CORRECTION: 'Correction',
+  OTHER: 'Other',
+};
+
+export function reasonLabel(reason: WastageReason | null | undefined): string {
+  if (!reason) return '—';
+  return REASON_LABELS[reason] ?? String(reason);
+}
+
+/** "Product" / "Raw" — the per-card pool badge. Empty when the record carries no pool. */
+export function poolLabel(type: InventoryType | null | undefined): string {
+  if (!type) return '';
+  return type === 'RAW_INVENTORY' ? 'Raw' : 'Product';
+}
+
+// ─── Reason chips ────────────────────────────────────────────────────────────
+
+/** One chip above the list: an id to filter by and the word drawn on it. */
+export interface ReasonChip {
+  value: WastageReason | 'ALL';
+  label: string;
+}
+
+/**
+ * The chip row: `All Reasons` and then the SEVEN offerable reasons.
+ *
+ * ⚠️ Seven, not eight. Built from `WASTAGE_REASON_CHOICES`, which excludes `CORRECTION` — offering
+ * it would invite someone reconciling a stock miscount to file it as wastage, and the write-off
+ * would absorb an error that was never a loss. `reasonLabel` above still knows all eight so a
+ * CORRECTION record reads fine wherever it turns up.
+ *
+ * No per-chip counts anywhere: no endpoint reports one, and a chip with an invented number is worse
+ * than a chip with none.
+ */
+export const REASON_CHIPS: readonly ReasonChip[] = [
+  { value: 'ALL', label: 'All Reasons' },
+  ...WASTAGE_REASON_CHOICES.map((r) => ({ value: r, label: reasonLabel(r) })),
+];
+
+/**
+ * The chips drawn above the list once the sheet has been used — one per axis actually narrowing.
+ *
+ * Empty when nothing is narrowing, so the caller renders no row at all rather than an empty strip.
+ * There is deliberately no pool chip: see `WastageFilters`.
+ */
+export function appliedFilterChips(f: WastageFilters): string[] {
+  const chips: string[] = [];
+  if (f.reason !== 'ALL') chips.push(reasonLabel(f.reason));
+  if (f.sortDir !== DEFAULT_FILTERS.sortDir) chips.push('Oldest first');
+  return chips;
+}
+
+/**
+ * The card's second line: the timestamp, then the note after a `·` when there is one.
+ *
+ * `·`, never `+` — the same separator `mixedUnitLabel` and `formatStockedQty` use, so one screen
+ * does not join two facts two different ways. Either half may be missing, and a missing half must
+ * not leave a dangling separator.
+ */
+export function cardMetaLine(row: { whenText: string; notesSnippet: string }): string {
+  return [row.whenText, row.notesSnippet].filter(Boolean).join(' · ');
+}
+
+// ─── Quick actions ───────────────────────────────────────────────────────────
+
+export interface WastageAction {
+  id: 'view' | 'delete';
+  label: string;
+  sub?: string;
+  destructive?: boolean;
+  disabled?: boolean;
+}
+
+/**
+ * The long-press sheet's actions.
+ *
+ * Short, because a wastage is IMMUTABLE: View, and Delete (which restocks). No status change, no
+ * edit — the backend has no PUT and there is no lifecycle to move through.
+ *
+ * Delete is gated on ONE thing and it is not the record: the WASTAGE tab. The endpoint is
+ * `@TabGated(WASTAGE)`, so with the tab off it 403s. Nothing about the record itself blocks it —
+ * unlike a stock transfer, which locks once its destination batch has been drawn from.
+ *
+ * Follows `batch.view.ts`'s rule that a blocked action is DISABLED WITH A REASON rather than
+ * hidden: an action that silently disappears reads as a bug, and the user has no way to learn that
+ * a switch elsewhere is what took it away.
+ */
+export function quickActionsFor(
+  record: WastageDto | null | undefined,
+  opts: { wastageEnabled: boolean },
+): WastageAction[] {
+  const actions: WastageAction[] = [{ id: 'view', label: 'View wastage' }];
+
+  const blocked = record?.id == null ? 'This wastage has not been saved' : null;
+  const gated = opts.wastageEnabled ? null : 'The Wastage tab is switched off';
+
+  actions.push({
+    id: 'delete',
+    label: 'Delete wastage',
+    // Says what the delete DOES when it is available — a bare "Delete" hides the thing the user
+    // most needs to know, which is that the stock comes back.
+    sub: blocked ?? gated ?? 'Restocks what was written off',
+    destructive: true,
+    disabled: blocked !== null || gated !== null,
+  });
+
+  return actions;
+}

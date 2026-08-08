@@ -127,31 +127,58 @@ export interface WastageQuery {
 /**
  * The POST body.
  *
+ * ⚠️ This is BATCH-addressed, and that is the one way it differs in shape from `ConsumptionPayload`.
+ * A wastage names the BATCH it comes out of, not the product: `batchId` is required, and `itemId`,
+ * `itemName` and `inventoryType` are deliberately NOT sent — the server derives all three from that
+ * batch and overwrites anything a client puts in those keys. They are declared here as optional
+ * only so a response can be re-read through the same shape; `buildCreatePayload` omits them.
+ *
+ * (An earlier draft of this file declared `itemId` and `inventoryType` as the required addressing
+ * fields and had no `batchId` at all. That was wrong about the controller. The POOL is still asked
+ * for on the form — it is what decides WHICH batch — it just does not travel as its own key.)
+ *
+ * Which batch: the lowest-id ACTIVE batch with remaining stock for the chosen product and pool. The
+ * server overflows into later batches by itself and reports what it took in `deductions`, so there
+ * is no batch picker and the client never splits the quantity.
+ *
  * `quantity` means one of two things depending on `unitLines` — level units on a single-level
  * record, BASE units on a mixed one — and `deriveUnitLinesPayload` in `batchUnits.ts` is the one
- * place that decides. See `ConsumptionPayload` for the full note; the contract is identical.
- *
- * `inventoryType` is REQUIRED and has no default worth guessing: the same product can hold stock in
- * both pools, and writing off the sellable one when the user meant the consumable one is a silent
- * loss of real stock.
+ * place that decides. See `ConsumptionPayload` for the full note; that contract is identical.
  */
 export interface WastagePayload {
+  /** `@NotNull @Positive` — validated against the batch's own business. */
   businessId: number;
-  itemId: number;
-  /** Denormalised so the row survives the product being deleted. Server fills it when omitted. */
-  itemName?: string | null;
-  /** Which pool to write off from. No default — see above. */
-  inventoryType: InventoryType;
-  reason: WastageReason;
+  /**
+   * `@NotNull @Positive`. THE addressing field.
+   *
+   * ⚠️ There is deliberately no `itemId`, no `itemName` and no `inventoryType` on this interface,
+   * and their absence is a decision rather than an oversight. `WastageDto.java` maps all three and
+   * then unconditionally OVERWRITES them in `recordWastage` from the batch named here, so a client
+   * that sends them is stating three facts the server will discard — which reads as authoritative
+   * and is not. Do not add them back.
+   *
+   * The POOL is still asked for on the form: it is what decides WHICH batch this is.
+   */
+  batchId: number;
+  /** `@NotNull @Positive`. Zero is not a write-off and a negative one would restock. */
   quantity: number;
   /** The level's unit name, or null on a mixed record. Null is NOT the same as `''`. */
   unitName?: string | null;
   unitMultiplier?: number | null;
-  /** Null (not `[]`) on a single-level record — see `deriveUnitLinesPayload`. */
+  /** Null (not `[]`) on a single-level record. Persisted, but display-only server-side. */
   unitLines?: StockUnitLine[] | null;
-  /** IST wall clock, zone-less (`2026-08-08T14:30:00`). Server defaults to now when omitted. */
-  reportedAt?: string | null;
+  /** `@NotNull`. Guarded locally by `isWastageReason` — a bad enum is a 500, not a 400. */
+  reason: WastageReason;
   notes?: string | null;
+  reportedBy?: number | null;
+  /**
+   * IST wall clock, zone-less (`2026-08-08T14:30:00`). Server defaults to now when omitted.
+   *
+   * The Record Wastage form collects no date, so this is absent in practice. Unlike consumption's
+   * `consumedAt` the server runs NO date validation on it, so a future value would be accepted
+   * rather than refused — one more reason not to offer the field.
+   */
+  reportedAt?: string | null;
 }
 
 // ─── Response ────────────────────────────────────────────────────────────────

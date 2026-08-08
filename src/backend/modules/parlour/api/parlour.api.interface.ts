@@ -6,6 +6,7 @@ import type {
   StatusChangeOptions,
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -388,7 +389,27 @@ export abstract class ParlourApiInterface {
   abstract deleteConsumption(id: number): Promise<ApiResponse<unknown>>;
 
   // ─── Wastage ───────────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  //
+  // The consumption slice above, with wastage's types. Four methods and no update: a wastage is
+  // IMMUTABLE — no PUT anywhere in the controller — so correcting one means deleting it (which
+  // RESTOCKS) and recording it again.
+  //
+  // ⚠️ `WastageQuery` carries no `inventoryType`, deliberately. The field is on every record and it
+  // IS in the sort whitelist, which makes a Product/Raw filter the obvious thing to add — and the
+  // controller reads no such query param, so it would look like it worked and return everything.
+  //
+  // ⚠️ Same `totalPages`-only envelope as consumption: `totalElements` is never set on these list
+  // responses, so no screen can show a row count and no `*Total` cell should exist to hold one.
+  abstract createWastage(data: WastagePayload): Promise<ApiResponse<unknown>>;
+  abstract getWastage(id: number): Promise<ApiResponse<unknown>>;
+  abstract getWastageByBusiness(
+    businessId: number,
+    query?: WastageQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Deleting RESTOCKS what was written off, back into the batches it came out of. */
+  abstract deleteWastage(id: number): Promise<ApiResponse<unknown>>;
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   // Empty on purpose — copy the consumption slice above. Note `StockTransferQuery` has no `reason`
