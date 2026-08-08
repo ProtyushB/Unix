@@ -4,6 +4,8 @@ import type {
   InventoryType,
   StatusChangeOptions,
 } from '../../shared/inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import { isConsumptionReason } from '../../shared/consumption.types';
 import {
   PharmacyApiInterface,
   BillableListOptions,
@@ -277,4 +279,40 @@ export class PharmacyService {
   async disposeBatch(batchId: number) {
     return this.api.disposeBatch(batchId);
   }
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — see it for why the reason guard and the paging clamp live in this
+  // layer rather than in the impl or the screen.
+  async createConsumption(data: ConsumptionPayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    if (!data?.itemId) throw new Error('A product is required');
+    // ⚠️ A bad enum is an HTTP 500, not a 400 — throw locally instead. See the parlour service.
+    if (!isConsumptionReason(data?.reason)) throw new Error('Pick a valid consumption reason');
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    return this.api.createConsumption(data);
+  }
+  async getConsumption(id: number) {
+    if (!id) throw new Error('Consumption ID is required');
+    return this.api.getConsumption(id);
+  }
+  async getConsumptionsByBusiness(
+    businessId: number,
+    query: ConsumptionQuery = {},
+    page = 1,
+    limit = 20,
+  ) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ `page` is 1-BASED; `page=0` is a 400. See the parlour service.
+    return this.api.getConsumptionsByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteConsumption(id: number) {
+    if (!id) throw new Error('Consumption ID is required');
+    return this.api.deleteConsumption(id);
+  }
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Empty on purpose — copy the consumption slice above.
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Empty on purpose — copy the consumption slice above.
 }

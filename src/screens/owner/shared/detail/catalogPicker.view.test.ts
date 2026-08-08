@@ -2,11 +2,76 @@ import {
   activePicks,
   createNewA11yLabel,
   createNewLabel,
+  rowDisabled,
   shouldResumeCatalogPick,
   shouldStartCreateNav,
   showsCreateNew,
+  stockTone,
+  stockTrailing,
   togglePick,
 } from './catalogPicker.view';
+
+describe('stockTrailing', () => {
+  it('draws NOTHING for a row that carries no stock slot', () => {
+    // The whole basis of the additive claim: batch, order and appointment detail pass no `stock`,
+    // so their rows are unchanged. If this ever stops returning null the three shipped pickers grow
+    // a column nobody asked for.
+    expect(stockTrailing({})).toBeNull();
+    expect(stockTrailing({ stock: null })).toBeNull();
+  });
+
+  it('draws the total and its breakdown', () => {
+    expect(stockTrailing({ stock: { total: '1,530 g', breakdown: '3 tubs · 30 g' } })).toEqual({
+      total: '1,530 g',
+      sub: '3 tubs · 30 g',
+    });
+  });
+
+  it('draws the total alone when the breakdown would just repeat it', () => {
+    expect(stockTrailing({ stock: { total: '6 rolls' } })).toEqual({ total: '6 rolls', sub: null });
+    expect(stockTrailing({ stock: { total: '6 rolls', breakdown: null } })).toEqual({
+      total: '6 rolls',
+      sub: null,
+    });
+  });
+
+  it('lets a disabledNote REPLACE the breakdown', () => {
+    // "0 tubs" is true, useless, and occupies the line that should explain why the row is inert.
+    expect(
+      stockTrailing({
+        stock: { total: '0 ml', breakdown: '0 bottles' },
+        disabledNote: 'no raw stock',
+      }),
+    ).toEqual({ total: '0 ml', sub: 'no raw stock' });
+  });
+
+  it('ignores a note on a row with no stock slot at all', () => {
+    expect(stockTrailing({ disabledNote: 'no raw stock' })).toBeNull();
+  });
+});
+
+describe('rowDisabled', () => {
+  it('reduces to the already-added check when no caller sets `disabled`', () => {
+    // Which is exactly the behaviour the three shipped pickers had before the stock slot existed.
+    expect(rowDisabled({ alreadyAdded: true })).toBe(true);
+    expect(rowDisabled({ alreadyAdded: false })).toBe(false);
+  });
+
+  it('is inert for either reason — "you already have this" and "there is none" both block', () => {
+    expect(rowDisabled({ alreadyAdded: false, disabled: true })).toBe(true);
+    expect(rowDisabled({ alreadyAdded: true, disabled: false })).toBe(true);
+  });
+});
+
+describe('stockTone', () => {
+  it('is red only when the row is disabled', () => {
+    // Keyed off the flag rather than parsed out of "0 ml", which would break the moment a locale
+    // formats the number differently.
+    expect(stockTone({ disabled: true })).toBe('error');
+    expect(stockTone({ disabled: false })).toBe('success');
+    expect(stockTone({})).toBe('success');
+  });
+});
 
 describe('showsCreateNew', () => {
   it('is gated on the callback and nothing else', () => {

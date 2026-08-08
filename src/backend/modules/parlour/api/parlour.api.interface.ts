@@ -5,6 +5,7 @@ import type {
   InventoryType,
   StatusChangeOptions,
 } from '../../shared/inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -362,4 +363,34 @@ export abstract class ParlourApiInterface {
   abstract deleteInventoryBatch(id: number): Promise<ApiResponse<unknown>>;
   /** Write off an EXPIRED batch's remaining stock. Lives on the wastage controller. */
   abstract disposeBatch(batchId: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  //
+  // The WORKED EXAMPLE. The wastage and stock-transfer regions below are empty; build them by
+  // copying these four and swapping the types — read the impl and the service alongside, because
+  // the three traps this feature family carries are solved there rather than here.
+  //
+  // Four methods and no more: a consumption is IMMUTABLE, so there is no update anywhere in the
+  // chain. Correcting one means deleting it (which restocks) and recording it again.
+  //
+  // ⚠️ These list responses carry `totalPages` and NOTHING ELSE. `totalElements` is never set on
+  // them, so a screen cannot show a row count — do not add a `*Total` state cell that would have
+  // to invent one.
+  abstract createConsumption(data: ConsumptionPayload): Promise<ApiResponse<unknown>>;
+  abstract getConsumption(id: number): Promise<ApiResponse<unknown>>;
+  abstract getConsumptionsByBusiness(
+    businessId: number,
+    query?: ConsumptionQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Deleting RESTOCKS what was consumed. It is a reversal, not a tidy-up. */
+  abstract deleteConsumption(id: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Empty on purpose — copy the consumption slice above.
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Empty on purpose — copy the consumption slice above. Note `StockTransferQuery` has no `reason`
+  // key, deliberately; the backend reads no such param.
 }

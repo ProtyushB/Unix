@@ -5,6 +5,7 @@ import type {
   InventoryType,
   StatusChangeOptions,
 } from '../../shared/inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -348,4 +349,24 @@ export abstract class PharmacyApiInterface {
   abstract deleteInventoryBatch(id: number): Promise<ApiResponse<unknown>>;
   /** Write off an EXPIRED batch's remaining stock. Lives on the wastage controller. */
   abstract disposeBatch(batchId: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — see it for the four-methods-and-no-update rule and for the note
+  // that these responses carry `totalPages` only, never `totalElements`.
+  abstract createConsumption(data: ConsumptionPayload): Promise<ApiResponse<unknown>>;
+  abstract getConsumption(id: number): Promise<ApiResponse<unknown>>;
+  abstract getConsumptionsByBusiness(
+    businessId: number,
+    query?: ConsumptionQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Deleting RESTOCKS what was consumed. */
+  abstract deleteConsumption(id: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Empty on purpose — copy the consumption slice above.
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Empty on purpose — copy the consumption slice above.
 }

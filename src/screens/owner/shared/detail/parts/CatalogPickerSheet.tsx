@@ -10,13 +10,17 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check, ChevronLeft, Image as ImageIcon, Plus, Search } from 'lucide-react-native';
+import { Check, ChevronLeft, Plus, Search } from 'lucide-react-native';
 import {
   activePicks,
   createNewA11yLabel,
   createNewLabel,
+  rowDisabled,
   showsCreateNew,
+  stockTone,
+  stockTrailing,
   togglePick,
+  type CatalogStock,
 } from '../catalogPicker.view';
 import { useTheme } from '../../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../../hooks/useThemedStyles';
@@ -33,11 +37,33 @@ import { formatCurrency } from '../../../../../utils/formatters';
 export interface CatalogRow {
   id: number;
   name: string;
+  /**
+   * REQUIRED, and it stayed required when the stock slot was added.
+   *
+   * The stock-movement mockups show name · brand · type · price on the left AND a stock figure on
+   * the right — two slots, not one slot with two owners. Making this optional so a picker could
+   * show stock "instead of" price would let a caller silently drop the number every other picker
+   * leads with.
+   */
   price: number;
   /** Second line — a brand, a duration, whatever identifies the row. */
   subtitle?: string;
   /** Small tinted chip: stock for a product, availability for a service. */
   badge?: { label: string; tone: 'success' | 'warning' | 'error' | 'muted' };
+  /**
+   * Trailing stock figure: a total plus, when there is one, the level it breaks into.
+   *
+   * Additive — omit it and the row draws exactly what it drew before this existed. The three
+   * shipped callers (batch, order, appointment detail) omit it.
+   */
+  stock?: CatalogStock | null;
+  /**
+   * Renders the row inert. For a product with no stock in the pool this picker draws from: tapping
+   * it could only ever produce a server refusal, so the row says so instead of finding out.
+   */
+  disabled?: boolean;
+  /** Why, in three or four words — "no raw stock". Replaces the breakdown line. */
+  disabledNote?: string | null;
   /** Anything the caller needs back on selection. Passed through untouched. */
   raw?: unknown;
 }
@@ -186,7 +212,15 @@ export function CatalogPickerSheet({
   };
 
   const toggle = (id: number) => {
-    if (added.has(id)) return;
+    // Both reasons a row can be inert, from the one tested rule — a `disabled` row must not be
+    // selectable by any path, and `Pressable disabled` alone would leave the programmatic one open.
+    if (
+      rowDisabled({
+        alreadyAdded: added.has(id),
+        disabled: rows.find((r) => r.id === id)?.disabled,
+      })
+    )
+      return;
     if (singleSelect) {
       // Confirm on tap. Selecting then hunting for a footer button is a step too many when the
       // answer can only ever be one row.
@@ -293,19 +327,28 @@ export function CatalogPickerSheet({
           renderItem={({ item }) => {
             const isAdded = added.has(item.id);
             const isPicked = picks.includes(item.id);
+            const inert = rowDisabled({ alreadyAdded: isAdded, disabled: item.disabled });
+            const trailing = stockTrailing(item);
             return (
               <Pressable
-                style={[styles.row, (isPicked || isAdded) && styles.rowPicked]}
+                style={[
+                  styles.row,
+                  (isPicked || isAdded) && styles.rowPicked,
+                  // Dimmed only for `disabled`, never for already-added: that one already has its
+                  // own treatment (tick + tinted border), and dimming it too would change how the
+                  // three shipped pickers look.
+                  item.disabled && styles.rowInert,
+                ]}
                 onPress={() => toggle(item.id)}
-                disabled={isAdded}
+                disabled={inert}
                 // Single-select confirms on tap, so it is a button, not a checkbox — and a
                 // screen reader announcing "checkbox, unchecked" would promise a selection step
                 // that does not exist.
                 accessibilityRole={singleSelect ? 'button' : 'checkbox'}
                 accessibilityState={
                   singleSelect
-                    ? { disabled: isAdded }
-                    : { checked: isPicked || isAdded, disabled: isAdded }
+                    ? { disabled: inert }
+                    : { checked: isPicked || isAdded, disabled: inert }
                 }
                 accessibilityLabel={item.name}
               >
@@ -319,9 +362,6 @@ export function CatalogPickerSheet({
                     ) : null}
                   </View>
                 ) : null}
-                <View style={styles.thumb}>
-                  <ImageIcon size={15} color={theme.palette.muted} />
-                </View>
                 <View style={styles.rowBody}>
                   <Text style={styles.rowName} numberOfLines={1}>
                     {item.name}
@@ -336,7 +376,22 @@ export function CatalogPickerSheet({
                     {isAdded ? <Text style={styles.rowSub}>Already added</Text> : null}
                   </View>
                 </View>
+                {/* Price and stock are two slots, not one. `price` is required, so it always
+                    renders; `trailing` is null for every caller that passes no stock. */}
                 <Text style={styles.rowPrice}>{money(item.price)}</Text>
+                {trailing ? (
+                  <View style={styles.stockCol}>
+                    <Text
+                      style={[
+                        styles.stockTotal,
+                        { color: toneColor(theme, stockTone({ disabled: item.disabled })) },
+                      ]}
+                    >
+                      {trailing.total}
+                    </Text>
+                    {trailing.sub ? <Text style={styles.stockSub}>{trailing.sub}</Text> : null}
+                  </View>
+                ) : null}
               </Pressable>
             );
           }}
@@ -458,6 +513,8 @@ function createStyles(theme: AppTheme) {
       borderColor: theme.palette.divider,
     },
     rowPicked: { borderColor: theme.colors.border, backgroundColor: theme.colors.softBg },
+    // Only ever applied to a `disabled` row — see the note at the call site.
+    rowInert: { opacity: 0.55 },
     check: {
       width: 20,
       height: 20,
@@ -468,20 +525,21 @@ function createStyles(theme: AppTheme) {
       borderColor: theme.palette.divider,
     },
     checkOn: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
-    thumb: {
-      width: 32,
-      height: 32,
-      borderRadius: 9,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.palette.surfaceElevated,
-    },
+    // No product thumbnail. Every row carried a 32×32 grey square holding a generic image glyph —
+    // the catalog has no product photography, so it was the same placeholder on every row of every
+    // picker, buying nothing but a left inset. Removed deliberately; the Stock & Ops picker mockups
+    // never drew one and the rest were updated to match.
     rowBody: { flex: 1, gap: 2 },
     rowName: { fontSize: 13.5, fontWeight: '600', color: theme.palette.onSurface },
     rowMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
     rowSub: { fontSize: 11.5, color: theme.palette.muted },
     badge: { fontSize: 11, fontWeight: '600' },
     rowPrice: { fontSize: 13.5, fontWeight: '700', color: theme.colors.primary },
+
+    // The stock slot, right-aligned as the mockups draw it. Tinted at the call site by `stockTone`.
+    stockCol: { alignItems: 'flex-end', gap: 2 },
+    stockTotal: { fontSize: 13.5, fontWeight: '700' },
+    stockSub: { fontSize: 11, color: theme.palette.muted },
     empty: { fontSize: 13, color: theme.palette.muted, textAlign: 'center', marginTop: 32 },
 
     footer: {

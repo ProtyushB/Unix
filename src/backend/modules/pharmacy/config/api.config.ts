@@ -53,4 +53,15 @@ export const PHARMACY_ROUTES = {
   INVENTORY_EXPIRING: '/pharmacyInventory/expiring',
 
   WASTAGE_DISPOSE: '/pharmacyWastage/dispose',
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  // Mirror of the parlour pair. ⚠️ POST needs a TRAILING SLASH — see the parlour table.
+  CONSUMPTION_BASE: '/pharmacyConsumption',
+  CONSUMPTION_BY_BUSINESS: '/pharmacyConsumption/byBusiness',
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Empty on purpose — see the consumption pair above and its parlour twin.
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Empty on purpose — see the consumption pair above and its parlour twin.
 };

@@ -69,4 +69,25 @@ export const PARLOUR_ROUTES = {
   // Dispose is a WASTAGE endpoint, not an inventory one, and is @TabGated(WASTAGE) — it can 403
   // while inventory works perfectly. See `canDispose` for the client-side gate.
   WASTAGE_DISPOSE: '/parlourWastage/dispose',
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  //
+  // The worked example the two slices below copy. Same shape as the inventory block: ids are PATH
+  // SEGMENTS, so GET-one and DELETE build off the base, and the list lives under `/byBusiness`.
+  //
+  // ⚠️ POST needs a TRAILING SLASH — `@PostMapping("/")` does not match a bare
+  // `/parlourConsumption`, and the 404 comes back with nothing in it to explain why. The slash is
+  // added at the call site rather than baked in here, matching `INVENTORY_BASE`, so the same
+  // constant still serves `GET /{id}` and `DELETE /{id}`.
+  CONSUMPTION_BASE: '/parlourConsumption',
+  CONSUMPTION_BY_BUSINESS: '/parlourConsumption/byBusiness',
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Empty on purpose. Add `WASTAGE_BASE` / `WASTAGE_BY_BUSINESS` here, shaped exactly like the
+  // consumption pair above. (`WASTAGE_DISPOSE` already exists — it belongs to inventory's Dispose
+  // action, not to the wastage LIST, and is not the base to build the CRUD off.)
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Empty on purpose. Add `STOCK_TRANSFER_BASE` / `STOCK_TRANSFER_BY_BUSINESS` here — see the
+  // consumption pair above.
 };

@@ -22,6 +22,7 @@ import {
   type InventoryType,
   type StatusChangeOptions,
 } from '../../shared/inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 
 export class PharmacyApiImpl extends PharmacyApiInterface {
   async getAllProducts(
@@ -428,4 +429,39 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.post(`${PHARMACY_ROUTES.WASTAGE_DISPOSE}/${batchId}`);
     return res.data;
   }
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — see it for the trailing-slash and 1-based-paging notes.
+  async createConsumption(data: ConsumptionPayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ The trailing slash matters — see the parlour impl.
+    const res = await pharmacyApiClient.post(`${PHARMACY_ROUTES.CONSUMPTION_BASE}/`, data);
+    return res.data;
+  }
+  async getConsumption(id: number): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.CONSUMPTION_BASE}/${id}`);
+    return res.data;
+  }
+  async getConsumptionsByBusiness(
+    businessId: number,
+    query: ConsumptionQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.CONSUMPTION_BY_BUSINESS, {
+      // compactParams and 1-based paging — see the parlour impl.
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async deleteConsumption(id: number): Promise<ApiResponse<unknown>> {
+    // Deleting RESTOCKS what was consumed.
+    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.CONSUMPTION_BASE}/${id}`);
+    return res.data;
+  }
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Empty on purpose — copy the consumption slice above.
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Empty on purpose — copy the consumption slice above.
 }

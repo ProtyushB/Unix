@@ -23,9 +23,12 @@ export type OwnerTabParamList = {
   Subscriptions: undefined;
   ServicePlans: undefined;
   Inventory: NavigatorScreenParams<InventoryStackParamList>;
-  Consumptions: undefined;
-  StockTransfers: undefined;
-  Wastage: undefined;
+  // The three stock-movement tabs. Stacks, not bare screens, for the same reason Inventory is one:
+  // each has a detail route, and each hosts ProductDetail so "New Product" is a push rather than a
+  // tab jump.
+  Consumptions: NavigatorScreenParams<ConsumptionsStackParamList>;
+  StockTransfers: NavigatorScreenParams<StockTransfersStackParamList>;
+  Wastage: NavigatorScreenParams<WastageStackParamList>;
   Expenses: undefined;
   Customers: undefined;
   Employees: undefined;
@@ -72,6 +75,47 @@ export type InventoryStackParamList = {
    * This is the one place Unix departs from Centrix, where the equivalent redirect flips tabs and
    * loses the batch outright.
    */
+  ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
+};
+
+/**
+ * The Consumptions tab's stack.
+ *
+ * Only two modes, like Inventory's and for the same reason: a consumption is IMMUTABLE — the
+ * backend has no PUT — so there is no `'edit'` to navigate to. Correcting one means deleting it
+ * (which restocks) and recording it again.
+ */
+export type ConsumptionsStackParamList = {
+  ConsumptionsMain: undefined;
+  ConsumptionDetail: { consumptionId?: number; mode: 'view' | 'add' };
+  /**
+   * The SAME screen the catalog stack registers, deliberately mounted here a second time.
+   *
+   * "New Product" in the record form's picker has to be a push inside THIS stack. Jumping to the
+   * Products tab instead would leave this stack, and the half-filled form — `useState` cells living
+   * exactly as long as the screen is mounted — would be gone by the time the user came back. A push
+   * freezes the screen below rather than unmounting it, so the form is still there, and the product
+   * screen's own `goBack()` lands straight back on it.
+   *
+   * Route names resolve to the NEAREST navigator, so `navigate('ProductDetail')` from here stays on
+   * this stack.
+   */
+  ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
+};
+
+/** The Wastage tab's stack. Same shape and same reasons as the consumptions one — see above. */
+export type WastageStackParamList = {
+  WastageMain: undefined;
+  WastageDetail: { wastageId?: number; mode: 'view' | 'add' };
+  /** "New Product" from the picker. Same reason it is on the Consumptions stack — see above. */
+  ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
+};
+
+/** The Stock Transfers tab's stack. Same shape and same reasons — see the consumptions one. */
+export type StockTransfersStackParamList = {
+  StockTransfersMain: undefined;
+  StockTransferDetail: { stockTransferId?: number; mode: 'view' | 'add' };
+  /** "New Product" from the picker. Same reason it is on the Consumptions stack — see above. */
   ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
 };
 

@@ -22,6 +22,7 @@ import {
   type InventoryType,
   type StatusChangeOptions,
 } from '../../shared/inventory.types';
+import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 
 export class ParlourApiImpl extends ParlourApiInterface {
   // ── Products ───────────────────────────────────────────────────────────────
@@ -445,4 +446,50 @@ export class ParlourApiImpl extends ParlourApiInterface {
     const res = await parlourApiClient.post(`${PARLOUR_ROUTES.WASTAGE_DISPOSE}/${batchId}`);
     return res.data;
   }
+
+  // ─── Consumption ───────────────────────────────────────────────────────────
+  // The WORKED EXAMPLE for all three stock-movement features. Two of the family's three traps are
+  // visible here; the third (a bad enum being a 500 rather than a 400) is solved one layer up, in
+  // `parlour.service.ts`, because the fix is to never make the call.
+  //
+  // No update method: a consumption is immutable and the backend has no PUT.
+  async createConsumption(data: ConsumptionPayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ TRAP 1 — the TRAILING SLASH. `@PostMapping("/")` does not match a bare
+    // `/parlourConsumption`: the request 404s, and the body says nothing about why. Precedent and
+    // proof it is not a one-off: `addInventoryBatch` above needs exactly the same slash.
+    const res = await parlourApiClient.post(`${PARLOUR_ROUTES.CONSUMPTION_BASE}/`, data);
+    return res.data;
+  }
+  async getConsumption(id: number): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.CONSUMPTION_BASE}/${id}`);
+    return res.data;
+  }
+  async getConsumptionsByBusiness(
+    businessId: number,
+    query: ConsumptionQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.CONSUMPTION_BY_BUSINESS, {
+      // `compactParams`, never a bare spread: axios serialises `{reason: null}` as `reason=`, and
+      // Spring binds that empty string to a blank enum and answers 400 instead of reading it as
+      // "no filter". Dropping the key is the difference between an unfiltered list and an error.
+      //
+      // ⚠️ TRAP 2 — paging is 1-BASED and the size param is `limit`, not `size`. The clamp lives
+      // in the service so it cannot be skipped by a caller that reaches straight for the impl.
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async deleteConsumption(id: number): Promise<ApiResponse<unknown>> {
+    // Deleting RESTOCKS what was consumed — a reversal, not a tidy-up.
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.CONSUMPTION_BASE}/${id}`);
+    return res.data;
+  }
+
+  // ─── Wastage ───────────────────────────────────────────────────────────────
+  // Empty on purpose — copy the consumption slice above.
+
+  // ─── Stock Transfer ────────────────────────────────────────────────────────
+  // Empty on purpose — copy the consumption slice above.
 }
