@@ -1,6 +1,8 @@
-import type {
-  ConsumptionQuery,
-  ConsumptionReason,
+import {
+  CONSUMPTION_REASONS,
+  type ConsumptionDto,
+  type ConsumptionQuery,
+  type ConsumptionReason,
 } from '../../../backend/modules/shared/consumption.types';
 
 /**
@@ -109,13 +111,115 @@ export function toQuery(f: ConsumptionFilters): ConsumptionQuery {
   };
 }
 
-// FEATURE: `appliedFilterChips(f)` — the chips drawn above the list once the sheet has been used,
-// FEATURE: and `reasonLabel(reason)` — "SERVICE_USE" → "Service use". Both are copy, so both belong
-// FEATURE: here rather than in the `.tsx`, and both want a test. Render the chip list from
-// FEATURE: `CONSUMPTION_REASONS` (all six are offered; there is no hidden member the way wastage
-// FEATURE: has one).
+// ─── Reason copy ─────────────────────────────────────────────────────────────
 
-// FEATURE: `quickActionsFor(dto)` — the long-press sheet's actions, in the mockup's order. A
-// FEATURE: consumption is immutable, so the list is short: View, and Delete (which RESTOCKS). There
-// FEATURE: is no status change and no edit. Model it on `quickActionsFor` in `batch.view.ts`,
-// FEATURE: including its rule that a blocked action is DISABLED with a reason rather than hidden.
+/**
+ * The chip word for a reason, taken off the mockup rather than derived from the enum.
+ *
+ * ⚠️ A lookup, and it has to be: two of the six cannot be produced by title-casing their constant.
+ * `INTERNAL_USE` reads "Internal" and `SAMPLING` reads "Sample" on the board — a generic
+ * `split('_').map(titleCase)` would render "Internal Use" and "Sampling", which is a different chip
+ * row from the one the design shows. The enum is the wire value; this is the word.
+ *
+ * 'ALL' is included because the filter row's head chip is drawn from the same function — a second
+ * literal for it in the `.tsx` is a second place for the wording to drift.
+ */
+const REASON_LABELS: Record<ConsumptionReason | 'ALL', string> = {
+  ALL: 'All Reasons',
+  SERVICE_USE: 'Service Use',
+  INTERNAL_USE: 'Internal',
+  TRAINING: 'Training',
+  SAMPLING: 'Sample',
+  TESTING: 'Testing',
+  OTHER: 'Other',
+};
+
+/** "SERVICE_USE" → "Service Use". Unknown values fall back to the raw string, never to a blank. */
+export function reasonLabel(reason: ConsumptionReason | 'ALL' | null | undefined): string {
+  if (!reason) return REASON_LABELS.OTHER;
+  return REASON_LABELS[reason] ?? String(reason);
+}
+
+/**
+ * The tint a reason chip carries. Not a colour — a palette ROLE the `.tsx` resolves.
+ *
+ * Only SERVICE_USE is accented. It is the reason behind almost every record, so tinting all six
+ * would make the accent mean "this is a consumption" rather than "this one is the ordinary case",
+ * and a list where every chip is coloured has no signal left in the colour.
+ */
+export type ReasonTone = 'accent' | 'info' | 'muted';
+
+export function reasonTone(reason: ConsumptionReason | null | undefined): ReasonTone {
+  if (reason === 'SERVICE_USE') return 'accent';
+  if (reason === 'INTERNAL_USE' || reason === 'TRAINING') return 'info';
+  return 'muted';
+}
+
+/** Every chip the reason row draws, head included. Ordered as `CONSUMPTION_REASONS` orders them. */
+export function reasonChoices(): (ConsumptionReason | 'ALL')[] {
+  return ['ALL', ...CONSUMPTION_REASONS];
+}
+
+/**
+ * The chips shown above the list once the sheet has been used.
+ *
+ * Sort order earns a chip because `hasActiveFilters` already counts it as narrowing — a screen that
+ * says "Filtered" in its subtitle and then shows no chip to clear leaves the user hunting for what
+ * changed.
+ */
+export function appliedFilterChips(f: ConsumptionFilters): { id: string; label: string }[] {
+  const chips: { id: string; label: string }[] = [];
+  if (f.reason !== 'ALL') chips.push({ id: 'reason', label: reasonLabel(f.reason) });
+  if (f.sortDir === 'asc') chips.push({ id: 'sort', label: 'Oldest first' });
+  return chips;
+}
+
+// ─── Quick actions ───────────────────────────────────────────────────────────
+
+export type ConsumptionActionId = 'view' | 'delete';
+
+export interface ConsumptionAction {
+  id: ConsumptionActionId;
+  label: string;
+  /** Second line under the label, for the action whose consequence needs saying out loud. */
+  sub?: string;
+  destructive?: boolean;
+  disabled?: boolean;
+}
+
+/**
+ * Why Delete is unavailable, or null when it is allowed.
+ *
+ * ⚠️ There is exactly ONE reason, and it is not a business rule: the row has no id to delete. The
+ * consumption controller has **no guard on DELETE at all** — no immutability window, no "already
+ * billed", not even a tab gate — so any condition invented here would be a client-side refusal the
+ * server would have honoured. Inventory's `deleteBlockedReason` mirrors a real backend guard; this
+ * one deliberately mirrors nothing.
+ */
+export function deleteBlockedReason(record: ConsumptionDto | null | undefined): string | null {
+  if (!record || record.id == null) return 'This consumption is not available.';
+  return null;
+}
+
+/**
+ * The long-press sheet's actions, in the mockup's order.
+ *
+ * Short because a consumption is IMMUTABLE: there is no status to change and no edit to offer, so
+ * the sheet is View and Delete. Delete is included even when blocked, DISABLED with its reason —
+ * `batch.view.ts`'s rule, and for its reason: a missing row reads as a missing feature, a disabled
+ * one with a sentence under it teaches why.
+ */
+export function quickActionsFor(record: ConsumptionDto | null | undefined): ConsumptionAction[] {
+  const blocked = deleteBlockedReason(record);
+  return [
+    { id: 'view', label: 'View consumption' },
+    {
+      id: 'delete',
+      label: 'Delete & restock',
+      // The one sentence that must survive a copy edit: deleting puts the stock back.
+      sub: blocked ?? 'Returns the quantity to its source batches',
+      destructive: true,
+      disabled: blocked !== null,
+    },
+  ];
+}

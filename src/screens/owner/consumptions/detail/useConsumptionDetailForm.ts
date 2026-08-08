@@ -35,6 +35,14 @@ interface UseConsumptionDetailFormInput {
   item: ConsumptionDto | null;
   moduleApi: ModuleApi;
   businessId: number | null;
+  /**
+   * RAW stock on hand in base units, for the over-draw check. Null is NOT zero — it means the
+   * figure has not arrived, and `validateConsumption` skips the check rather than refusing a
+   * quantity that is probably fine.
+   */
+  availableBaseQty?: number | null;
+  /** The chosen product's base unit, so a shortfall message names a real quantity. */
+  baseUnit?: string;
   onSaved: (saved: ConsumptionDto) => void;
   onDeleted: () => void;
 }
@@ -55,6 +63,8 @@ export function useConsumptionDetailForm({
   item,
   moduleApi,
   businessId,
+  availableBaseQty = null,
+  baseUnit = 'unit',
   onSaved,
   onDeleted,
 }: UseConsumptionDetailFormInput) {
@@ -111,7 +121,7 @@ export function useConsumptionDetailForm({
   }, []);
 
   const save = useCallback(async (): Promise<SaveResult> => {
-    const found = validateConsumption(form);
+    const found = validateConsumption(form, { availableBaseQty, baseUnit });
     setErrors(found);
     if (hasErrors(found)) {
       return { success: false, error: errorSummary(found) };
@@ -142,7 +152,7 @@ export function useConsumptionDetailForm({
     } finally {
       setSaving(false);
     }
-  }, [form, businessId, moduleApi, onSaved]);
+  }, [form, businessId, availableBaseQty, baseUnit, moduleApi, onSaved]);
 
   const remove = useCallback(async (): Promise<SaveResult> => {
     if (item?.id == null) {
