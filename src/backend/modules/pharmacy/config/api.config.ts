@@ -65,5 +65,7 @@ export const PHARMACY_ROUTES = {
   WASTAGE_BY_BUSINESS: '/pharmacyWastage/byBusiness',
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
-  // Empty on purpose — see the consumption pair above and its parlour twin.
+  // Mirror of the parlour pair. ⚠️ POST needs a TRAILING SLASH — see the parlour table.
+  STOCK_TRANSFER_BASE: '/pharmacyStockTransfer',
+  STOCK_TRANSFER_BY_BUSINESS: '/pharmacyStockTransfer/byBusiness',
 };

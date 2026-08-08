@@ -1,4 +1,9 @@
-import type { StockTransferQuery } from '../../../backend/modules/shared/stockTransfer.types';
+import type { InventoryType } from '../../../backend/modules/shared/inventory.types';
+import type {
+  StockTransferDto,
+  StockTransferQuery,
+  StockTransferReason,
+} from '../../../backend/modules/shared/stockTransfer.types';
 
 /**
  * The Stock Transfers screen's view state machine and its filter mapping.
@@ -99,17 +104,166 @@ export function toQuery(f: StockTransferFilters): StockTransferQuery {
   return { sortDir: f.sortDir };
 }
 
-// FEATURE: `appliedFilterChips(f)`, `reasonLabel(reason)` — "PRODUCT_TO_RAW" → "Product → Raw" —
-// FEATURE: and `directionLabel(sourceType, destType)`. All three are copy, so all three belong here
-// FEATURE: where a test can pin them.
-//
-// FEATURE: ⚠️ The direction the row SHOWS must come from `sourceType`/`destType`, not from `reason`.
-// FEATURE: `PRODUCT_TO_RAW` with `sourceType: 'RAW_INVENTORY'` is accepted by the server and is a
-// FEATURE: lie in the audit log; the two pools are the truth and the reason is a label on top.
+/** The sort order, as the sheet and the applied-chip row spell it. */
+export function sortLabel(sortDir: 'asc' | 'desc'): string {
+  return sortDir === 'asc' ? 'Oldest first' : 'Newest first';
+}
 
-// FEATURE: `quickActionsFor(dto)` — the long-press sheet's actions. A transfer is immutable, so the
-// FEATURE: list is short: View, and Delete (which REVERSES the move). No status change and no edit.
-// FEATURE: ⚠️ Delete can be REFUSED with a 409 / `STOCK_MOVEMENT_LOCKED` once the destination batch
-// FEATURE: has been drawn from — reversing it would take back stock that has already been sold or
-// FEATURE: consumed. Follow `batch.view.ts`'s rule: render the row DISABLED with that reason rather
-// FEATURE: than hiding it, because a missing row reads as a missing feature.
+/**
+ * The chips under the search box, once the sheet has been used.
+ *
+ * Exactly one axis can appear, because exactly one is filterable — see `StockTransferFilters`. The
+ * shape is a list anyway so the row does not have to change the day a second axis exists.
+ */
+export function appliedFilterChips(f: StockTransferFilters): { id: string; label: string }[] {
+  if (f.sortDir === DEFAULT_FILTERS.sortDir) return [];
+  return [{ id: 'sortDir', label: sortLabel(f.sortDir) }];
+}
+
+// ─── Direction and reason labels ─────────────────────────────────────────────
+
+/** "Product" / "Raw" — the short pool names the mockups use everywhere. */
+export function poolLabel(pool: InventoryType | null | undefined): string {
+  return pool === 'RAW_INVENTORY' ? 'Raw' : 'Product';
+}
+
+/**
+ * "Product → Raw" — the direction a record actually moved stock.
+ *
+ * ⚠️ Built from the POOLS, never from the reason. `PRODUCT_TO_RAW` alongside
+ * `sourceType: 'RAW_INVENTORY'` is accepted by the server and is a lie in the audit log; a row that
+ * drew its arrow from the reason would show that move backwards, and nothing would ever catch it.
+ *
+ * The `→` is a direction arrow, NOT a quantity separator — the `·` convention is for quantities.
+ *
+ * Empty when either end is missing: a half-known direction is worse than none, because "Product →
+ * Product" is a legal-looking sentence about an illegal move.
+ */
+export function directionLabel(
+  sourceType: InventoryType | null | undefined,
+  destType: InventoryType | null | undefined,
+): string {
+  if (!sourceType || !destType) return '';
+  return `${poolLabel(sourceType)} → ${poolLabel(destType)}`;
+}
+
+const REASON_LABELS: Record<StockTransferReason, string> = {
+  PRODUCT_TO_RAW: 'Product → Raw',
+  RAW_TO_PRODUCT: 'Raw → Product',
+  REBALANCE: 'Rebalance',
+  CORRECTION: 'Correction',
+  OTHER: 'Other',
+};
+
+/** "PRODUCT_TO_RAW" → "Product → Raw". Falls back to the raw value rather than rendering blank. */
+export function reasonLabel(reason: StockTransferReason | null | undefined): string {
+  if (!reason) return '';
+  return REASON_LABELS[reason] ?? String(reason);
+}
+
+/**
+ * Whether a reason is one of the two that NAME a direction.
+ *
+ * The asymmetry in `STOCK_TRANSFER_REASONS` made explicit: the first two members restate the pools,
+ * the last three say something the pools cannot.
+ */
+export function isDirectionalReason(reason: StockTransferReason | null | undefined): boolean {
+  return reason === 'PRODUCT_TO_RAW' || reason === 'RAW_TO_PRODUCT';
+}
+
+/**
+ * Whether the list card draws a reason chip.
+ *
+ * Only for the three NON-directional reasons. A `PRODUCT_TO_RAW` chip sitting beside the card's own
+ * "Product → Raw" line says the same thing twice — and worse, it would say it from the untrusted
+ * source, so on a contradictory record the two lines would disagree with no way to tell which is
+ * true. Rebalance / Correction / Other carry information the arrow cannot.
+ */
+export function showsReasonChip(reason: StockTransferReason | null | undefined): boolean {
+  return !!reason && !isDirectionalReason(reason);
+}
+
+// ─── Quick actions ───────────────────────────────────────────────────────────
+
+export type StockTransferActionId = 'view' | 'delete';
+
+export interface StockTransferAction {
+  id: StockTransferActionId;
+  label: string;
+  /** Second line under the label — here, what Delete actually does or why it cannot. */
+  sub?: string;
+  destructive?: boolean;
+  disabled?: boolean;
+}
+
+/**
+ * Why Delete cannot be offered, or null when it can.
+ *
+ * ⚠️ The real block — a 409 `STOCK_MOVEMENT_LOCKED`, raised once the destination batch has been
+ * drawn from — is NOT knowable from the DTO. Nothing on the record reports it, so the client cannot
+ * pre-empt it and this function must not pretend otherwise: guessing "locked" would hide a delete
+ * that would have succeeded. The refusal is caught on the way back instead, and the confirm dialog
+ * warns about it up front. See `deleteRefusalMessage`.
+ */
+export function deleteBlockedReason(record: StockTransferDto | null | undefined): string | null {
+  if (record?.id == null) return 'This transfer has not been saved yet';
+  return null;
+}
+
+/**
+ * The long-press sheet's actions.
+ *
+ * Two, and that is the whole list: a transfer is IMMUTABLE, so there is no edit and no status
+ * change. Delete is a REVERSAL rather than a tidy-up, which is why it is labelled as one.
+ *
+ * Follows `batch.view.ts`'s rule — a blocked action is rendered DISABLED with its reason rather than
+ * hidden, because a missing row reads as a missing feature.
+ */
+export function quickActionsFor(
+  record: StockTransferDto | null | undefined,
+): StockTransferAction[] {
+  const blocked = deleteBlockedReason(record);
+  return [
+    { id: 'view', label: 'View transfer' },
+    {
+      id: 'delete',
+      label: 'Delete & reverse',
+      sub: blocked ?? 'Puts the stock back in the pool it came from',
+      destructive: true,
+      disabled: blocked !== null,
+    },
+  ];
+}
+
+// ─── Delete copy ─────────────────────────────────────────────────────────────
+
+/** The backend ErrorCode a refused reversal comes back with. */
+export const STOCK_MOVEMENT_LOCKED = 'STOCK_MOVEMENT_LOCKED';
+
+/**
+ * What to say when the reversal was refused.
+ *
+ * ⚠️ `STOCK_MOVEMENT_LOCKED` is the system PROTECTING stock, not a failure, and "Could not delete"
+ * frames it as a bug. The sentence has to explain that the moved stock has since been used, so
+ * putting it back would take away something that is already gone.
+ *
+ * The server's own message names the batch and the shortfall, so it is appended rather than
+ * discarded — but it is never shown alone, because on its own it reads like an exception.
+ */
+export function deleteRefusalMessage(
+  code: string | null | undefined,
+  error: string | null | undefined,
+): string {
+  if (code === STOCK_MOVEMENT_LOCKED) {
+    const detail = (error ?? '').trim();
+    const head =
+      'This transfer can no longer be reversed — stock from the batch it created has already been used.';
+    return detail ? `${head} ${detail}` : head;
+  }
+  return (error ?? '').trim() || 'Could not delete this transfer';
+}
+
+/** The toast after a successful reversal. Says the stock went BACK — a delete here is a reversal. */
+export function deleteSuccessMessage(): string {
+  return 'Transfer reversed — the stock is back in its original pool';
+}

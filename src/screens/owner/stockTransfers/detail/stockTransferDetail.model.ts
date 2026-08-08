@@ -105,11 +105,14 @@ export function toFormState(record: StockTransferDto | null): StockTransferFormS
  * Returns null when nothing has been entered, which the caller must treat as a validation failure
  * rather than posting a zero.
  *
- * FEATURE: the two fields left off the body. Decide and wire:
- *   • `itemName` — send it or leave the server to fill it from `itemId`.
- *   • `transferredAt` — ⚠️ the empty string must become `null`, not `''`. Spring reads `''` as a
- *     malformed date and answers 400, whereas `null` means "stamp it now". `notes` below shows the
- *     shape: `trim() || null`.
+ * The two fields that were left open, and what they settled on:
+ *
+ *   • `itemName` is NOT sent. The server fills it from `itemId`, and the only copy of it this form
+ *     holds came from the picker — so sending it can only ever make the denormalised name WORSE
+ *     (stale if the product was renamed between picking and saving) and never better.
+ *   • `transferredAt` is sent as `trim() || null`. ⚠️ The empty string must become `null`, not `''`:
+ *     Spring reads `''` as a malformed date and answers 400, whereas `null` means "stamp it now",
+ *     which is exactly what an untouched form wants. `notes` below has the same shape.
  */
 export function buildCreatePayload(
   form: StockTransferFormState,
@@ -132,6 +135,8 @@ export function buildCreatePayload(
     // `|| null`, never the trimmed empty string: a whitespace-only note is not a note, and the
     // server stores `''` as one.
     notes: form.notes.trim() || null,
-    // FEATURE: itemName / transferredAt — see the note above for the null-vs-empty trap.
+    // Same shape, and here it is load-bearing rather than tidy: `''` is a 400, `null` is "stamp it
+    // now". No `itemName` — see the note above.
+    transferredAt: form.transferredAt.trim() || null,
   };
 }

@@ -6,7 +6,11 @@ import type {
   StatusChangeOptions,
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+<<<<<<< HEAD
 import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
+=======
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+>>>>>>> wt-stock-transfers
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -412,6 +416,30 @@ export abstract class ParlourApiInterface {
   abstract deleteWastage(id: number): Promise<ApiResponse<unknown>>;
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above. Note `StockTransferQuery` has no `reason`
-  // key, deliberately; the backend reads no such param.
+  //
+  // Four methods and no update, exactly like consumption: a transfer is IMMUTABLE. Correcting one
+  // means deleting it — which REVERSES the move — and recording it again.
+  //
+  // ⚠️ `StockTransferQuery` has no `reason` key, deliberately; the backend reads no such param.
+  // `reason` is SORTABLE and not FILTERABLE here, unlike on both siblings.
+  //
+  // ⚠️ The list response carries `totalPages` and NOTHING ELSE — no `totalElements`, so no row
+  // count and no `*Total` state cell.
+  abstract createStockTransfer(data: StockTransferPayload): Promise<ApiResponse<unknown>>;
+  /** One transfer, fully hydrated — it carries the FEFO `lines` ledger, NOT `deductions`. */
+  abstract getStockTransfer(id: number): Promise<ApiResponse<unknown>>;
+  abstract getStockTransfersByBusiness(
+    businessId: number,
+    query?: StockTransferQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /**
+   * Deleting REVERSES the move: the quantity goes back to the pool it came from and the minted
+   * destination batch is removed.
+   *
+   * ⚠️ Refused with a 409 `STOCK_MOVEMENT_LOCKED` once the destination batch has been drawn from.
+   * That refusal is protection, not a failure, and the hook layer resolves it rather than throwing.
+   */
+  abstract deleteStockTransfer(id: number): Promise<ApiResponse<unknown>>;
 }

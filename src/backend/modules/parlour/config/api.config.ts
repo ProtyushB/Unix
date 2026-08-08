@@ -97,6 +97,12 @@ export const PARLOUR_ROUTES = {
   WASTAGE_BY_BUSINESS: '/parlourWastage/byBusiness',
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
-  // Empty on purpose. Add `STOCK_TRANSFER_BASE` / `STOCK_TRANSFER_BY_BUSINESS` here — see the
-  // consumption pair above.
+  // Shaped exactly like the consumption pair above: ids are PATH SEGMENTS, so GET-one and DELETE
+  // build off the base and the list lives under `/byBusiness`.
+  //
+  // ⚠️ POST needs a TRAILING SLASH — `@PostMapping("/")` does not match a bare
+  // `/parlourStockTransfer`, and the 404 says nothing about why. Added at the call site rather than
+  // baked in here so the same constant still serves `GET /{id}` and `DELETE /{id}`.
+  STOCK_TRANSFER_BASE: '/parlourStockTransfer',
+  STOCK_TRANSFER_BY_BUSINESS: '/parlourStockTransfer/byBusiness',
 };

@@ -6,6 +6,7 @@ import type {
 import type {
   StockTransferDto,
   StockTransferPayload,
+  StockTransferReason,
 } from '../../../../backend/modules/shared/stockTransfer.types';
 import { clampUnitRows } from '../../inventory/batchUnits';
 import {
@@ -19,8 +20,10 @@ import {
   errorSummary,
   hasErrors,
   oppositePool,
+  reasonSelection,
   validateStockTransfer,
   type DetailMode,
+  type ValidateOptions,
 } from './stockTransferDetail.view';
 
 interface SaveResult {
@@ -34,13 +37,14 @@ interface SaveResult {
 /**
  * What this hook needs from the module hook.
  *
- * FEATURE: neither method exists yet — `useModuleService.ts` has a labelled but EMPTY
- * `─── Stock Transfer ───` region. Fill it by copying the consumption slice, then pass the real
- * `activeModule` in.
+ * Narrowed to two methods rather than taking `activeModule` itself: `createModuleHook` returns a
+ * fresh object literal every render, so a hook that depended on the whole thing would invalidate
+ * its own callbacks on every render. The caller destructures the two `useCallback`-stable functions
+ * and memoises this shape.
  *
- * ⚠️ `deleteStockTransfer` must RESOLVE `{ success: false, code: 'STOCK_MOVEMENT_LOCKED', error }`
- * on a 409 rather than throwing, which is why `SaveResult` above carries a `code` its consumption
- * twin does not.
+ * ⚠️ `deleteStockTransfer` RESOLVES `{ success: false, code: 'STOCK_MOVEMENT_LOCKED', error }` on a
+ * 409 rather than throwing, which is why `SaveResult` above carries a `code` its consumption twin
+ * does not — the screen says something different for that refusal.
  */
 interface ModuleApi {
   createStockTransfer(data: StockTransferPayload): Promise<SaveResult>;
@@ -118,6 +122,18 @@ export function useStockTransferDetailForm({
   }, []);
 
   /**
+   * Set the REASON — which may also move the pools.
+   *
+   * The other half of `setDirection`, and it exists for the same reason: the two directional
+   * reasons ARE a direction, so picking one has to bring the pools with it or the record ships a
+   * reason that contradicts them. The three non-directional reasons leave the direction alone.
+   * `reasonSelection` owns which is which; this is only the setState around it.
+   */
+  const setReason = useCallback((reason: StockTransferReason) => {
+    setForm((prev) => ({ ...prev, ...reasonSelection(reason, prev.sourceType) }));
+  }, []);
+
+  /**
    * Adopt a product from the picker.
    *
    * Seeds the SINGLE unit row from the product's base rung at the same time — the two are one
@@ -148,39 +164,50 @@ export function useStockTransferDetailForm({
     setForm((prev) => ({ ...prev, unitRows: clampUnitRows(rows, allowMultiple) }));
   }, []);
 
-  const save = useCallback(async (): Promise<SaveResult> => {
-    const found = validateStockTransfer(form);
-    setErrors(found);
-    if (hasErrors(found)) {
-      return { success: false, error: errorSummary(found) };
-    }
-    if (businessId == null) {
-      return { success: false, error: 'No business is selected.' };
-    }
-
-    const payload = buildCreatePayload(form, businessId);
-    // Null means "nothing was entered". Distinct from a validation error only in where it was
-    // caught — the payload builder is the one that knows the row was blank.
-    if (!payload) {
-      return { success: false, error: 'Enter a quantity.' };
-    }
-
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const result = await moduleApi.createStockTransfer(payload);
-      if (!result.success) {
-        // The service throws locally on a bad reason or a same-pool pair, and the server refuses an
-        // over-draw with a message naming the shortfall — all worth surfacing as-is.
-        setSaveError(result.error || 'Could not record this transfer.');
-        return result;
+  /**
+   * Validate and POST.
+   *
+   * The ceiling (`availableBaseQty`) arrives as an ARGUMENT rather than as an input to this hook,
+   * and that is not a style choice: it is derived from the source pool's batches keyed by the
+   * product this very form holds, so passing it in would make the hook depend on something derived
+   * from its own state. One argument at the call site breaks the cycle.
+   */
+  const save = useCallback(
+    async (limits: ValidateOptions = {}): Promise<SaveResult> => {
+      const found = validateStockTransfer(form, limits);
+      setErrors(found);
+      if (hasErrors(found)) {
+        return { success: false, error: errorSummary(found) };
       }
-      onSaved((result.data as StockTransferDto) ?? null);
-      return { success: true, data: result.data };
-    } finally {
-      setSaving(false);
-    }
-  }, [form, businessId, moduleApi, onSaved]);
+      if (businessId == null) {
+        return { success: false, error: 'No business is selected.' };
+      }
+
+      const payload = buildCreatePayload(form, businessId);
+      // Null means "nothing was entered". Distinct from a validation error only in where it was
+      // caught — the payload builder is the one that knows the row was blank.
+      if (!payload) {
+        return { success: false, error: 'Enter a quantity.' };
+      }
+
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const result = await moduleApi.createStockTransfer(payload);
+        if (!result.success) {
+          // The service throws locally on a bad reason or a same-pool pair, and the server refuses
+          // an over-draw with a message naming the shortfall — all worth surfacing as-is.
+          setSaveError(result.error || 'Could not record this transfer.');
+          return result;
+        }
+        onSaved((result.data as StockTransferDto) ?? null);
+        return { success: true, data: result.data };
+      } finally {
+        setSaving(false);
+      }
+    },
+    [form, businessId, moduleApi, onSaved],
+  );
 
   /**
    * Reverse the move.
@@ -216,6 +243,7 @@ export function useStockTransferDetailForm({
     saveError,
     setField,
     setDirection,
+    setReason,
     setProduct,
     setUnitRows,
     save,

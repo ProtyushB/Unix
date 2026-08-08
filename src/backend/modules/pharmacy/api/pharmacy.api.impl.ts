@@ -23,7 +23,11 @@ import {
   type StatusChangeOptions,
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+<<<<<<< HEAD
 import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
+=======
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+>>>>>>> wt-stock-transfers
 
 export class PharmacyApiImpl extends PharmacyApiInterface {
   async getAllProducts(
@@ -490,5 +494,30 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
   }
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  // Mirror of the parlour slice — read that file for the trailing-slash and 1-based-paging traps.
+  async createStockTransfer(data: StockTransferPayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ TRAILING SLASH — see the parlour twin.
+    const res = await pharmacyApiClient.post(`${PHARMACY_ROUTES.STOCK_TRANSFER_BASE}/`, data);
+    return res.data;
+  }
+  async getStockTransfer(id: number): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.STOCK_TRANSFER_BASE}/${id}`);
+    return res.data;
+  }
+  async getStockTransfersByBusiness(
+    businessId: number,
+    query: StockTransferQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.STOCK_TRANSFER_BY_BUSINESS, {
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async deleteStockTransfer(id: number): Promise<ApiResponse<unknown>> {
+    // Deleting REVERSES the move. 409 `STOCK_MOVEMENT_LOCKED` once the destination batch is used.
+    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.STOCK_TRANSFER_BASE}/${id}`);
+    return res.data;
+  }
 }

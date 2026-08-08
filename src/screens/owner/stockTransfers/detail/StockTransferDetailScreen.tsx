@@ -8,14 +8,27 @@ import { useAppContext } from '../../../../context/AppContext';
 import { useParlour } from '../../../../backend/modules/parlour/hook/useParlour';
 import { usePharmacy } from '../../../../backend/modules/pharmacy/hook/usePharmacy';
 import { getSelectedBusinessId } from '../../../../backend/modules/shared/hook/useModuleService';
-import type {
-  StockTransferDto,
-  StockTransferPayload,
-} from '../../../../backend/modules/shared/stockTransfer.types';
+import type { StockTransferDto } from '../../../../backend/modules/shared/stockTransfer.types';
 import type { AppTheme } from '../../../../theme/theme.types';
 import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { CatalogPickerSheet, type CatalogRow } from '../../shared/detail/parts/CatalogPickerSheet';
+import { OptionSheet } from '../../shared/detail/parts/OptionSheet';
+import type { BatchDto } from '../../inventory/batch.model';
 import { baseSaleUnit, saleUnitsOf, type SaleUnit } from '../../inventory/batchUnits';
+import {
+  deleteRefusalMessage,
+  deleteSuccessMessage,
+  poolLabel,
+} from '../stockTransfer.view';
+import {
+  aggregatePoolStock,
+  availabilityHelper,
+  outOfStockNote,
+  pickerStock,
+  poolStockFor,
+  rowIsOutOfStock,
+  type PoolStock,
+} from '../poolStock';
 import { StockTransferDetailBase } from './StockTransferDetailBase';
 import {
   deriveDetailView,
@@ -44,35 +57,31 @@ interface Props {
 }
 
 /**
- * FEATURE: the module-hook wiring — do this FIRST.
- *
- * `useModuleService.ts` carries a labelled but EMPTY `─── Stock Transfer ───` region at each of its
- * four edit sites. Fill it by copying the consumption slice, then replace the three bodies below
- * with `activeModule.loadStockTransfer`, `.createStockTransfer` and `.deleteStockTransfer` and
- * delete this function.
- *
- * ⚠️ `deleteStockTransfer` must RESOLVE `{ success: false, code: 'STOCK_MOVEMENT_LOCKED', error }`
- * on a 409 rather than throwing — that is the one way the transfer slice differs from the
- * consumption one it is copied from.
+ * One page of the source pool's ACTIVE batches is enough to answer every stock question this screen
+ * asks. 500 is the same cap `loadProductOptions` uses on the catalog, and for the same reason: the
+ * picker only needs a total, and paging silently would hide the fact that it was capped.
  */
-function useStockTransferRecordApi(_activeModule: unknown) {
-  const notWired = {
-    success: false,
-    error: 'Stock transfers are not wired to the module hook yet.',
-  };
-  return {
-    loadOne: async (_id: number): Promise<{ success: boolean; data?: unknown; error?: string }> =>
-      notWired,
-    createStockTransfer: async (_data: StockTransferPayload) => notWired,
-    deleteStockTransfer: async (
-      _id: number,
-    ): Promise<{
-      success: boolean;
-      code?: string;
-      error?: string;
-    }> => notWired,
-  };
+const POOL_BATCH_LIMIT = 500;
+
+/**
+ * A catalog row's base unit.
+ *
+ * Resolved PER ROW rather than from the selected product: the picker draws every product's stock at
+ * once, and rendering them all in the selected one's unit would report grams as millilitres. Falls
+ * back to the product's own `stockUnit`, then to the generic "unit".
+ */
+function baseUnitOf(product: unknown): string {
+  return (
+    baseSaleUnit(saleUnitsOf(product))?.unit ||
+    String((product as { stockUnit?: string })?.stockUnit || 'unit')
+  );
 }
+
+/**
+ * ⚠️ `getSelectedBusinessId` resolves ASYNC, so `businessId` is null for the first render or two.
+ * Every fetch below is gated on it rather than defaulting to 0 — a `businessId=0` query is a 400
+ * that would land after the real one and blank a screen that had already loaded.
+ */
 
 /**
  * The Stock Transfer Detail route: resolves the module, fetches the record, hosts the form engine
@@ -90,7 +99,28 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
   const pharmacy = usePharmacy();
   const moduleKey = (selectedModule || '').toUpperCase();
   const activeModule = moduleKey === 'PHARMACY' ? pharmacy : parlour;
-  const recordApi = useStockTransferRecordApi(activeModule);
+
+  /**
+   * ⚠️ Pull the individual callbacks out, and never depend on `activeModule` itself.
+   *
+   * `createModuleHook` returns a fresh object literal on every render, so a `useMemo` or effect that
+   * lists `activeModule` in its deps re-runs on every render — and a fetch effect that re-runs on
+   * every render sets state, which renders, which fetches again. That is an unbounded request loop
+   * and it is silent: the screen sits on its spinner while hammering the server. The callbacks below
+   * are each `useCallback`-stable, so depending on THEM is safe. Same rule as `OrderDetailScreen`.
+   */
+  const {
+    loadStockTransfer,
+    createStockTransfer,
+    deleteStockTransfer,
+    loadProductOptions,
+    loadInventoryByBusiness,
+  } = activeModule;
+
+  const recordApi = useMemo(
+    () => ({ createStockTransfer, deleteStockTransfer }),
+    [createStockTransfer, deleteStockTransfer],
+  );
 
   const stockTransferId = route?.params?.stockTransferId;
   const mode: DetailMode = route?.params?.mode === 'add' ? 'add' : 'view';
@@ -110,6 +140,15 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
   const [catalog, setCatalog] = useState<Record<string, unknown>[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
 
+  /**
+   * The SOURCE pool's stock, per product.
+   *
+   * ⚠️ Null until the first response lands, and that is NOT the same as an empty map: an empty map
+   * means "asked, and this pool holds nothing", which greys every picker row out. Null means "still
+   * asking", and every row stays tappable.
+   */
+  const [pool, setPool] = useState<Map<number, PoolStock> | null>(null);
+
   useEffect(() => {
     let alive = true;
     void getSelectedBusinessId().then((id) => {
@@ -128,12 +167,11 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
     }
     setLoading(true);
     setLoadError(null);
-    const result = await recordApi.loadOne(stockTransferId);
+    const result = await loadStockTransfer(stockTransferId);
     if (result?.success) setItem(result.data as StockTransferDto);
     else setLoadError(result?.error ?? 'Could not load this transfer.');
     setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockTransferId, moduleKey]);
+  }, [stockTransferId, loadStockTransfer]);
 
   useEffect(() => {
     if (mode === 'add') return;
@@ -145,14 +183,12 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
   useEffect(() => {
     if (!shouldLoadCatalog({ mode, hasRows: catalog.length > 0, loading: catalogLoading })) return;
     setCatalogLoading(true);
-    void activeModule
-      .loadProductOptions?.(500)
+    void loadProductOptions?.(500)
       .then((res: { success: boolean; data?: unknown }) => {
         if (res?.success) setCatalog((res.data as Record<string, unknown>[]) ?? []);
       })
       .finally(() => setCatalogLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, catalog.length, catalogLoading, moduleKey]);
+  }, [mode, catalog.length, catalogLoading, loadProductOptions]);
 
   /**
    * Leave for the product create screen — but only once the picker Modal is actually down.
@@ -197,8 +233,8 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
   }, [navigation, showToast]);
 
   const onDeleted = useCallback(() => {
-    // FEATURE: say that the stock went BACK — a delete here reverses the move.
-    showToast('Transfer deleted', 'success');
+    // Says the stock went BACK — a delete here reverses the move rather than tidying a record away.
+    showToast(deleteSuccessMessage(), 'success');
     navigation?.goBack?.();
   }, [navigation, showToast]);
 
@@ -217,60 +253,98 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
     [catalog, engine.form.itemId],
   );
   const saleUnits: SaleUnit[] = useMemo(() => saleUnitsOf(selected), [selected]);
-  const baseUnit = useMemo(
-    () =>
-      baseSaleUnit(saleUnits)?.unit ||
-      String((selected as { stockUnit?: string })?.stockUnit || 'unit'),
-    [saleUnits, selected],
+  const baseUnit = useMemo(() => baseUnitOf(selected), [selected]);
+
+  /**
+   * The SOURCE pool's stock, per product, in ONE request.
+   *
+   * The obvious call is `getTotalStock(itemId, businessId, sourceType)` — which is one request PER
+   * PRODUCT, so a 500-row catalog would be 500 requests to draw one picker. One page of the pool's
+   * ACTIVE batches answers the question for every product at once, and `aggregatePoolStock` sums it.
+   *
+   * ⚠️ Keyed on `form.sourceType`, so it REFETCHES when the direction flips. Not optional: flipping
+   * swaps which pool is the source, and with it both the ceiling on the quantity and which rows are
+   * pickable — after a flip, a product with Product stock and no Raw stock becomes the unpickable
+   * one. Every other dependency here is a primitive or a `useCallback`-stable function, so this
+   * effect runs when one of those genuinely changes and not once per render.
+   */
+  const sourceType = engine.form.sourceType;
+  useEffect(() => {
+    if (mode !== 'add' || businessId == null) return;
+    let alive = true;
+    void loadInventoryByBusiness(
+      businessId,
+      { inventoryType: sourceType, status: 'ACTIVE' },
+      1,
+      POOL_BATCH_LIMIT,
+    ).then((res: { success: boolean; data?: unknown }) => {
+      if (!alive) return;
+      // A failure yields an EMPTY map rather than leaving the last pool's answer on screen, which
+      // after a flip would be the wrong pool's stock presented as this one's.
+      setPool(aggregatePoolStock(res?.success ? (res.data as BatchDto[]) : []));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [mode, businessId, sourceType, loadInventoryByBusiness]);
+
+  /** The chosen product's stock in the source pool. Null until the pool answers; null is NOT zero. */
+  const selectedStock = useMemo(
+    () => poolStockFor(pool, engine.form.itemId),
+    [pool, engine.form.itemId],
+  );
+  const availableBaseQty: number | null = selectedStock ? selectedStock.baseQty : null;
+  const availabilityText = useMemo(
+    () => availabilityHelper(selectedStock, baseUnit, sourceType),
+    [selectedStock, baseUnit, sourceType],
   );
 
   /**
-   * FEATURE: stock on hand for the chosen product IN THE SOURCE POOL, in base units.
+   * The picker rows: name · brand on the left with the price, and the SOURCE-pool stock on the right.
    *
-   * `getTotalStock(itemId, businessId, form.sourceType)` is the call, and it has to re-run when the
-   * DIRECTION flips as well as when the product changes — flipping swaps which pool is the source,
-   * and with it the ceiling on the quantity. Null until it answers; null is NOT zero.
-   */
-  const availableBaseQty: number | null = null;
-
-  /**
-   * FEATURE: the picker rows.
+   * `price` stays alongside the stock figure rather than being displaced by it — they are two slots,
+   * as every picker mockup draws them.
    *
-   * The mockup's row is name · brand · type chip · price on the left, and the SOURCE-pool stock
-   * total with its breakdown on the right. `price` stays required — the stock slot sits BESIDE it,
-   * not instead of it. Fill `stock` from `getTotalStock` + `formatStockedQty`, and set `disabled` +
-   * `disabledNote` at zero so the row is inert rather than a guaranteed refusal. ⚠️ The figure must
-   * follow the direction: after a flip, a product with Product stock and no Raw stock becomes the
-   * unpickable one.
+   * ⚠️ A product with no stock in the source pool is rendered INERT with a note, because tapping it
+   * could only ever produce a server refusal. The figure follows the direction: after a flip, a
+   * product with Product stock and no Raw stock becomes the unpickable one.
    */
   const catalogRows: CatalogRow[] = useMemo(
     () =>
       catalog.map((p) => {
         const row = p as { id: number; name?: string; brand?: string; price?: number };
+        const id = Number(row.id);
+        const stock = poolStockFor(pool, id);
         return {
-          id: Number(row.id),
+          id,
           name: String(row.name ?? `Product #${row.id}`),
           price: Number(row.price ?? 0),
           subtitle: row.brand ? String(row.brand) : undefined,
+          stock: pickerStock(stock, baseUnitOf(p)),
+          disabled: rowIsOutOfStock(stock),
+          disabledNote: outOfStockNote(stock, sourceType),
           raw: p,
         };
       }),
-    [catalog],
+    [catalog, pool, sourceType],
   );
 
   const onSave = useCallback(async () => {
-    const result = await engine.save();
+    // The ceiling rides in as an argument — see `useStockTransferDetailForm.save` for why it cannot
+    // be an input to the hook.
+    const result = await engine.save({ availableBaseQty, baseUnit });
     if (!result.success && result.error) showToast(result.error, 'error');
-  }, [engine, showToast]);
+  }, [engine, availableBaseQty, baseUnit, showToast]);
 
   const onConfirmDelete = useCallback(async () => {
     setConfirmDelete(false);
     const result = await engine.remove();
-    if (!result.success && result.error) {
-      // FEATURE: branch on `result.code === 'STOCK_MOVEMENT_LOCKED'` and say WHY — the destination
-      // FEATURE: batch has been drawn from, so the move can no longer be reversed. A generic
-      // FEATURE: failure message would read as a bug rather than as the system protecting stock.
-      showToast(result.error, 'error');
+    if (!result.success) {
+      // ⚠️ A 409 `STOCK_MOVEMENT_LOCKED` is the system protecting stock, not a failure: the
+      // destination batch has been drawn from, so reversing the move would take back something that
+      // has already been sold or consumed. `deleteRefusalMessage` says that; a generic "could not
+      // delete" would read as a bug.
+      showToast(deleteRefusalMessage(result.code, result.error), 'error');
     }
   }, [engine, showToast]);
 
@@ -312,9 +386,11 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
         ladderSize={saleUnits.length}
         baseUnit={baseUnit}
         availableBaseQty={availableBaseQty}
+        availabilityText={availabilityText}
         saving={engine.saving}
         onFieldChange={engine.setField}
         onChangeDirection={engine.setDirection}
+        onChangeReason={engine.setReason}
         onPickProduct={() => setSheet('product')}
         onChangeUnitRows={(rows) => engine.setUnitRows(rows)}
         onPickRowUnit={() => setSheet('unit')}
@@ -330,7 +406,9 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
           singleSelect
           title="Select Product"
           subtitle={mode === 'add' ? 'New transfer' : ''}
-          helper="Showing stock in the Product (source) pool"
+          // Names the pool the figures came from, and FOLLOWS the direction — after a flip the same
+          // rows show different numbers, and a fixed "Product (source)" would be a lie half the time.
+          helper={`Showing stock in the ${poolLabel(sourceType)} (source) pool`}
           searchPlaceholder="Search name or brand"
           noun="product"
           rows={catalogRows}
@@ -354,9 +432,41 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
         />
       ) : null}
 
-      {/* FEATURE: the unit sheet for the single row. An `OptionSheet` over `saleUnits`, writing the
-          chosen rung's `unit` and `perStock` back into it. Never mount it while the picker is up —
-          two Modals at once is the never-two-Modals rule. */}
+      {/*
+        The unit sheet for the SINGLE row.
+
+        Gated on `sheet === 'unit'` rather than on a `visible` prop, which is what keeps it from ever
+        being mounted alongside the picker — on react-native-web a dismissed Modal's portal stays
+        mounted and swallows taps meant for whatever is beneath it.
+
+        Writes the chosen rung's `unit` AND `perStock` together: the multiplier is what converts the
+        typed figure into base units, so a row left on the previous rung's multiplier would move a
+        different amount of stock than the number on screen says.
+      */}
+      {sheet === 'unit' ? (
+        <OptionSheet
+          visible
+          title="Unit"
+          options={saleUnits.map((u) => ({
+            value: u.unit,
+            label: u.unit,
+            sub: u.perStock > 1 ? `${u.perStock} ${baseUnit} per ${u.unit}` : undefined,
+          }))}
+          selected={engine.form.unitRows[0]?.unit ?? null}
+          onSelect={(value) => {
+            const rung = saleUnits.find((u) => u.unit === value);
+            if (!rung) return;
+            engine.setUnitRows(
+              engine.form.unitRows.length
+                ? engine.form.unitRows.map((r, i) =>
+                    i === 0 ? { ...r, unit: rung.unit, perStock: rung.perStock } : r,
+                  )
+                : [{ unit: rung.unit, perStock: rung.perStock, qty: 0 }],
+            );
+          }}
+          onClose={() => setSheet(null)}
+        />
+      ) : null}
 
       {confirmDelete ? (
         <ConfirmDialog

@@ -21,6 +21,7 @@ import type {
 } from '../inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../consumption.types';
 import type { WastagePayload, WastageQuery } from '../wastage.types';
+import type { StockTransferPayload, StockTransferQuery } from '../stockTransfer.types';
 import { DmsService } from '../../../dms/service/dms.service';
 import { createEntityFolder } from '../../../dms/util/EntityFolderUtils';
 import { NativeFile, ResourceFileDto } from '../../../dms/api/file.api.interface';
@@ -348,7 +349,19 @@ interface ModuleService {
   deleteWastage(id: number): Promise<ServiceResult>;
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  // The consumption four, with `StockTransferQuery` in place of `ConsumptionQuery` — note it has no
+  // `reason` key, deliberately, because the transfer controller reads no such param.
+  createStockTransfer(data: StockTransferPayload): Promise<ServiceResult>;
+  /** One transfer, fully hydrated (it carries the FEFO `lines` ledger). See `readOne`. */
+  getStockTransfer(id: number): Promise<ServiceResult>;
+  getStockTransfersByBusiness(
+    businessId: number,
+    query?: StockTransferQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ServiceResult>;
+  /** Deleting REVERSES the move. 409 `STOCK_MOVEMENT_LOCKED` once the destination batch is used. */
+  deleteStockTransfer(id: number): Promise<ServiceResult>;
 }
 
 // ─── Detail-screen reads ─────────────────────────────────────────────────────
@@ -472,7 +485,15 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     const [wastageTotalPages, setWastageTotalPages] = useState(1);
 
     // ─── Stock Transfer ──────────────────────────────────────────────────────
-    // Empty on purpose — copy the consumption cells above. Two cells only, for the same reason.
+    // Two cells, and DELIBERATELY not a third — `/byBusiness` reports `totalPages` and nothing
+    // else, so there is no row count to hold and the list subtitle does not claim one.
+    //
+    // ⚠️ `stockTransfers` is a `useState` array, so its identity is stable between renders unless
+    // a load actually replaces it. The screen feeds it straight into a `useEffect` dependency;
+    // anything that rebuilt the array per render (a `.map()`, a `?? []` fallback on a fresh
+    // literal) would re-run that effect, re-setState, and spin the screen until React blanks it.
+    const [stockTransfers, setStockTransfers] = useState<unknown[]>([]);
+    const [stockTransfersTotalPages, setStockTransfersTotalPages] = useState(1);
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -2131,14 +2152,137 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     );
 
     // ─── Stock Transfer ──────────────────────────────────────────────────────
-    // Empty on purpose — copy the consumption callbacks above, with ONE addition:
-    //
-    // `deleteStockTransfer` must resolve `{ success: false, code: 'STOCK_MOVEMENT_LOCKED', error }`
-    // on a 409 rather than throwing, so the screen can surface that specific refusal. A transfer is
-    // locked once its destination batch has been drawn from — reversing it would take back stock
-    // that has already been sold or consumed — and "Could not delete" is the wrong thing to say
-    // about a record the system is protecting on purpose. The `code` comes off the axios body, the
-    // same way `deleteProduct` and `updateBillStatus` already read theirs.
+    // The consumption callbacks, with ONE addition — see `deleteStockTransfer` at the end.
+
+    /**
+     * One page of stock transfers.
+     *
+     * `append` grows the list for infinite scroll. A failed append deliberately leaves the existing
+     * rows alone — blanking what the user is already reading because page 4 timed out is worse than
+     * simply not growing.
+     *
+     * The caller must pass the SAME `query` on every page: the server filters and sorts, so page 2
+     * of a different query is not the continuation of page 1.
+     *
+     * Only `totalPages` is captured. There is no row count to capture — see the state cells.
+     */
+    const loadStockTransfersByBusiness = useCallback(
+      async (
+        businessId: number,
+        query: StockTransferQuery = {},
+        page = 1,
+        limit = 20,
+        append = false,
+      ) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.getStockTransfersByBusiness(businessId, query, page, limit);
+          if (response.success) {
+            const rows = Array.isArray(response.data) ? response.data : [];
+            setStockTransfers((prev) => (append ? [...prev, ...rows] : rows));
+            setStockTransfersTotalPages(response.totalPages ?? 1);
+            return { success: true, data: rows };
+          }
+          setError(response.error || response.message || null);
+          if (!append) setStockTransfers([]);
+          return { success: false, error: response.error };
+        } catch (err) {
+          const message = (err as Error).message || 'Failed to load stock transfers';
+          setError(message);
+          if (!append) setStockTransfers([]);
+          return { success: false, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /** Fetch ONE transfer for the detail screen. Contract and reasoning: see `readOne`. */
+    const loadStockTransfer = useCallback(
+      (id: number) => readOne(() => service.getStockTransfer(id), 'Failed to load stock transfer'),
+      [service],
+    );
+
+    /**
+     * Move stock between the two pools.
+     *
+     * The service layer throws BEFORE the request on a bad reason or a same-pool pair — a bad enum
+     * comes back as an HTTP 500 with nothing readable in it, so the guard is the only thing standing
+     * between the user and an opaque failure. That throw lands in this catch and becomes the
+     * returned `error`, which is why the messages it carries are written to be shown as-is.
+     */
+    const createStockTransfer = useCallback(
+      async (data: StockTransferPayload) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.createStockTransfer(data);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to record this transfer');
+        } catch (err) {
+          // Dig the server's reason out of the axios body: an over-draw refusal names the shortfall,
+          // and that reason is the whole message.
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to record this transfer';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Reverse the move: the quantity goes back to the pool it came from and the minted destination
+     * batch is removed.
+     *
+     * ⚠️ THE ONE WAY THIS SLICE DIFFERS FROM ITS CONSUMPTION TWIN. A 409 `STOCK_MOVEMENT_LOCKED`
+     * RESOLVES as `{ success: false, code, error }` rather than throwing, so the screen can say WHY:
+     * the destination batch has already been drawn from, and reversing the move would take back
+     * stock that has since been sold or consumed. That is the system protecting stock, not a
+     * failure, and "Could not delete" is the wrong thing to say about it.
+     *
+     * The `error` message is NOT rewritten here. The server's own sentence names the batch and the
+     * quantity; the screen decides how to frame it — see `deleteRefusalMessage`.
+     */
+    const deleteStockTransfer = useCallback(
+      async (id: number) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.deleteStockTransfer(id);
+          if (response.success) return { success: true, data: response.data };
+          return { success: false, error: response.error || response.message || null };
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to delete this transfer';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
 
     const clearError = useCallback(() => {
       setError(null);
@@ -2177,7 +2321,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       wastageTotalPages,
 
       // ─── Stock Transfer ────────────────────────────────────────────────────
-      // Empty on purpose — copy the consumption pair above.
+      // No `stockTransfersTotal` — the endpoint reports no row count. See the state cells.
+      stockTransfers,
+      stockTransfersTotalPages,
 
       loading,
       error,
@@ -2266,8 +2412,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       deleteWastage,
 
       // ─── Stock Transfer ────────────────────────────────────────────────────
-      // Empty on purpose — copy the consumption block above. `deleteStockTransfer` needs the
-      // STOCK_MOVEMENT_LOCKED branch described beside the callbacks.
+      // No update — transfers are immutable. Delete REVERSES the move, and can be refused with
+      // STOCK_MOVEMENT_LOCKED; see the callback for why that resolves rather than throws.
+      loadStockTransfersByBusiness,
+      loadStockTransfer,
+      createStockTransfer,
+      deleteStockTransfer,
 
       // Utility
       clearError,
