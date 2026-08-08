@@ -1,6 +1,17 @@
 import type { InventoryType } from '../../../../backend/modules/shared/inventory.types';
-import type { StockTransferReason } from '../../../../backend/modules/shared/stockTransfer.types';
+import type {
+  StockTransferDto,
+  StockTransferReason,
+} from '../../../../backend/modules/shared/stockTransfer.types';
+import { isStockTransferReason } from '../../../../backend/modules/shared/stockTransfer.types';
+import { todayIst } from '../../../../utils/dateRange';
 import { shouldResumeCatalogPick } from '../../shared/detail/catalogPicker.view';
+import {
+  deriveUnitLinesPayload,
+  recordQtyLabel,
+  unitLinesBaseQty,
+} from '../../inventory/batchUnits';
+import { poolLabel } from '../stockTransfer.view';
 import type { StockTransferFormState } from './stockTransferDetail.model';
 
 /**
@@ -132,38 +143,153 @@ export function isCrossPool(source: InventoryType, dest: InventoryType): boolean
   return source !== dest;
 }
 
-// FEATURE: `appBarTitle(mode, record)` and `appBarSubtitle(mode)` — copy, so they belong here where
-// FEATURE: a test can pin them. See `batchDetail.view.ts` for the shape.
+/**
+ * Whether picking this reason should also move the pools.
+ *
+ * The two directional reasons ARE a direction, so choosing one has to set the pair — otherwise the
+ * user picks "Raw → Product" on a Product → Raw form and the record ships a reason that contradicts
+ * its own pools, which the server accepts and nothing later can detect. The three non-directional
+ * ones say something the pools cannot, so they leave the direction alone.
+ *
+ * Returns all three fields together for the same reason `setDirection` does: they are one decision.
+ */
+export function reasonSelection(
+  reason: StockTransferReason,
+  currentSource: InventoryType,
+): { sourceType: InventoryType; destType: InventoryType; reason: StockTransferReason } {
+  if (reason === 'PRODUCT_TO_RAW') {
+    return { sourceType: 'PRODUCT_INVENTORY', destType: 'RAW_INVENTORY', reason };
+  }
+  if (reason === 'RAW_TO_PRODUCT') {
+    return { sourceType: 'RAW_INVENTORY', destType: 'PRODUCT_INVENTORY', reason };
+  }
+  return { sourceType: currentSource, destType: oppositePool(currentSource), reason };
+}
+
+// ─── App bar ─────────────────────────────────────────────────────────────────
+
+/** "Transfer Stock" while composing; the product's name once saved. See `batchDetail.view.ts`. */
+export function appBarTitle(mode: DetailMode, record: StockTransferDto | null): string {
+  if (mode === 'add') return 'Transfer Stock';
+  return record?.itemName?.trim() || 'Transfer';
+}
+
+export function appBarSubtitle(mode: DetailMode): string {
+  return mode === 'add' ? 'Move stock between pools' : '';
+}
+
+/** The Reason field's helper, which is the whole explanation of why it is pre-filled. */
+export function reasonHelper(): string {
+  return 'Auto-set from direction — tap to override';
+}
+
+/** The summary line under the two pool selectors: "Moving  Product → Raw". */
+export function movingSummary(source: InventoryType, dest: InventoryType): string {
+  return `${poolLabel(source)} → ${poolLabel(dest)}`;
+}
+
+/**
+ * The read screen's headline figure, split so the number can be drawn large and its unit small.
+ *
+ * "700 ml" becomes `{ amount: '700', unitText: 'ml moved' }`. Split rather than styled as one
+ * string because the mockup sets the figure at three times the unit's size — merged, it can only be
+ * one size, and the number stops being the thing the eye lands on.
+ *
+ * Reads through `recordQtyLabel`, so a record that was saved against a level renders "2 bottles
+ * moved" rather than restating a base total nobody typed. A record with no quantity reads "—",
+ * never "0" — those are different claims.
+ */
+export function movedHeadline(
+  record: StockTransferDto | null,
+  baseUnit = 'unit',
+): { amount: string; unitText: string } {
+  const label = recordQtyLabel(
+    {
+      quantity: record?.quantity,
+      unitName: record?.unitName,
+      // Almost always null on the way back — the server discards what it was sent.
+      unitLines: record?.unitLines,
+    },
+    baseUnit,
+  );
+  const [amount, ...rest] = label.split(' ');
+  return { amount, unitText: rest.length ? `${rest.join(' ')} moved` : 'moved' };
+}
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 export type ValidationErrors = Record<string, string>;
 
+export interface ValidateOptions {
+  /**
+   * Stock on hand IN THE SOURCE POOL, in base units. Null means "not known yet" — NOT zero — and
+   * skips the ceiling check rather than refusing every quantity.
+   */
+  availableBaseQty?: number | null;
+  /** The product's base unit name, so the over-draw message names what it counted. */
+  baseUnit?: string;
+  today?: string;
+}
+
 /**
- * FEATURE: the create rules.
+ * The create rules, mirroring what the server enforces and what it silently does not.
  *
- * Deliberately EMPTY rather than half-written — a validator that passes some checks reads as
- * complete and is trusted. What has to go in, and why each one is worth catching on the client:
+ * Two of these have no server counterpart at all and are the reason this function is worth reading:
  *
- *   • `itemId` — "Pick a product". Nothing else on the form means anything without it.
- *   • `sourceType !== destType` — use `isCrossPool`. A same-pool transfer moves nothing and the
- *     server refuses it.
- *   • quantity — at least one unit row above zero. `deriveUnitLinesPayload` returns null for an
- *     empty entry, and that null is the signal; do not post a zero.
- *   • quantity ≤ available stock IN THE SOURCE POOL. Flipping the direction changes the ceiling, so
- *     this check has to re-run on that field too, not only on the quantity.
- *   • `reason` — must satisfy `isStockTransferReason`. The service guards this too, and that guard
- *     is the last line rather than the first: a bad enum is an HTTP 500 with nothing readable in it.
- *   • the reason must not CONTRADICT the pools — see `directionalReason`. Nothing server-side
- *     catches this, and the lie survives in the audit log forever.
- *   • `transferredAt` — not in the future, compared as `YYYY-MM-DD` against **IST** today
- *     (`todayIst()`), because that is the day the server evaluates against.
+ *   • the reason must not CONTRADICT the pools. `PRODUCT_TO_RAW` alongside
+ *     `sourceType: 'RAW_INVENTORY'` is ACCEPTED, and the lie survives in the audit log forever.
+ *   • a bad enum is an HTTP **500**, not a 400 — so `isStockTransferReason` is checked here as well
+ *     as in the service, because by the time the service throws the user has already waited.
  *
- * Mirror `validateBatch` in `batchDetail.view.ts`, including its habit of returning a message that
- * names the field rather than a generic one.
+ * The ceiling check re-runs on the DIRECTION too, not only on the quantity: flipping the direction
+ * swaps which pool is the source, and with it how much there is to move.
+ *
+ * Dates are compared as `YYYY-MM-DD` against **IST** today, because that is the day the server
+ * evaluates against — a device in another timezone would otherwise disagree for a whole day at a
+ * time. (The form offers no date input today; the rule is here so it stays true if one appears.)
  */
-export function validateStockTransfer(_form: StockTransferFormState): ValidationErrors {
-  return {};
+export function validateStockTransfer(
+  form: StockTransferFormState,
+  options: ValidateOptions = {},
+): ValidationErrors {
+  const { availableBaseQty = null, baseUnit = 'unit', today = todayIst() } = options;
+  const errors: ValidationErrors = {};
+
+  if (form.itemId == null) errors.itemId = 'Pick a product';
+
+  if (!isCrossPool(form.sourceType, form.destType)) {
+    // A same-pool transfer moves nothing, and the server refuses it.
+    errors.sourceType = 'Source and destination must be different pools';
+  }
+
+  // `deriveUnitLinesPayload` returns null for an entry that is blank or all zeroes, and THAT null is
+  // the signal — a zero-quantity movement means nothing and is accepted by nobody.
+  const entered = deriveUnitLinesPayload(form.unitRows);
+  if (!entered) {
+    errors.quantity = 'Enter a quantity';
+  } else if (availableBaseQty !== null && availableBaseQty !== undefined) {
+    const wanted = unitLinesBaseQty(form.unitRows);
+    if (wanted > availableBaseQty) {
+      errors.quantity = `Only ${availableBaseQty} ${baseUnit} available in the ${poolLabel(
+        form.sourceType,
+      )} pool`;
+    }
+  }
+
+  if (!isStockTransferReason(form.reason)) {
+    errors.reason = 'Pick a valid transfer reason';
+  } else if (
+    (form.reason === 'PRODUCT_TO_RAW' || form.reason === 'RAW_TO_PRODUCT') &&
+    form.reason !== directionalReason(form.sourceType, form.destType)
+  ) {
+    errors.reason = `Reason says ${form.reason === 'PRODUCT_TO_RAW' ? 'Product → Raw' : 'Raw → Product'}, but the stock moves the other way`;
+  }
+
+  if (form.transferredAt && form.transferredAt.slice(0, 10) > today) {
+    errors.transferredAt = 'Transfer date cannot be in the future';
+  }
+
+  return errors;
 }
 
 export function hasErrors(errors: ValidationErrors): boolean {

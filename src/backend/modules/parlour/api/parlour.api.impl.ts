@@ -23,6 +23,7 @@ import {
   type StatusChangeOptions,
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
 
 export class ParlourApiImpl extends ParlourApiInterface {
   // ── Products ───────────────────────────────────────────────────────────────
@@ -491,5 +492,41 @@ export class ParlourApiImpl extends ParlourApiInterface {
   // Empty on purpose — copy the consumption slice above.
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  // The same two traps the consumption slice above carries, for the same reasons. The third (a bad
+  // enum being a 500 rather than a 400) is solved one layer up, in `parlour.service.ts`.
+  //
+  // No update method: a transfer is immutable and the backend has no PUT.
+  async createStockTransfer(data: StockTransferPayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ TRAP 1 — the TRAILING SLASH. `@PostMapping("/")` does not match a bare
+    // `/parlourStockTransfer`: the request 404s and the body says nothing about why.
+    const res = await parlourApiClient.post(`${PARLOUR_ROUTES.STOCK_TRANSFER_BASE}/`, data);
+    return res.data;
+  }
+  async getStockTransfer(id: number): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.STOCK_TRANSFER_BASE}/${id}`);
+    return res.data;
+  }
+  async getStockTransfersByBusiness(
+    businessId: number,
+    query: StockTransferQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.STOCK_TRANSFER_BY_BUSINESS, {
+      // `compactParams`, never a bare spread — see the consumption twin. There is no `reason` key
+      // to compact here: the transfer controller reads none, and `StockTransferQuery` omits it so
+      // that adding one is a compile error rather than a silently unfiltered list.
+      //
+      // ⚠️ TRAP 2 — paging is 1-BASED and the size param is `limit`, not `size`. The clamp lives in
+      // the service so it cannot be skipped by a caller that reaches straight for the impl.
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async deleteStockTransfer(id: number): Promise<ApiResponse<unknown>> {
+    // Deleting REVERSES the move — the quantity goes back to the source pool and the minted
+    // destination batch is removed. Refused with a 409 once that batch has been drawn from.
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.STOCK_TRANSFER_BASE}/${id}`);
+    return res.data;
+  }
 }

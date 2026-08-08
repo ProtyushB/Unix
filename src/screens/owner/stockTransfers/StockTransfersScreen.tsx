@@ -4,6 +4,7 @@ import {
   Modal,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -32,18 +33,23 @@ import { useAppContext } from '../../../context/AppContext';
 import { useParlour } from '../../../backend/modules/parlour/hook/useParlour';
 import { usePharmacy } from '../../../backend/modules/pharmacy/hook/usePharmacy';
 import { getSelectedBusinessId } from '../../../backend/modules/shared/hook/useModuleService';
-import type {
-  StockTransferDto,
-  StockTransferQuery,
-} from '../../../backend/modules/shared/stockTransfer.types';
+import type { StockTransferDto } from '../../../backend/modules/shared/stockTransfer.types';
 import type { AppTheme } from '../../../theme/theme.types';
 import { listSubtitle, toStockTransferRow, type StockTransferRow } from './stockTransfer.model';
 import {
   DEFAULT_FILTERS,
+  appliedFilterChips,
+  deleteRefusalMessage,
+  deleteSuccessMessage,
   deriveStockTransfersView,
+  directionLabel,
   hasActiveFilters,
   headerCollapses,
+  quickActionsFor,
+  reasonLabel,
   showsFab,
+  showsReasonChip,
+  sortLabel,
   toQuery,
   type StockTransferFilters,
 } from './stockTransfer.view';
@@ -71,63 +77,17 @@ const LIST_TOP_PAD = SECTION_GAP;
 const SIDE_PAD = 16;
 
 /**
- * FEATURE: the module-hook wiring — do this FIRST.
+ * The base unit the list falls back to.
  *
- * `useModuleService.ts` carries a labelled but EMPTY `─── Stock Transfer ───` region at each of its
- * four edit sites, and this adapter stands in until it is filled, so that everything else on this
- * screen (paging, debounce, refresh, the view machine, the first-focus skip) is real code rather
- * than a sketch.
+ * ⚠️ A CONSTANT, and knowingly a compromise. The real base unit belongs to the PRODUCT, and the
+ * list response carries no ladder — resolving it per row would mean hydrating the catalog just to
+ * label a list. It matters less than it looks: `recordQtyLabel` prefers the record's own `unitName`
+ * whenever the transfer was saved against a level, so this only ever fills in for a record stored in
+ * bare base units, where "200 units" is at least not wrong about the number.
  *
- * To finish it: fill those four regions by copying the consumption slice, then replace the four
- * bodies below with `activeModule.stockTransfers`, `.stockTransfersTotalPages`,
- * `.loadStockTransfersByBusiness` and `.deleteStockTransfer` and delete this function.
- *
- * ⚠️ `deleteStockTransfer` is the ONE place the transfer slice differs from the consumption one it
- * is copied from: it must RESOLVE `{ success: false, code: 'STOCK_MOVEMENT_LOCKED', error }` on a
- * 409 rather than throwing, so this screen can say why. A transfer is locked once its destination
- * batch has been drawn from — reversing it would take back stock that has already been sold or
- * consumed — and "Could not delete" is the wrong thing to say about a record the system is
- * protecting on purpose.
- *
- * Until then the screen sits on its LOADING skeleton, which is correct rather than broken: nothing
- * has been requested, so `loadedOnce` is false, and claiming "No transfers yet" about data we never
- * asked for would be a lie.
+ * Module scope rather than inline so it is a stable primitive and never a fresh value per render.
  */
-/**
- * Frozen so the stub cannot spin the screen.
- *
- * `rows` feeds a `useEffect` dependency. Returning a fresh `[]` from this function meant a new
- * array identity on every render, so the effect re-ran, called `setRows` with another new array,
- * re-rendered, and looped until React gave up with "Maximum update depth exceeded". Jest never
- * renders anything in this repo, so nothing caught it — the whole suite stayed green.
- *
- * The replacement must keep this property: whatever `rows` becomes, it has to be a value that is
- * reference-stable between renders when the data has not changed.
- */
-const NO_TRANSFER_ROWS: StockTransferDto[] = [];
-
-function useStockTransferListApi(_activeModule: unknown) {
-  return useMemo(
-    () => ({
-      rows: NO_TRANSFER_ROWS,
-      totalPages: 1,
-      load: (
-        _businessId: number,
-        _query: StockTransferQuery & { search: string | null },
-        _page: number,
-        _limit: number,
-        _append: boolean,
-      ) => {},
-      remove: async (
-        _id: number,
-      ): Promise<{ success: boolean; code?: string; error?: string | null }> => ({
-        success: false,
-        error: 'Stock transfers are not wired to the module hook yet.',
-      }),
-    }),
-    [],
-  );
-}
+const LIST_BASE_UNIT = 'unit';
 
 interface StockTransfersScreenProps {
   /** Optional so the screen can also be mounted standalone in the web preview. */
@@ -163,7 +123,27 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
   const pharmacy = usePharmacy();
   const moduleKey = (selectedModule || '').toUpperCase();
   const activeModule = moduleKey === 'PHARMACY' ? pharmacy : parlour;
-  const listApi = useStockTransferListApi(activeModule);
+
+  /**
+   * ⚠️ Pull the individual pieces out; never depend on `activeModule` itself.
+   *
+   * `createModuleHook` returns a fresh object literal on every render, so an effect that lists it in
+   * its deps re-runs every render — and a fetch effect that re-runs every render sets state, which
+   * renders, which fetches again. That is a silent unbounded request loop; `OrderDetailScreen`
+   * carries the same warning after it was caught there at 56 requests.
+   *
+   * `stockTransfers` is the hook's own `useState` array, so its identity only changes when a load
+   * actually replaces it — which is exactly the property the effect below depends on. Anything that
+   * rebuilt the array per render (a `.map()`, a `?? []` on a fresh literal) would spin this screen
+   * until React blanked it, and jest would not catch it: nothing in this repo renders.
+   */
+  const {
+    stockTransfers,
+    stockTransfersTotalPages,
+    loadStockTransfersByBusiness,
+    deleteStockTransfer,
+  } = activeModule;
+  const listRows = stockTransfers as StockTransferDto[];
 
   const [businessId, setBusinessId] = useState<number | null>(null);
   const [mode, setMode] = useState<'browse' | 'search'>('browse');
@@ -214,10 +194,9 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
     (page: number, append: boolean) => {
       if (businessId == null) return;
       pageRef.current = page;
-      listApi.load(businessId, query, page, PAGE_SIZE, append);
+      void loadStockTransfersByBusiness(businessId, query, page, PAGE_SIZE, append);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [businessId, query, moduleKey],
+    [businessId, query, loadStockTransfersByBusiness],
   );
 
   const reload = useCallback(() => load(1, false), [load]);
@@ -240,12 +219,10 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
     return unsubscribe;
   }, [navigation, reload]);
 
-  // FEATURE: the base unit is the PRODUCT's, not a constant — resolve it per row once the list
-  // FEATURE: response is known to carry one (or hydrate it from the catalog).
-  const baseUnit = 'unit';
-  const listRows = listApi.rows;
+  // `listRows` is the module hook's state array, so this runs when a load replaces it and not once
+  // per render. See the note where it is destructured — this is the dependency that spun the screen.
   useEffect(() => {
-    setRows(listRows.map((t) => toStockTransferRow(t, baseUnit)));
+    setRows(listRows.map((t) => toStockTransferRow(t, LIST_BASE_UNIT)));
     loadingMoreRef.current = false;
   }, [listRows]);
 
@@ -275,10 +252,10 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
    */
   const onEndReached = useCallback(() => {
     if (loadingMoreRef.current || activeModule.loading) return;
-    if (pageRef.current >= (listApi.totalPages || 1)) return;
+    if (pageRef.current >= (stockTransfersTotalPages || 1)) return;
     loadingMoreRef.current = true;
     load(pageRef.current + 1, true);
-  }, [activeModule.loading, listApi.totalPages, load]);
+  }, [activeModule.loading, stockTransfersTotalPages, load]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -288,6 +265,7 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
 
   const filtered = hasActiveFilters(filters);
   const searching = mode === 'search';
+  const chips = appliedFilterChips(filters);
 
   const view = deriveStockTransfersView({
     mode,
@@ -307,7 +285,11 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
   // ─── Actions ──────────────────────────────────────────────────────────────
 
   const openDetail = useCallback(
-    (record: StockTransferDto) => {
+    (record: StockTransferDto | undefined) => {
+      // `rows` is derived from `listRows` in an effect, so for the one frame between a load landing
+      // and that effect flushing the two can differ in length. Guarding beats navigating to a
+      // detail screen with `stockTransferId: undefined`, which renders "No transfer was specified".
+      if (!record) return;
       // Close BEFORE navigating — a Modal left mounted over a screen transition eats the taps on
       // the screen you land on.
       setSheet(null);
@@ -319,7 +301,8 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
     [navigation],
   );
 
-  const openActions = useCallback((record: StockTransferDto) => {
+  const openActions = useCallback((record: StockTransferDto | undefined) => {
+    if (!record) return;
     setActiveRecord(record);
     setSheet('actions');
   }, []);
@@ -332,19 +315,19 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
   const confirmDelete = useCallback(async () => {
     setDialog(null);
     if (!activeRecord?.id) return;
-    const res = await listApi.remove(activeRecord.id);
+    const res = await deleteStockTransfer(activeRecord.id);
     if (!res?.success) {
-      // FEATURE: branch on `res.code === 'STOCK_MOVEMENT_LOCKED'` and say WHY — the destination
-      // FEATURE: batch has been drawn from, so the move can no longer be reversed. A generic
-      // FEATURE: failure message would read as a bug rather than as the system protecting stock.
-      showToast(res?.error || 'Could not delete this transfer', 'error');
+      // ⚠️ A 409 `STOCK_MOVEMENT_LOCKED` is the system protecting stock, not a failure: the
+      // destination batch has been drawn from, so reversing the move would take back something
+      // already sold or consumed. `deleteRefusalMessage` says that; "Could not delete" would read
+      // as a bug in a screen that is working exactly as designed.
+      showToast(deleteRefusalMessage(res?.code, res?.error), 'error');
       return;
     }
-    // FEATURE: the toast copy. Say that the stock went BACK — a delete here reverses the move.
-    showToast('Transfer deleted', 'success');
+    // Says the stock went BACK — this is a reversal, not a tidy-up.
+    showToast(deleteSuccessMessage(), 'success');
     reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRecord, moduleKey, reload, showToast]);
+  }, [activeRecord, deleteStockTransfer, reload, showToast]);
 
   const clearFilters = useCallback(() => setFilters(DEFAULT_FILTERS), []);
 
@@ -365,8 +348,9 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
         <StockTransferCard
           row={item}
           styles={styles}
-          onPress={() => openDetail(listApi.rows[index])}
-          onLongPress={() => openActions(listApi.rows[index])}
+          theme={theme}
+          onPress={() => openDetail(listRows[index])}
+          onLongPress={() => openActions(listRows[index])}
         />
       )}
       onEndReached={onEndReached}
@@ -387,8 +371,9 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
     />
   );
 
-  // FEATURE: every headline and subtext below. The STRUCTURE — which view gets a hero, which hero
-  // FEATURE: gets a CTA, and which CTA — is settled; only the words are open.
+  // Which view gets a hero, which hero gets a CTA, and which CTA, all come from `showsFab` and the
+  // view machine. Note that no hero here offers "Transfer stock" AND a FAB at the same time — see
+  // `showsFab`: two Transfer affordances on one screen read as two different actions.
   let body: React.ReactNode;
   if (view === 'LOADING') {
     body = (
@@ -540,12 +525,35 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
           </View>
 
           {/*
-            FEATURE: the applied-filter chips, once the sheet has been used.
-            FEATURE: ⚠️ There is NO reason chip row here, unlike consumption and wastage — the
-            FEATURE: transfer controller reads no `reason` param, so chips would look like they
-            FEATURE: worked and return the unfiltered list. `StockTransferQuery` has no such key, so
-            FEATURE: adding one is a compile error rather than a bug report.
+            The applied-filter chips, once the sheet has been used.
+
+            ⚠️ There is NO reason chip row here, unlike consumption and wastage — the transfer
+            controller reads no `reason` param, so chips would look like they worked and return the
+            unfiltered list. `StockTransferQuery` has no such key, so adding one is a compile error
+            rather than a bug report. What CAN appear is the sort order, which is the only axis the
+            server narrows by. Tapping a chip clears it, matching `InventoryScreen`.
           */}
+          {chips.length ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chipScroll}
+              contentContainerStyle={styles.chipRow}
+            >
+              {chips.map((chip) => (
+                <Pressable
+                  key={chip.id}
+                  style={styles.appliedChip}
+                  onPress={clearFilters}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Clear filter: ${chip.label}`}
+                >
+                  <Text style={styles.appliedChipText}>{chip.label}</Text>
+                  <X size={12} color={colors.primary} />
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
         </>
       )}
     </CollapsingHeader>
@@ -570,11 +578,35 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
           </View>
 
           {/*
-            FEATURE: the sheet body — a Sort block, and that is genuinely all the server supports.
-            FEATURE: ⚠️ Do NOT add reason or direction chips. `reason`, `sourceType` and `destType`
-            FEATURE: are all SORTABLE and none of them is FILTERABLE; sort by `sourceType` to group
-            FEATURE: Product→Raw away from Raw→Product. The Apply button carries NO count.
+            The sheet body — a Sort block, and that is genuinely all the server supports.
+
+            ⚠️ Do NOT add reason or direction chips. `reason`, `sourceType` and `destType` are all
+            SORTABLE and none of them is FILTERABLE, so chips for any of them would appear to work
+            and silently return the unfiltered list. `StockTransferQuery` omits the keys to make that
+            a compile error.
+
+            The Apply button carries NO count, unlike its siblings: with one axis a count could only
+            ever read "1", which is furniture.
           */}
+          <Text style={styles.sheetLabel}>Sort</Text>
+          <View style={styles.sheetChipWrap}>
+            {(['desc', 'asc'] as const).map((dir) => {
+              const active = draftFilters.sortDir === dir;
+              return (
+                <Pressable
+                  key={dir}
+                  style={[styles.sheetChip, active && styles.sheetChipActive]}
+                  onPress={() => setDraftFilters({ sortDir: dir })}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.sheetChipText, active && styles.sheetChipTextActive]}>
+                    {sortLabel(dir)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
           <Pressable
             style={styles.applyButton}
@@ -593,24 +625,38 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
       {sheet === 'actions' && activeRecord ? (
         <SheetShell styles={styles} onClose={() => setSheet(null)}>
           {/*
-            FEATURE: the actions sheet body. A transfer is IMMUTABLE, so the list is short — View
-            FEATURE: detail, and Delete (which REVERSES the move). No status change, no edit. Drive
-            FEATURE: it from a `quickActionsFor` in `stockTransfer.view.ts`, following
-            FEATURE: `batch.view.ts`'s rule that a blocked action is disabled WITH A REASON rather
-            FEATURE: than hidden — here the reason is STOCK_MOVEMENT_LOCKED.
+            A transfer is IMMUTABLE, so the list is short — View, and Delete (which REVERSES the
+            move). No status change, no edit. Every decision about the rows lives in
+            `quickActionsFor`, following `batch.view.ts`'s rule that a blocked action is rendered
+            DISABLED with its reason rather than hidden, because a missing row reads as a missing
+            feature.
           */}
-          <Pressable style={styles.actionRow} onPress={() => openDetail(activeRecord)}>
-            <Text style={styles.actionLabel}>View transfer</Text>
-          </Pressable>
-          <Pressable
-            style={styles.actionRow}
-            onPress={() => {
-              setSheet(null);
-              setDialog('delete');
-            }}
-          >
-            <Text style={[styles.actionLabel, styles.actionLabelDestructive]}>Delete transfer</Text>
-          </Pressable>
+          {quickActionsFor(activeRecord).map((action) => (
+            <Pressable
+              key={action.id}
+              style={[styles.actionRow, action.disabled && styles.actionRowDisabled]}
+              disabled={action.disabled}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !!action.disabled }}
+              onPress={() => {
+                if (action.id === 'view') {
+                  openDetail(activeRecord);
+                  return;
+                }
+                setSheet(null);
+                setDialog('delete');
+              }}
+            >
+              <View style={styles.actionBody}>
+                <Text
+                  style={[styles.actionLabel, action.destructive && styles.actionLabelDestructive]}
+                >
+                  {action.label}
+                </Text>
+                {action.sub ? <Text style={styles.actionSub}>{action.sub}</Text> : null}
+              </View>
+            </Pressable>
+          ))}
         </SheetShell>
       ) : null}
 
@@ -636,30 +682,33 @@ export function StockTransfersScreen({ navigation }: StockTransfersScreenProps =
 type Styles = ReturnType<typeof createStyles>;
 
 /**
- * FEATURE: the card.
+ * One list row: product name and an optional reason chip, then the direction, the quantity and when.
  *
- * The mockup's row is: product name, the moved quantity, and a Product → Raw direction line. This
- * placeholder draws the strings the model already produces so the list is navigable while the real
- * card is built; it is not the design.
+ * ⚠️ The arrow is built from `row.sourceType` / `row.destType`, NEVER from `row.reason`. A record
+ * can carry `reason: PRODUCT_TO_RAW` alongside `sourceType: RAW_INVENTORY` — the server accepts that
+ * pairing — and a card that drew its arrow from the reason would report the move backwards forever.
+ * And the `→` is NOT a quantity separator: the `·` convention applies to quantities only.
  *
- * ⚠️ Build the arrow from `row.sourceType` / `row.destType`, never from `row.reason` — see
- * `toStockTransferRow`. And the arrow in "Product → Raw" is NOT a quantity separator: the `·`
- * convention applies to quantities only.
+ * The chip appears for the three NON-directional reasons only. "Product → Raw" as a chip beside the
+ * card's own "Product → Raw" line says it twice, and says it from the untrusted source.
  *
- * Keep every string it shows coming from `StockTransferRow` — the card must not reach into the DTO,
- * or the mapping stops being testable.
+ * Every string comes from `StockTransferRow` or a tested label function — the card never reaches
+ * into the DTO, or the mapping stops being testable.
  */
 function StockTransferCard({
   row,
   styles,
+  theme,
   onPress,
   onLongPress,
 }: {
   row: StockTransferRow;
   styles: Styles;
+  theme: AppTheme;
   onPress: () => void;
   onLongPress: () => void;
 }) {
+  const direction = directionLabel(row.sourceType, row.destType);
   return (
     <Pressable
       onPress={onPress}
@@ -667,19 +716,38 @@ function StockTransferCard({
       delayLongPress={250}
       style={styles.card}
       accessibilityRole="button"
-      accessibilityLabel={`${row.name}, ${row.qtyText}`}
+      accessibilityLabel={[row.name, direction, row.qtyText].filter(Boolean).join(', ')}
     >
-      <Text style={styles.cardName} numberOfLines={1}>
-        {row.name}
-      </Text>
-      <Text style={styles.cardMeta} numberOfLines={1}>
-        {row.qtyText}
-      </Text>
-      {row.whenText ? (
-        <Text style={styles.cardMeta} numberOfLines={1}>
-          {row.whenText}
+      <View style={styles.cardTop}>
+        <Text style={styles.cardName} numberOfLines={1}>
+          {row.name}
         </Text>
+        {showsReasonChip(row.reason) ? (
+          <View style={styles.reasonChip}>
+            <Text style={styles.reasonChipText}>{reasonLabel(row.reason)}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {direction ? (
+        <View style={styles.directionRow}>
+          <ArrowLeftRight size={13} color={theme.colors.primary} />
+          <Text style={styles.directionText} numberOfLines={1}>
+            {direction}
+          </Text>
+        </View>
       ) : null}
+
+      <View style={styles.cardFoot}>
+        <Text style={styles.qtyText} numberOfLines={1}>
+          {row.qtyText}
+        </Text>
+        {row.whenText ? (
+          <Text style={styles.cardMeta} numberOfLines={1}>
+            {row.whenText}
+          </Text>
+        ) : null}
+      </View>
     </Pressable>
   );
 }
@@ -832,8 +900,44 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: palette.divider,
     },
-    cardName: { fontSize: 15, fontWeight: '600', color: palette.onSurface },
+    cardTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    cardName: { flexShrink: 1, fontSize: 15, fontWeight: '600', color: palette.onSurface },
     cardMeta: { fontSize: 11.5, color: palette.muted },
+
+    // Only ever drawn for REBALANCE / CORRECTION / OTHER — see `showsReasonChip`. Neutral rather
+    // than accent-tinted: it is a label, not a state.
+    reasonChip: {
+      paddingVertical: 2,
+      paddingHorizontal: 8,
+      borderRadius: 999,
+      backgroundColor: palette.surfaceElevated,
+      borderWidth: 1,
+      borderColor: palette.divider,
+    },
+    reasonChipText: { fontSize: 10.5, fontWeight: '700', color: palette.muted },
+
+    // The direction is the card's headline fact, so it carries the accent — it is what tells the
+    // two halves of a rebalance apart at a glance.
+    directionRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    directionText: { fontSize: 12.5, fontWeight: '600', color: colors.primary },
+
+    cardFoot: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+    qtyText: { fontSize: 13, fontWeight: '600', color: palette.onSurface },
+
+    // Tinted like the filter button's active state, so an applied chip reads as part of the same
+    // control rather than as a new one.
+    appliedChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 11,
+      borderRadius: 999,
+      backgroundColor: colors.softBg,
+      borderWidth: 1,
+      borderColor: colors.primary + '55',
+    },
+    appliedChipText: { fontSize: 12, fontWeight: '600', color: colors.primary },
 
     footerSpinner: { paddingVertical: 18 },
 
@@ -925,8 +1029,12 @@ function createStyles(theme: AppTheme) {
     applyLabel: { fontSize: 14.5, fontWeight: '700', color: colors.onAccent ?? '#FFFFFF' },
 
     actionRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13 },
+    // Dimmed rather than removed — see `quickActionsFor`. A missing row reads as a missing feature.
+    actionRowDisabled: { opacity: 0.45 },
+    actionBody: { flex: 1, gap: 2 },
     actionLabel: { fontSize: 14.5, color: palette.onSurface },
     actionLabelDestructive: { color: palette.error },
+    actionSub: { fontSize: 12, color: palette.muted },
     sheetTail: { height: 4 },
   });
 }

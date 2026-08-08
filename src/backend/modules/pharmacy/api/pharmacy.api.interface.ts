@@ -6,6 +6,7 @@ import type {
   StatusChangeOptions,
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -368,5 +369,16 @@ export abstract class PharmacyApiInterface {
   // Empty on purpose — copy the consumption slice above.
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  // Mirror of the parlour four — read that file for the full contract, including why
+  // `StockTransferQuery` carries no `reason` key and why delete can be refused with a 409.
+  abstract createStockTransfer(data: StockTransferPayload): Promise<ApiResponse<unknown>>;
+  abstract getStockTransfer(id: number): Promise<ApiResponse<unknown>>;
+  abstract getStockTransfersByBusiness(
+    businessId: number,
+    query?: StockTransferQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  /** Deleting REVERSES the move. 409 `STOCK_MOVEMENT_LOCKED` once the destination batch is used. */
+  abstract deleteStockTransfer(id: number): Promise<ApiResponse<unknown>>;
 }

@@ -6,6 +6,8 @@ import type {
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 import { isConsumptionReason } from '../../shared/consumption.types';
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+import { isStockTransferReason } from '../../shared/stockTransfer.types';
 import {
   ParlourApiInterface,
   BillableListOptions,
@@ -341,6 +343,48 @@ export class ParlourService {
   // the same `Math.max(1, page)` clamp.
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above and guard with `isStockTransferReason`.
-  // Also validate that `sourceType !== destType`: a same-pool transfer is refused server-side.
+  //
+  // The consumption slice above, plus ONE extra guard: a transfer has two ends, and they must
+  // differ. Everything else — the pre-flight enum check, the paging clamp — is the same trap in
+  // the same place.
+  //
+  // No update passthrough: a transfer is immutable and the backend has no PUT.
+  async createStockTransfer(data: StockTransferPayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    if (!data?.itemId) throw new Error('A product is required');
+    // ⚠️ A same-pool transfer moves NOTHING and the server refuses it. Checked before the enum
+    // guard because it is the more specific complaint: "Product → Product" is a direction mistake,
+    // not a reason mistake, and naming the reason first would send the user to the wrong control.
+    if (data?.sourceType === data?.destType) {
+      throw new Error('A transfer must move stock between the two pools');
+    }
+    // ⚠️ TRAP 3 — a bad enum is an HTTP **500**, not a 400. Spring cannot bind an unknown constant
+    // into the body's enum, so the handler never runs and there is nothing in the response a screen
+    // could turn into a message. The guard runs BEFORE the axios call. See `createConsumption`.
+    if (!isStockTransferReason(data?.reason)) throw new Error('Pick a valid transfer reason');
+    // Zero moves nothing and a negative one would move stock the other way. `> 0` rather than a
+    // truthiness check so `'0'` and `NaN` are both refused.
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    return this.api.createStockTransfer(data);
+  }
+  async getStockTransfer(id: number) {
+    if (!id) throw new Error('Stock transfer ID is required');
+    return this.api.getStockTransfer(id);
+  }
+  async getStockTransfersByBusiness(
+    businessId: number,
+    query: StockTransferQuery = {},
+    page = 1,
+    limit = 20,
+  ) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ TRAP 2 — `page` is 1-BASED. `page=0` is a 400, NOT "the first page", so an infinite-scroll
+    // list whose counter starts at zero fails on its very first request. Clamped here rather than
+    // at the call site because every caller would otherwise have to remember.
+    return this.api.getStockTransfersByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteStockTransfer(id: number) {
+    if (!id) throw new Error('Stock transfer ID is required');
+    return this.api.deleteStockTransfer(id);
+  }
 }

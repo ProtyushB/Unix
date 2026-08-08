@@ -6,6 +6,8 @@ import type {
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 import { isConsumptionReason } from '../../shared/consumption.types';
+import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+import { isStockTransferReason } from '../../shared/stockTransfer.types';
 import {
   PharmacyApiInterface,
   BillableListOptions,
@@ -314,5 +316,35 @@ export class PharmacyService {
   // Empty on purpose — copy the consumption slice above.
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
-  // Empty on purpose — copy the consumption slice above.
+  // Mirror of the parlour slice — read that file for why the enum guard runs BEFORE the request
+  // and why the two pools are checked first.
+  async createStockTransfer(data: StockTransferPayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    if (!data?.itemId) throw new Error('A product is required');
+    if (data?.sourceType === data?.destType) {
+      throw new Error('A transfer must move stock between the two pools');
+    }
+    // ⚠️ A bad enum is an HTTP 500, not a 400. See the parlour service.
+    if (!isStockTransferReason(data?.reason)) throw new Error('Pick a valid transfer reason');
+    if (!(Number(data?.quantity) > 0)) throw new Error('Quantity must be more than zero');
+    return this.api.createStockTransfer(data);
+  }
+  async getStockTransfer(id: number) {
+    if (!id) throw new Error('Stock transfer ID is required');
+    return this.api.getStockTransfer(id);
+  }
+  async getStockTransfersByBusiness(
+    businessId: number,
+    query: StockTransferQuery = {},
+    page = 1,
+    limit = 20,
+  ) {
+    if (!businessId) throw new Error('Business ID is required');
+    // ⚠️ `page` is 1-BASED; `page=0` is a 400. See the parlour service.
+    return this.api.getStockTransfersByBusiness(businessId, query, Math.max(1, page), limit);
+  }
+  async deleteStockTransfer(id: number) {
+    if (!id) throw new Error('Stock transfer ID is required');
+    return this.api.deleteStockTransfer(id);
+  }
 }

@@ -86,6 +86,10 @@ export function toStockTransferRow(record: StockTransferDto, baseUnit = 'unit'):
  * row count to show.
  */
 export function listSubtitle(filtered: boolean): string {
-  // FEATURE: the exact wording. The rule — no count — is the part that must survive an edit.
-  return filtered ? 'Filtered · newest first' : 'Stock moved between pools · newest first';
+  // The board's line is "Stock moved between pools"; the tail says which way the list is ordered,
+  // which is the one thing the filter sheet can change. The rule — no count — is the part that
+  // must survive an edit.
+  return filtered
+    ? 'Stock moved between pools · filtered'
+    : 'Stock moved between pools · newest first';
 }
