@@ -6,13 +6,10 @@ import type {
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 import { isConsumptionReason } from '../../shared/consumption.types';
-<<<<<<< HEAD
 import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 import { isWastageReason } from '../../shared/wastage.types';
-=======
 import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
 import { isStockTransferReason } from '../../shared/stockTransfer.types';
->>>>>>> wt-stock-transfers
 import {
   ParlourApiInterface,
   BillableListOptions,

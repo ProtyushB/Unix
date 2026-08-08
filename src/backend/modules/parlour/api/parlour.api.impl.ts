@@ -23,11 +23,8 @@ import {
   type StatusChangeOptions,
 } from '../../shared/inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
-<<<<<<< HEAD
 import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
-=======
 import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
->>>>>>> wt-stock-transfers
 
 export class ParlourApiImpl extends ParlourApiInterface {
   // ── Products ───────────────────────────────────────────────────────────────
