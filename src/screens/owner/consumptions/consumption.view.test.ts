@@ -1,8 +1,15 @@
+import { CONSUMPTION_REASONS } from '../../../backend/modules/shared/consumption.types';
 import {
   DEFAULT_FILTERS,
+  appliedFilterChips,
+  deleteBlockedReason,
   deriveConsumptionsView,
   hasActiveFilters,
   headerCollapses,
+  quickActionsFor,
+  reasonChoices,
+  reasonLabel,
+  reasonTone,
   showsFab,
   toQuery,
   type ConsumptionsViewInput,
@@ -116,5 +123,106 @@ describe('filters', () => {
 
   it('carries the sort direction through', () => {
     expect(toQuery({ reason: 'ALL', sortDir: 'asc' }).sortDir).toBe('asc');
+  });
+});
+
+describe('reasonLabel', () => {
+  it('uses the mockup word, which two of the six do not title-case into', () => {
+    // The tripwire against a generic `split('_').map(titleCase)`: that produces "Internal Use" and
+    // "Sampling", which is a different chip row from the one the board draws.
+    expect(reasonLabel('INTERNAL_USE')).toBe('Internal');
+    expect(reasonLabel('SAMPLING')).toBe('Sample');
+  });
+
+  it('labels the other four and the filter head', () => {
+    expect(reasonLabel('SERVICE_USE')).toBe('Service Use');
+    expect(reasonLabel('TRAINING')).toBe('Training');
+    expect(reasonLabel('TESTING')).toBe('Testing');
+    expect(reasonLabel('OTHER')).toBe('Other');
+    expect(reasonLabel('ALL')).toBe('All Reasons');
+  });
+
+  it('never renders a blank chip for a missing reason', () => {
+    expect(reasonLabel(null)).toBe('Other');
+    expect(reasonLabel(undefined)).toBe('Other');
+  });
+
+  it('has a word for EVERY member of the enum — no chip may render as undefined', () => {
+    for (const reason of CONSUMPTION_REASONS) {
+      expect(reasonLabel(reason)).toBeTruthy();
+      expect(reasonLabel(reason)).not.toMatch(/_/);
+    }
+  });
+});
+
+describe('reasonChoices', () => {
+  it('offers all six plus the head — consumption hides none, unlike wastage', () => {
+    expect(reasonChoices()).toEqual(['ALL', ...CONSUMPTION_REASONS]);
+    expect(reasonChoices()).toHaveLength(7);
+  });
+});
+
+describe('reasonTone', () => {
+  it('accents only the ordinary case, so the colour still means something', () => {
+    expect(reasonTone('SERVICE_USE')).toBe('accent');
+    expect(reasonTone('SAMPLING')).toBe('muted');
+    expect(reasonTone('TESTING')).toBe('muted');
+    expect(reasonTone('OTHER')).toBe('muted');
+    expect(reasonTone(null)).toBe('muted');
+  });
+});
+
+describe('appliedFilterChips', () => {
+  it('draws nothing while the defaults are in force', () => {
+    expect(appliedFilterChips(DEFAULT_FILTERS)).toEqual([]);
+  });
+
+  it('names the reason with the same word the chip row uses', () => {
+    expect(appliedFilterChips({ reason: 'SAMPLING', sortDir: 'desc' })).toEqual([
+      { id: 'reason', label: 'Sample' },
+    ]);
+  });
+
+  it('gives the flipped sort order a chip of its own', () => {
+    // `hasActiveFilters` already counts sort as narrowing. A subtitle that says "filtered" with no
+    // chip to clear leaves the user hunting for what changed.
+    expect(appliedFilterChips({ reason: 'ALL', sortDir: 'asc' })).toEqual([
+      { id: 'sort', label: 'Oldest first' },
+    ]);
+    expect(appliedFilterChips({ reason: 'TRAINING', sortDir: 'asc' })).toHaveLength(2);
+  });
+});
+
+describe('quickActionsFor', () => {
+  it('offers View and Delete, in that order, and nothing else', () => {
+    // A consumption is immutable: no status change, no edit. Either would only ever 404.
+    expect(quickActionsFor({ id: 5 }).map((a) => a.id)).toEqual(['view', 'delete']);
+  });
+
+  it('says out loud that Delete restocks', () => {
+    const del = quickActionsFor({ id: 5 }).find((a) => a.id === 'delete');
+    expect(del?.label).toBe('Delete & restock');
+    expect(del?.sub).toMatch(/returns/i);
+    expect(del?.destructive).toBe(true);
+    expect(del?.disabled).toBe(false);
+  });
+
+  it('DISABLES a blocked Delete rather than hiding it, with the reason underneath', () => {
+    const del = quickActionsFor(null).find((a) => a.id === 'delete');
+    expect(del).toBeDefined();
+    expect(del?.disabled).toBe(true);
+    expect(del?.sub).toBe('This consumption is not available.');
+  });
+});
+
+describe('deleteBlockedReason', () => {
+  it('blocks ONLY on a missing id — the server guards this endpoint with nothing at all', () => {
+    // No immutability window, no billed check, not even a tab gate. Any other condition invented
+    // here would be a client-side refusal the server would have honoured.
+    expect(deleteBlockedReason({ id: 5 })).toBeNull();
+    expect(deleteBlockedReason({ id: 5, reason: 'TRAINING' })).toBeNull();
+    expect(deleteBlockedReason({ id: 5, consumedAt: '2020-01-01T00:00:00' })).toBeNull();
+    expect(deleteBlockedReason({})).toBe('This consumption is not available.');
+    expect(deleteBlockedReason(null)).toBe('This consumption is not available.');
   });
 });

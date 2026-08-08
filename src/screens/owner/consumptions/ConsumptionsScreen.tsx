@@ -4,6 +4,7 @@ import {
   Modal,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,7 +12,17 @@ import {
 } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Beaker, CircleX, Plus, RotateCw, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import {
+  Beaker,
+  CircleX,
+  FileText,
+  Plus,
+  RotateCw,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from 'lucide-react-native';
 
 import { FAB } from '../../../components/layout/FAB';
 import { CollapsingHeader, AnimatedFlatList } from '../../../components/layout/CollapsingHeader';
@@ -26,15 +37,27 @@ import { usePharmacy } from '../../../backend/modules/pharmacy/hook/usePharmacy'
 import { getSelectedBusinessId } from '../../../backend/modules/shared/hook/useModuleService';
 import type { ConsumptionDto } from '../../../backend/modules/shared/consumption.types';
 import type { AppTheme } from '../../../theme/theme.types';
-import { listSubtitle, toConsumptionRow, type ConsumptionRow } from './consumption.model';
+import {
+  cardMetaLine,
+  listSubtitle,
+  toConsumptionRow,
+  type ConsumptionRow,
+} from './consumption.model';
 import {
   DEFAULT_FILTERS,
+  appliedFilterChips,
   deriveConsumptionsView,
   hasActiveFilters,
   headerCollapses,
+  quickActionsFor,
+  reasonChoices,
+  reasonLabel,
+  reasonTone,
   showsFab,
   toQuery,
+  type ConsumptionActionId,
   type ConsumptionFilters,
+  type ReasonTone,
 } from './consumption.view';
 
 const PAGE_SIZE = 20;
@@ -269,9 +292,9 @@ export function ConsumptionsScreen({ navigation }: ConsumptionsScreenProps = {})
       showToast(res?.error || 'Could not delete this consumption', 'error');
       return;
     }
-    // FEATURE: the toast copy. Say that the stock came BACK — a delete here is a reversal, and a
-    // FEATURE: bare "Deleted" hides the thing the user most needs to know.
-    showToast('Consumption deleted', 'success');
+    // Says the stock came BACK. A delete here is a reversal, and a bare "Deleted" hides the one
+    // thing the user most needs to know about what just happened to their inventory.
+    showToast('Consumption deleted · stock restocked', 'success');
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRecord, moduleKey, reload, showToast]);
@@ -295,6 +318,7 @@ export function ConsumptionsScreen({ navigation }: ConsumptionsScreenProps = {})
         <ConsumptionCard
           row={item}
           styles={styles}
+          theme={theme}
           onPress={() => openDetail(activeModule.consumptions[index] as ConsumptionDto)}
           onLongPress={() => openActions(activeModule.consumptions[index] as ConsumptionDto)}
         />
@@ -317,8 +341,6 @@ export function ConsumptionsScreen({ navigation }: ConsumptionsScreenProps = {})
     />
   );
 
-  // FEATURE: every headline and subtext below. The STRUCTURE — which view gets a hero, which hero
-  // FEATURE: gets a CTA, and which CTA — is settled; only the words are open.
   let body: React.ReactNode;
   if (view === 'LOADING') {
     body = (
@@ -335,7 +357,7 @@ export function ConsumptionsScreen({ navigation }: ConsumptionsScreenProps = {})
         style={bodyInset}
         icon={<CircleX size={40} color={palette.muted} />}
         headline="Couldn’t load consumptions"
-        subtext="Something went wrong while loading your records. Check your connection and try again."
+        subtext="Something went wrong. Check your connection and try again."
         ctaLabel="Retry"
         ctaIcon={<RotateCw size={18} color="#ffffff" />}
         onCta={reload}
@@ -348,8 +370,10 @@ export function ConsumptionsScreen({ navigation }: ConsumptionsScreenProps = {})
         style={bodyInset}
         icon={<Beaker size={40} color={palette.muted} />}
         headline="No consumptions yet"
-        subtext="Record the raw stock used during a service to keep your inventory honest."
-        ctaLabel="Record consumption"
+        subtext="Record raw-stock usage during services to see it here."
+        // Title case here and sentence case on the form's own CTA, exactly as the two boards write
+        // them: this one names the screen you are about to open, that one is the verb you press.
+        ctaLabel="Record Consumption"
         ctaIcon={<Plus size={18} color="#ffffff" />}
         onCta={openAdd}
       />
@@ -470,13 +494,62 @@ export function ConsumptionsScreen({ navigation }: ConsumptionsScreenProps = {})
           </View>
 
           {/*
-            FEATURE: the reason chip row, and the applied-filter chips that replace it once the
-            FEATURE: sheet has been used. Model both on InventoryScreen's pair — a horizontal
-            FEATURE: ScrollView with `styles.chipScroll` / `styles.chipRow`, whose gutter is
-            FEATURE: horizontal PADDING on the scroll content so chips scroll under the edge.
-            FEATURE: Render from `CONSUMPTION_REASONS`; there are no per-chip counts, because no
-            FEATURE: endpoint reports any.
+            The reason row, replaced by the applied-filter chips once the sheet has been used —
+            InventoryScreen's pair, minus its counts. There are no per-chip numbers here and there
+            cannot be: no endpoint in this feature reports one.
           */}
+          {filtered ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chipScroll}
+              contentContainerStyle={styles.chipRow}
+            >
+              {appliedFilterChips(filters).map((chip) => (
+                <Pressable
+                  key={chip.id}
+                  style={styles.appliedChip}
+                  onPress={() =>
+                    setFilters((p) =>
+                      chip.id === 'reason' ? { ...p, reason: 'ALL' } : { ...p, sortDir: 'desc' },
+                    )
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`Clear ${chip.label}`}
+                >
+                  <Text style={styles.appliedChipText}>{chip.label}</Text>
+                  <X size={12} color={colors.primary} />
+                </Pressable>
+              ))}
+              <Pressable onPress={clearFilters} hitSlop={8}>
+                <Text style={styles.clearAll}>Clear all</Text>
+              </Pressable>
+            </ScrollView>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chipScroll}
+              contentContainerStyle={styles.chipRow}
+            >
+              {reasonChoices().map((r) => {
+                const active = filters.reason === r;
+                return (
+                  <Pressable
+                    key={r}
+                    onPress={() => setFilters((p) => ({ ...p, reason: r }))}
+                    style={[styles.chip, active && styles.chipActive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
+                      {reasonLabel(r)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
         </>
       )}
     </CollapsingHeader>
@@ -501,13 +574,57 @@ export function ConsumptionsScreen({ navigation }: ConsumptionsScreenProps = {})
           </View>
 
           {/*
-            FEATURE: the sheet body — a Reason block over a Sort block. Chips come from
-            FEATURE: `CONSUMPTION_REASONS` plus an 'ALL' head; sort is the two directions.
-            FEATURE: ⚠️ Do not add a date range or a status: `/byBusiness` reads neither, and a chip
-            FEATURE: for an axis the server ignores looks like it works and returns everything.
-            FEATURE: The Apply button carries NO count — nothing reports one.
+            Reason over Sort, and NOTHING ELSE. `/byBusiness` reads no date window and no status —
+            a chip for an axis the server ignores looks like it works and quietly returns the
+            unfiltered list.
           */}
+          <Text style={styles.sheetLabel}>Reason</Text>
+          <View style={styles.sheetChipWrap}>
+            {reasonChoices().map((r) => {
+              const selected = draftFilters.reason === r;
+              return (
+                <Pressable
+                  key={r}
+                  onPress={() => setDraftFilters((p) => ({ ...p, reason: r }))}
+                  style={[styles.sheetChip, selected && styles.sheetChipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                >
+                  <Text style={[styles.sheetChipText, selected && styles.sheetChipTextActive]}>
+                    {reasonLabel(r)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
+          <Text style={styles.sheetLabel}>Sort</Text>
+          <View style={styles.sheetChipWrap}>
+            {(
+              [
+                ['desc', 'Newest first'],
+                ['asc', 'Oldest first'],
+              ] as [ConsumptionFilters['sortDir'], string][]
+            ).map(([dir, label]) => {
+              const selected = draftFilters.sortDir === dir;
+              return (
+                <Pressable
+                  key={dir}
+                  onPress={() => setDraftFilters((p) => ({ ...p, sortDir: dir }))}
+                  style={[styles.sheetChip, selected && styles.sheetChipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                >
+                  <Text style={[styles.sheetChipText, selected && styles.sheetChipTextActive]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Bare "Apply" — Inventory's button carries a count because a counts endpoint stands
+              behind it. This feature has none, so a number here could only be a guess. */}
           <Pressable
             style={styles.applyButton}
             onPress={() => {
@@ -523,38 +640,26 @@ export function ConsumptionsScreen({ navigation }: ConsumptionsScreenProps = {})
       ) : null}
 
       {sheet === 'actions' && activeRecord ? (
-        <SheetShell styles={styles} onClose={() => setSheet(null)}>
-          {/*
-            FEATURE: the actions sheet body. A consumption is IMMUTABLE, so the list is short —
-            FEATURE: View detail, and Delete (which RESTOCKS). No status change, no edit. Drive it
-            FEATURE: from a `quickActionsFor` in `consumption.view.ts`, following
-            FEATURE: `batch.view.ts`'s rule that a blocked action is disabled WITH A REASON rather
-            FEATURE: than hidden — a missing row reads as a missing feature.
-          */}
-          <Pressable style={styles.actionRow} onPress={() => openDetail(activeRecord)}>
-            <Text style={styles.actionLabel}>View consumption</Text>
-          </Pressable>
-          <Pressable
-            style={styles.actionRow}
-            onPress={() => {
-              setSheet(null);
-              setDialog('delete');
-            }}
-          >
-            <Text style={[styles.actionLabel, styles.actionLabelDestructive]}>
-              Delete consumption
-            </Text>
-          </Pressable>
-        </SheetShell>
+        <ActionsSheet
+          record={activeRecord}
+          styles={styles}
+          theme={theme}
+          onClose={() => setSheet(null)}
+          onAction={(id) => {
+            if (id === 'view') return openDetail(activeRecord);
+            setSheet(null);
+            setDialog('delete');
+          }}
+        />
       ) : null}
 
       {dialog === 'delete' ? (
         <ConfirmDialog
           visible
-          title="Delete this consumption?"
+          title="Delete consumption?"
           // The one sentence that must survive a copy edit: deleting puts the stock back.
-          message="The recorded quantity is returned to the batches it came from."
-          confirmLabel="Delete"
+          message="Deleting restocks the deducted quantity to its source batch(es). This can’t be undone."
+          confirmLabel="Delete & restock"
           danger
           onConfirm={confirmDelete}
           onCancel={() => setDialog(null)}
@@ -568,27 +673,39 @@ export function ConsumptionsScreen({ navigation }: ConsumptionsScreenProps = {})
 
 type Styles = ReturnType<typeof createStyles>;
 
+/** The palette role `reasonTone` names, resolved. Kept beside the card, its only caller. */
+function toneColor(theme: AppTheme, tone: ReasonTone): string {
+  if (tone === 'accent') return theme.colors.primary;
+  if (tone === 'info') return theme.palette.info;
+  return theme.palette.muted;
+}
+
 /**
- * FEATURE: the card.
+ * The list row: name and reason chip, the quantity, then when and out of what.
  *
- * The mockup's row is: product name, the recorded quantity, a reason chip, and the timestamp. This
- * placeholder draws the three strings the model already produces so the list is navigable while the
- * real card is built; it is not the design.
+ * The QUANTITY is the row's headline — larger and in the surface colour — because it is the number
+ * a salon is scanning for, exactly as the remaining figure is on an inventory row. The name sits
+ * above it at 15/600 rather than competing at 700.
  *
- * Keep every string it shows coming from `ConsumptionRow` — the card must not reach into the DTO,
- * or the mapping stops being testable.
+ * Every string comes off `ConsumptionRow`. The card must not reach into the DTO, or the mapping
+ * stops being testable — which on this repo's jest config means untestable, not just untested.
  */
 function ConsumptionCard({
   row,
   styles,
+  theme,
   onPress,
   onLongPress,
 }: {
   row: ConsumptionRow;
   styles: Styles;
+  theme: AppTheme;
   onPress: () => void;
   onLongPress: () => void;
 }) {
+  const tint = toneColor(theme, reasonTone(row.reason));
+  const meta = cardMetaLine(row);
+
   return (
     <Pressable
       onPress={onPress}
@@ -596,17 +713,25 @@ function ConsumptionCard({
       delayLongPress={250}
       style={styles.card}
       accessibilityRole="button"
-      accessibilityLabel={`${row.name}, ${row.qtyText}`}
+      accessibilityLabel={`${row.name}, ${row.qtyText}, ${reasonLabel(row.reason)}`}
     >
-      <Text style={styles.cardName} numberOfLines={1}>
-        {row.name}
-      </Text>
-      <Text style={styles.cardMeta} numberOfLines={1}>
+      <View style={styles.cardTop}>
+        <Text style={styles.cardName} numberOfLines={1}>
+          {row.name}
+        </Text>
+        {/* '22' is the fill alpha every soft chip in this app uses — see `Badge`. */}
+        <View style={[styles.reasonChip, { backgroundColor: tint + '22' }]}>
+          <Text style={[styles.reasonChipText, { color: tint }]}>{reasonLabel(row.reason)}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.cardQty} numberOfLines={1}>
         {row.qtyText}
       </Text>
-      {row.whenText ? (
+
+      {meta ? (
         <Text style={styles.cardMeta} numberOfLines={1}>
-          {row.whenText}
+          {meta}
         </Text>
       ) : null}
     </Pressable>
@@ -634,6 +759,70 @@ function SheetShell({
         {children}
       </View>
     </Modal>
+  );
+}
+
+/**
+ * The long-press sheet, driven entirely by `quickActionsFor`.
+ *
+ * Two rows, because a consumption is immutable. A blocked Delete renders DISABLED with its reason
+ * underneath rather than vanishing — `batch.view.ts`'s rule, and for its reason: a missing row
+ * reads as a missing feature.
+ */
+function ActionsSheet({
+  record,
+  styles,
+  theme,
+  onAction,
+  onClose,
+}: {
+  record: ConsumptionDto;
+  styles: Styles;
+  theme: AppTheme;
+  onAction: (id: ConsumptionActionId) => void;
+  onClose: () => void;
+}) {
+  const actions = quickActionsFor(record);
+  const icons: Record<ConsumptionActionId, React.ReactNode> = {
+    view: <FileText size={20} color={theme.palette.onSurface} />,
+    delete: <Trash2 size={20} color={theme.palette.error} />,
+  };
+
+  return (
+    <SheetShell styles={styles} onClose={onClose}>
+      <View style={styles.sheetSummary}>
+        <View style={styles.sheetAvatar}>
+          <Beaker size={19} color={theme.colors.primary} />
+        </View>
+        <View style={styles.sheetSummaryMid}>
+          <Text style={styles.sheetSummaryName} numberOfLines={1}>
+            {record.itemName || 'Consumption'}
+          </Text>
+          <Text style={styles.sheetSummaryMeta} numberOfLines={1}>
+            {reasonLabel(record.reason)}
+          </Text>
+        </View>
+      </View>
+
+      {actions.map((a) => (
+        <Pressable
+          key={a.id}
+          onPress={() => !a.disabled && onAction(a.id)}
+          disabled={a.disabled}
+          style={[styles.actionRow, a.disabled && styles.actionRowDisabled]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !!a.disabled }}
+        >
+          {icons[a.id]}
+          <View style={styles.actionMid}>
+            <Text style={[styles.actionLabel, a.destructive && styles.actionLabelDestructive]}>
+              {a.label}
+            </Text>
+            {a.sub ? <Text style={styles.actionSub}>{a.sub}</Text> : null}
+          </View>
+        </Pressable>
+      ))}
+    </SheetShell>
   );
 }
 
@@ -749,10 +938,39 @@ function createStyles(theme: AppTheme) {
     // gutter is horizontal PADDING on the scroll content, so chips scroll under the edge.
     chipScroll: { flexShrink: 0, marginBottom: FILTER_GAP },
     chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: SIDE_PAD },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 999,
+      backgroundColor: palette.surface,
+      borderWidth: 1,
+      borderColor: palette.divider,
+    },
+    chipActive: { backgroundColor: colors.softBg, borderColor: colors.primary },
+    chipLabel: { fontSize: 12.5, fontWeight: '600', color: palette.muted },
+    chipLabelActive: { color: colors.primary },
+
+    appliedChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 5,
+      paddingHorizontal: 11,
+      borderRadius: 999,
+      backgroundColor: colors.softBg,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    appliedChipText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+    clearAll: { fontSize: 12.5, fontWeight: '600', color: palette.muted, paddingHorizontal: 4 },
 
     // ── Card ──
     card: {
-      gap: 6,
+      // 8 between the card's three bands (identity, quantity, when/where); 13/14 padding.
+      gap: 8,
       paddingVertical: 13,
       paddingHorizontal: 14,
       marginBottom: CARD_GAP,
@@ -764,7 +982,13 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: palette.divider,
     },
-    cardName: { fontSize: 15, fontWeight: '600', color: palette.onSurface },
+    cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    // Semibold, not bold: at 700 it competes with the quantity, which is the row's actual headline.
+    cardName: { flex: 1, fontSize: 15, fontWeight: '600', color: palette.onSurface },
+    reasonChip: { paddingVertical: 3, paddingHorizontal: 9, borderRadius: 999 },
+    reasonChipText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
+    // The figure a salon is scanning for — same weight Inventory gives its remaining count.
+    cardQty: { fontSize: 15, fontWeight: '700', color: palette.onSurface },
     cardMeta: { fontSize: 11.5, color: palette.muted },
 
     footerSpinner: { paddingVertical: 18 },
@@ -857,9 +1081,33 @@ function createStyles(theme: AppTheme) {
     },
     applyLabel: { fontSize: 14.5, fontWeight: '700', color: colors.onAccent ?? '#FFFFFF' },
 
+    sheetSummary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 12,
+      borderRadius: 14,
+      backgroundColor: palette.surface,
+      marginBottom: 8,
+    },
+    sheetAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.softBg,
+    },
+    sheetSummaryMid: { flex: 1, gap: 2 },
+    sheetSummaryName: { fontSize: 14.5, fontWeight: '700', color: palette.onSurface },
+    sheetSummaryMeta: { fontSize: 12, color: palette.muted },
+
     actionRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13 },
+    actionRowDisabled: { opacity: 0.45 },
+    actionMid: { flex: 1, gap: 2 },
     actionLabel: { fontSize: 14.5, color: palette.onSurface },
     actionLabelDestructive: { color: palette.error },
+    actionSub: { fontSize: 12, color: palette.muted },
     sheetTail: { height: 4 },
   });
 }
