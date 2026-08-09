@@ -25,7 +25,7 @@ import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
 import type { InventoryStatus } from '../../../../backend/modules/shared/inventory.types';
 import { formatCurrency } from '../../../../utils/formatters';
-import { formatBatchDate, formatStamp, type BatchDto } from '../batch.model';
+import { depletedLabel, formatBatchDate, formatStamp, type BatchDto } from '../batch.model';
 import { statusLabel, transitionLabel } from '../batch.view';
 import { daysToExpiry, remainingPercent, remainingRatio, remainingState } from '../batchHealth';
 import {
@@ -558,6 +558,18 @@ export function BatchDetailBase({
               value={formatStamp(item?.updatedAt)}
               editable={false}
             />
+            {/*
+              Conditional, not an em dash. The stamp is absent for a batch depleted before the
+              column existed and for every batch that is not depleted, and an empty "Depleted" row
+              on a healthy batch reads as a missing value rather than an inapplicable one.
+            */}
+            {depletedLabel(item) ? (
+              <DetailField
+                label="Depleted"
+                value={depletedLabel(item) as string}
+                editable={false}
+              />
+            ) : null}
             <DetailField label="Source" value={sourceLabel(item?.source)} editable={false} />
           </DetailCard>
         ) : null}

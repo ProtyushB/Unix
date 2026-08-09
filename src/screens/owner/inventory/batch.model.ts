@@ -39,6 +39,15 @@ export interface BatchDto {
   stockInMultiplier?: number | null;
   /** Write-once server stamp. Non-null means stock has been drawn — see `canDeleteBatch`. */
   firstUsedAt?: string | null;
+  /**
+   * "Depleted SINCE", not write-once — the server clears it when a batch is revived.
+   *
+   * It exists because nothing else records the moment: the DEPLETED flip happens in a JPA entity
+   * callback with no audit service, so no status-audit row is ever written for it, and `updatedAt`
+   * is bumped by any write at all. Absent until the backend migration lands, which is why the row
+   * that reads it is conditional rather than showing an em dash.
+   */
+  depletedAt?: string | null;
   /** "COMBO_BREAK" / "STOCK_TRANSFER", or null for a manual entry. */
   source?: string | null;
   productSnapshot?: { name?: string; brand?: string } | null;
@@ -118,6 +127,22 @@ export function formatStamp(instant: string | null | undefined): string {
     d.getDate(),
   ).padStart(2, '0')}`;
   return `${formatBatchDate(ymd)}, ${h12}:${String(d.getMinutes()).padStart(2, '0')} ${meridiem}`;
+}
+
+/**
+ * "2 Aug 2026, 4:30 PM" for a batch that is depleted, or null so the row is not rendered at all.
+ *
+ * Gated on the STATUS as well as the stamp, deliberately. The server clears `depletedAt` when a
+ * batch is revived, so the two should never disagree — but if one ever survives a revive, this
+ * fails to the silent side. "Depleted on 2 Aug" printed under an ACTIVE batch is worse than a
+ * missing row: it is a confident statement of something untrue.
+ *
+ * Null for a legacy batch depleted before the column existed, which is honest — nothing recorded
+ * when it happened, and `updatedAt` is not a stand-in because any write moves it.
+ */
+export function depletedLabel(batch: BatchDto | null | undefined): string | null {
+  if (batch?.status !== 'DEPLETED') return null;
+  return formatStamp(batch?.depletedAt) || null;
 }
 
 /** "Expires 20 Nov 2026", or "Expired 15 Jul 2026" once past. */
