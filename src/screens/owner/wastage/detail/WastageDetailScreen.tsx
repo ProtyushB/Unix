@@ -12,10 +12,18 @@ import type { WastageDto, WastagePayload } from '../../../../backend/modules/sha
 import type { AppTheme } from '../../../../theme/theme.types';
 import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { CatalogPickerSheet, type CatalogRow } from '../../shared/detail/parts/CatalogPickerSheet';
+import {
+  POOL_BATCH_LIMIT,
+  aggregatePoolStock,
+  outOfStockNote,
+  pickerStock,
+  poolStockFor,
+  rowIsOutOfStock,
+  type PoolStock,
+} from '../../shared/detail/poolStock';
 import { OptionSheet } from '../../shared/detail/parts/OptionSheet';
 import {
   baseSaleUnit,
-  formatStockedQty,
   saleUnitsOf,
   type SaleUnit,
 } from '../../inventory/batchUnits';
@@ -33,7 +41,6 @@ import {
   shouldLoadCatalog,
   shouldResumeProductPick,
   showsCreateProduct,
-  showsPickerStock,
   type DetailMode,
 } from './wastageDetail.view';
 import { parlourWastageSlots } from './ParlourWastageDetail';
@@ -149,6 +156,20 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
 
   const [catalog, setCatalog] = useState<Record<string, unknown>[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
+
+  /**
+   * Every product's stock in the CURRENTLY SELECTED pool, for the picker's per-row figure.
+   *
+   * `null` means "not asked yet" and is not the same as an empty map, which means "asked, and the
+   * pool holds nothing" — the rows draw no stock in the first case and a disabled zero in the
+   * second. Collapsing the two would brand every row out-of-stock for the moment before the
+   * batches land.
+   *
+   * This replaces reading `availableQuantity` off the catalog row, which is the SELLABLE figure and
+   * has no raw counterpart: on the Raw pool the picker previously showed nothing at all and
+   * disabled nothing, so a product holding no raw stock looked pickable and failed on save.
+   */
+  const [poolStock, setPoolStock] = useState<Map<number, PoolStock> | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -289,6 +310,45 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId, scopeItemId, scopePool, moduleKey]);
 
+  /**
+   * One request per POOL, not one per product.
+   *
+   * `getTotalStock(itemId, businessId, pool)` would answer the same question a row at a time, which
+   * is 500 requests to draw one picker. A single `/byBusiness?inventoryType=…&status=ACTIVE`
+   * returns every batch in the pool and summing by `itemId` answers every row at once.
+   *
+   * Keyed on the POOL, so flipping the Product/Raw toggle re-derives all of it — the figure on each
+   * row, and which rows are inert. Watching only `businessId` would leave the picker describing the
+   * pool the user just switched away from, which is the bug this whole change exists to fix.
+   *
+   * Add mode only: the read view has a saved record and nothing to pick.
+   */
+  useEffect(() => {
+    if (mode !== 'add' || businessId == null) {
+      setPoolStock(null);
+      return;
+    }
+    let alive = true;
+    setPoolStock(null);
+    void activeModule
+      .loadInventoryByBusiness?.(
+        businessId,
+        { inventoryType: engine.form.inventoryType, status: 'ACTIVE' },
+        1,
+        POOL_BATCH_LIMIT,
+      )
+      .then((res: { success: boolean; data?: unknown }) => {
+        if (!alive) return;
+        // An empty map on failure, not null: null would leave the rows claiming the answer is still
+        // coming, and they would sit there blank forever.
+        setPoolStock(aggregatePoolStock(res?.success ? ((res.data as never[]) ?? []) : []));
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, businessId, engine.form.inventoryType, moduleKey]);
+
   /** The chosen product's ladder, for the unit picker on each row and every base-unit label. */
   const selected = useMemo(
     () => catalog.find((p) => Number((p as { id?: number }).id) === engine.form.itemId),
@@ -324,13 +384,11 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
    * `price` stays required — the stock slot sits BESIDE it, not instead of it — and there is no
    * thumbnail, which the shared sheet dropped for every caller.
    *
-   * ⚠️ The stock figure is only drawn for the PRODUCT pool. `availableQuantity` on a catalog row is
-   * the SELLABLE figure and there is no per-product raw figure on the list, so showing it while the
-   * form is set to Raw would promise stock the save cannot draw. On Raw the rows carry no stock and
-   * no zero-disable — see `showsPickerStock`, and note the picker's own helper line names whichever
-   * pool it is describing so the two can never disagree.
+   * The stock figure is drawn for BOTH pools, from `poolStock` rather than from the catalog row's
+   * `availableQuantity` — that field is the SELLABLE figure with no raw counterpart, so on Raw it
+   * used to leave every row blank and pickable, and a product holding no raw stock only failed on
+   * save. The picker's helper line names whichever pool it is describing, so the two agree.
    */
-  const showStock = showsPickerStock(engine.form.inventoryType);
   const catalogRows: CatalogRow[] = useMemo(
     () =>
       catalog.map((p) => {
@@ -340,30 +398,29 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
           brand?: string;
           price?: number;
           productType?: string;
-          availableQuantity?: number | null;
         };
-        const qty = row.availableQuantity;
-        const known = showStock && qty !== null && qty !== undefined;
-        const total = Number(qty ?? 0);
+        const id = Number(row.id);
         const units = saleUnitsOf(p);
         const unit = baseSaleUnit(units)?.unit || 'unit';
+        const stock = poolStockFor(poolStock, id);
+        const out = rowIsOutOfStock(stock);
         return {
-          id: Number(row.id),
+          id,
           name: String(row.name ?? `Product #${row.id}`),
           price: Number(row.price ?? 0),
           subtitle: row.brand ? String(row.brand) : undefined,
           badge: row.productType
             ? { label: String(row.productType), tone: 'muted' as const }
             : undefined,
-          stock: known ? { total: formatStockedQty(total, null, unit), breakdown: null } : null,
+          stock: pickerStock(stock, unit),
           // Inert at zero rather than a guaranteed refusal: tapping it could only ever produce a
           // server "no stock" the user cannot act on from inside the picker.
-          disabled: known && total <= 0,
-          disabledNote: known && total <= 0 ? 'No stock in this pool' : null,
+          disabled: out,
+          disabledNote: outOfStockNote(stock, engine.form.inventoryType),
           raw: p,
         };
       }),
-    [catalog, showStock],
+    [catalog, poolStock, engine.form.inventoryType],
   );
 
   const onSave = useCallback(async () => {
@@ -436,7 +493,7 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
           singleSelect
           title="Select Product"
           subtitle={mode === 'add' ? 'New wastage' : ''}
-          // Names whichever pool the stock column is actually describing — see `showsPickerStock`.
+          // Names whichever pool the stock column is actually describing — see `pickerHelper`.
           helper={pickerHelper(engine.form.inventoryType)}
           searchPlaceholder="Search name or brand"
           noun="product"
