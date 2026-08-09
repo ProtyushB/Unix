@@ -107,31 +107,15 @@ export function poolDescription(type: string): string {
 /**
  * The line under the picker's search box.
  *
- * Names the pool it is showing, because the picker's stock column is only truthful for one of them
- * — see `showsPickerStock`. The board draws the Product-pool wording; the Raw one exists so the
- * sentence never describes a figure that is not on screen.
+ * Names the pool it is showing. Both pools now carry a real per-row figure, drawn from one pooled
+ * batch read rather than the catalog's `availableQuantity` — that field is the SELLABLE total and
+ * has no raw counterpart, which is why the Raw pool used to show nothing at all and disable
+ * nothing, leaving a product with no raw stock looking pickable until the save refused it.
  */
 export function pickerHelper(type: string): string {
   return type === 'RAW_INVENTORY'
     ? 'Showing stock in the Raw pool'
     : 'Showing stock in the Product pool';
-}
-
-/**
- * Whether the picker draws a stock figure at all.
- *
- * PRODUCT only, and this is a real limitation rather than a preference: the catalog list carries
- * `availableQuantity`, which is the SELLABLE figure, and there is no per-product raw figure on it.
- * Showing the sellable number while the form is set to Raw would promise stock the save cannot
- * draw — the exact thing that makes a picker untrustworthy — and fetching a raw total per row would
- * be one request per product in the catalog.
- *
- * So on the Raw pool the rows simply carry no stock slot and no zero-disable, which is how the
- * three shipped pickers already render. The Available line on the form still reports the real Raw
- * figure once a product is chosen, because that one is a single request.
- */
-export function showsPickerStock(type: string): boolean {
-  return type !== 'RAW_INVENTORY';
 }
 
 // ─── App bar ─────────────────────────────────────────────────────────────────

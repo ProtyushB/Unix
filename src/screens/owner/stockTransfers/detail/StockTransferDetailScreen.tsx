@@ -21,6 +21,7 @@ import {
   poolLabel,
 } from '../stockTransfer.view';
 import {
+  POOL_BATCH_LIMIT,
   aggregatePoolStock,
   availabilityHelper,
   outOfStockNote,
@@ -28,7 +29,7 @@ import {
   poolStockFor,
   rowIsOutOfStock,
   type PoolStock,
-} from '../poolStock';
+} from '../../shared/detail/poolStock';
 import { StockTransferDetailBase } from './StockTransferDetailBase';
 import {
   deriveDetailView,
@@ -55,20 +56,6 @@ interface Props {
     addListener?: (event: string, cb: () => void) => (() => void) | undefined;
   };
 }
-
-/**
- * One page of the source pool's ACTIVE batches is enough to answer every stock question this screen
- * asks. 500 is the same cap `loadProductOptions` uses on the catalog, and for the same reason: the
- * picker only needs a total, and paging silently would hide the fact that it was capped.
- *
- * ⚠️ What the cap costs, now that the aggregate also names `sourceBatchId`: past 500 ACTIVE batches
- * in one pool the totals understate the stock and the resolved batch may not be the true lowest id.
- * Both errors fall on the SAFE side — a low ceiling refuses a transfer that would have worked, and a
- * higher-id starting batch simply has the server begin its overflow further along a list it walks
- * itself. Neither can move the wrong stock. If a business ever gets near this, page it rather than
- * raise the number.
- */
-const POOL_BATCH_LIMIT = 500;
 
 /**
  * A catalog row's base unit.

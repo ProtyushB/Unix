@@ -18,7 +18,6 @@ import {
   showsCreateProduct,
   showsDelete,
   showsEditCta,
-  showsPickerStock,
   validateWastage,
   type DetailViewInput,
 } from './wastageDetail.view';
@@ -133,15 +132,11 @@ describe('app-bar copy', () => {
 
 describe('picker copy', () => {
   it('names whichever pool the stock column is describing', () => {
+    // Both pools carry a real per-row figure now, drawn from one pooled batch read. This line has
+    // to track the toggle or it would name a pool the numbers beside it do not belong to — and on
+    // Raw there used to be no numbers at all, which is the bug that made it worth pinning.
     expect(pickerHelper('PRODUCT_INVENTORY')).toBe('Showing stock in the Product pool');
     expect(pickerHelper('RAW_INVENTORY')).toBe('Showing stock in the Raw pool');
-  });
-
-  it('draws a stock figure only for the pool the catalog actually reports', () => {
-    // `availableQuantity` on a catalog row is the SELLABLE figure and there is no raw counterpart,
-    // so showing it on the Raw pool would promise stock the save cannot draw.
-    expect(showsPickerStock('PRODUCT_INVENTORY')).toBe(true);
-    expect(showsPickerStock('RAW_INVENTORY')).toBe(false);
   });
 });
 
