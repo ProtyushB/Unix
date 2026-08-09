@@ -1,6 +1,7 @@
 import {
   baseEquivalence,
   batchName,
+  depletedLabel,
   expiryLabel,
   formatBatchDate,
   formatStamp,
@@ -79,6 +80,33 @@ describe('formatStamp', () => {
     expect(formatStamp(null)).toBe('');
     expect(formatStamp('')).toBe('');
     expect(formatStamp('not a date')).toBe('');
+  });
+});
+
+describe('depletedLabel', () => {
+  it('reads the stamp for a depleted batch', () => {
+    expect(depletedLabel(batch({ status: 'DEPLETED', depletedAt: '2026-08-02T16:30:00' }))).toBe(
+      '2 Aug 2026, 4:30 PM',
+    );
+  });
+
+  it('says nothing for a batch that is not depleted, even carrying a stale stamp', () => {
+    // The server clears depletedAt on revive, so these should never disagree. If one ever survives,
+    // fail silent: "Depleted on 2 Aug" under an ACTIVE batch is a confident statement of a lie.
+    expect(depletedLabel(batch({ status: 'ACTIVE', depletedAt: '2026-08-02T16:30:00' }))).toBeNull();
+    expect(depletedLabel(batch({ status: 'ON_HOLD', depletedAt: '2026-08-02T16:30:00' }))).toBeNull();
+  });
+
+  it('says nothing for a batch depleted before the column existed', () => {
+    // Legacy rows carry no stamp, and updatedAt is not a stand-in — any write moves it.
+    expect(depletedLabel(batch({ status: 'DEPLETED', depletedAt: null }))).toBeNull();
+    expect(depletedLabel(batch({ status: 'DEPLETED' }))).toBeNull();
+  });
+
+  it('survives a missing batch and an unparseable stamp', () => {
+    expect(depletedLabel(null)).toBeNull();
+    expect(depletedLabel(undefined)).toBeNull();
+    expect(depletedLabel(batch({ status: 'DEPLETED', depletedAt: 'not a date' }))).toBeNull();
   });
 });
 
