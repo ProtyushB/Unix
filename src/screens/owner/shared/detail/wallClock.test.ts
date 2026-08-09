@@ -1,6 +1,7 @@
 import {
   IST_OFFSET_MINUTES,
   TIME_SLOTS,
+  nowIstParts,
   joinIstInstant,
   joinWallClock,
   splitIstInstant,
@@ -74,6 +75,31 @@ describe('splitIstInstant', () => {
 
   it('pads every part to two digits', () => {
     expect(splitIstInstant('2026-01-02T01:04:00Z')).toEqual({ date: '2026-01-02', time: '06:34' });
+  });
+});
+
+describe('nowIstParts', () => {
+  it('gives the IST date and a time snapped BACK to a slot', () => {
+    // 11:37Z is 17:07 IST, which is not a slot — snapping forward would seed a time that has not
+    // happened yet, so it floors to 17:00.
+    expect(nowIstParts(new Date('2026-08-04T11:37:00.000Z'))).toEqual({
+      date: '2026-08-04',
+      time: '17:00',
+    });
+  });
+
+  it('leaves an exact slot alone', () => {
+    expect(nowIstParts(new Date('2026-08-04T11:45:00.000Z'))).toEqual({
+      date: '2026-08-04',
+      time: '17:15',
+    });
+  });
+
+  it('uses the IST day, which can be tomorrow', () => {
+    expect(nowIstParts(new Date('2026-08-09T20:10:00.000Z'))).toEqual({
+      date: '2026-08-10',
+      time: '01:30',
+    });
   });
 });
 

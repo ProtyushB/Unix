@@ -29,7 +29,7 @@ export type OwnerTabParamList = {
   Consumptions: NavigatorScreenParams<ConsumptionsStackParamList>;
   StockTransfers: NavigatorScreenParams<StockTransfersStackParamList>;
   Wastage: NavigatorScreenParams<WastageStackParamList>;
-  Expenses: undefined;
+  Expenses: NavigatorScreenParams<ExpensesStackParamList>;
   Customers: undefined;
   Employees: undefined;
   WarrantyClaims: undefined;
@@ -109,6 +109,21 @@ export type WastageStackParamList = {
   WastageDetail: { wastageId?: number; mode: 'view' | 'add' };
   /** "New Product" from the picker. Same reason it is on the Consumptions stack — see above. */
   ProductDetail: { productId?: number; mode: 'view' | 'edit' | 'add' };
+};
+
+/**
+ * The Expenses tab's stack.
+ *
+ * ⚠️ Note the mode union: `'view' | 'add' | 'edit'`, THREE where its stock-ops siblings have two.
+ * An expense moves no stock, so unlike a consumption / wastage / transfer it can simply be
+ * corrected rather than deleted and re-entered.
+ *
+ * No `ProductDetail` here — an expense names no product, so the picker that makes the other stacks
+ * carry it does not exist on this one.
+ */
+export type ExpensesStackParamList = {
+  ExpensesMain: undefined;
+  ExpenseDetail: { expenseId?: number; mode: 'view' | 'add' | 'edit' };
 };
 
 /** The Stock Transfers tab's stack. Same shape and same reasons — see the consumptions one. */

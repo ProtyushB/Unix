@@ -22,6 +22,7 @@ import type {
   ServicesStackParamList,
   StockTransfersStackParamList,
   WastageStackParamList,
+  ExpensesStackParamList,
 } from './types';
 
 import DashboardScreen from '../screens/owner/DashboardScreen';
@@ -47,7 +48,8 @@ import { StockTransfersScreen } from '../screens/owner/stockTransfers/StockTrans
 import { StockTransferDetailScreen } from '../screens/owner/stockTransfers/detail/StockTransferDetailScreen';
 import { WastageScreen } from '../screens/owner/wastage/WastageScreen';
 import { WastageDetailScreen } from '../screens/owner/wastage/detail/WastageDetailScreen';
-import { PlaceholderScreen } from '../screens/owner/PlaceholderScreen';
+import { ExpensesScreen } from '../screens/owner/expenses/ExpensesScreen';
+import { ExpenseDetailScreen } from '../screens/owner/expenses/detail/ExpenseDetailScreen';
 import { CustomersScreen } from '../screens/owner/CustomersScreen';
 import { EmployeesScreen } from '../screens/owner/EmployeesScreen';
 import { WarrantyClaimsScreen } from '../screens/owner/WarrantyClaimsScreen';
@@ -146,6 +148,17 @@ function WastageNavigator() {
       <WastageStack.Screen name="WastageDetail" component={WastageDetailScreen} />
       <WastageStack.Screen name="ProductDetail" component={ProductDetailScreen} />
     </WastageStack.Navigator>
+  );
+}
+
+const ExpensesStack = createNativeStackNavigator<ExpensesStackParamList>();
+
+function ExpensesNavigator() {
+  return (
+    <ExpensesStack.Navigator screenOptions={{ headerShown: false }}>
+      <ExpensesStack.Screen name="ExpensesMain" component={ExpensesScreen} />
+      <ExpensesStack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
+    </ExpensesStack.Navigator>
   );
 }
 
@@ -389,9 +402,15 @@ export function OwnerTabNavigator() {
                   tabPress: () => navigation.navigate('Wastage', { screen: 'WastageMain' }),
                 })}
               />
-              {/* No Expenses screen yet — the placeholder reads its title from the
-                  route name, so this renders "Expenses / Coming soon". */}
-              <Tab.Screen name="Expenses" component={PlaceholderScreen} />
+              <Tab.Screen
+                name="Expenses"
+                component={ExpensesNavigator}
+                listeners={({ navigation }) => ({
+                  // Without this, re-entering the tab restores the nested state and lands on a
+                  // stale detail screen rather than the list.
+                  tabPress: () => navigation.navigate('Expenses', { screen: 'ExpensesMain' }),
+                })}
+              />
               <Tab.Screen name="Customers" component={CustomersScreen} />
               <Tab.Screen name="Employees" component={EmployeesScreen} />
               <Tab.Screen name="WarrantyClaims" component={WarrantyClaimsScreen} />

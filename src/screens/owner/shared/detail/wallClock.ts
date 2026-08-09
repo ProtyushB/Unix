@@ -125,6 +125,19 @@ export function splitIstInstant(value: string | null | undefined): { date: strin
 }
 
 /**
+ * Right now, as the two controls would hold it: IST date plus a time SNAPPED to a slot.
+ *
+ * Snapped because the slot list is quarter-hourly — seeding a raw "14:07" would leave the picker
+ * showing nothing selected, which reads as "no time chosen" on a field that has one.
+ *
+ * `now` is a parameter so this is testable; callers pass the real clock.
+ */
+export function nowIstParts(now: Date = new Date()): { date: string; time: string } {
+  const parts = splitIstInstant(now.toISOString());
+  return { date: parts.date, time: parts.time ? snapToSlot(parts.time) : '' };
+}
+
+/**
  * The nearest slot at or BEFORE `hhmm` — "17:10" → "17:00".
  *
  * Floors rather than rounds so seeding a field from the current clock can never land on a time that

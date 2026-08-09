@@ -299,6 +299,33 @@ export const REGISTRY: ScreenEntry[] = [
     load: () => import('../src/screens/owner/wastage/detail/WastageDetailScreen'),
   },
   {
+    id: 'owner/expenses',
+    title: 'Expenses',
+    group: 'Owner',
+    load: () => import('../src/screens/owner/expenses/ExpensesScreen'),
+  },
+  {
+    id: 'owner/expense-detail-view',
+    title: 'Expense Detail · View',
+    group: 'Owner',
+    params: { expenseId: 1, mode: 'view' },
+    load: () => import('../src/screens/owner/expenses/detail/ExpenseDetailScreen'),
+  },
+  {
+    id: 'owner/expense-detail-add',
+    title: 'Expense Detail · Add',
+    group: 'Owner',
+    params: { mode: 'add' },
+    load: () => import('../src/screens/owner/expenses/detail/ExpenseDetailScreen'),
+  },
+  {
+    id: 'owner/expense-detail-edit',
+    title: 'Expense Detail · Edit',
+    group: 'Owner',
+    params: { expenseId: 1, mode: 'edit' },
+    load: () => import('../src/screens/owner/expenses/detail/ExpenseDetailScreen'),
+  },
+  {
     id: 'owner/stock-transfers',
     title: 'Stock Transfers',
     group: 'Owner',
