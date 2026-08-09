@@ -10,6 +10,22 @@
 /** Server enum. NOT `PRODUCT` / `RAW` — the full constant names are pinned by a DB CHECK. */
 export type InventoryType = 'PRODUCT_INVENTORY' | 'RAW_INVENTORY';
 
+/**
+ * The two pools as a segmented control renders them, Product first.
+ *
+ * Only the two REAL values, with no null/"either" member: every form that shows this control is
+ * choosing a pool to act on, and "unspecified" is not a pool stock can come out of.
+ *
+ * Deliberately not a `poolLabel()` — the features disagree about what a MISSING pool should read
+ * as (`stockTransfer.view` defaults it to "Product", `wastage.view` returns an empty string because
+ * it renders as a card badge where a guess is worse than a blank), and that disagreement is about
+ * null, which this array does not contain.
+ */
+export const POOL_OPTIONS: readonly { value: InventoryType; label: string }[] = [
+  { value: 'PRODUCT_INVENTORY', label: 'Product' },
+  { value: 'RAW_INVENTORY', label: 'Raw' },
+];
+
 /** Server enum. Note the underscore in `ON_HOLD`. */
 export type InventoryStatus = 'ACTIVE' | 'EXPIRED' | 'DEPLETED' | 'ON_HOLD' | 'QUARANTINED';
 

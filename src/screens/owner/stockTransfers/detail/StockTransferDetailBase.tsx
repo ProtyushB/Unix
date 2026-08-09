@@ -20,6 +20,7 @@ import type {
   InventoryType,
   StockUnitLine,
 } from '../../../../backend/modules/shared/inventory.types';
+import { POOL_OPTIONS } from '../../../../backend/modules/shared/inventory.types';
 import type {
   StockTransferDto,
   StockTransferReason,
@@ -28,6 +29,7 @@ import { STOCK_TRANSFER_REASONS } from '../../../../backend/modules/shared/stock
 import { Badge } from '../../shared/detail/parts/Badge';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
+import { SegmentedField } from '../../shared/detail/parts/SegmentedField';
 import { UnitRowsEditor } from '../../shared/detail/parts/UnitRowsEditor';
 import { formatStamp } from '../../inventory/batch.model';
 import { recordQtyLabel } from '../../inventory/batchUnits';
@@ -206,13 +208,11 @@ export function StockTransferDetailBase({
               <PoolSelector
                 label="Source pool"
                 value={form.sourceType}
-                styles={styles}
                 onChange={onChangeDirection}
               />
               <PoolSelector
                 label="Destination pool"
                 value={form.destType}
-                styles={styles}
                 // The mirror: choosing a destination is choosing the other pool as the source.
                 onChange={(dest) => onChangeDirection(oppositePool(dest))}
               />
@@ -485,47 +485,25 @@ export function StockTransferDetailBase({
 function PoolSelector({
   label,
   value,
-  styles,
   onChange,
 }: {
   label: string;
   value: InventoryType;
-  styles: Styles;
   onChange: (pool: InventoryType) => void;
 }) {
+  // Kept as a named wrapper rather than inlining `SegmentedField` at both call sites: the two
+  // controls mirror each other and reading `<PoolSelector label="Source pool" …>` twice says that
+  // more plainly than two identical eight-prop elements would.
   return (
-    <View style={styles.field}>
-      <View style={styles.labelRow}>
-        <Text style={styles.editLabel}>{label}</Text>
-        <Text style={styles.required}>*</Text>
-      </View>
-      <View style={styles.segment}>
-        {(
-          [
-            ['PRODUCT_INVENTORY', 'Product'],
-            ['RAW_INVENTORY', 'Raw'],
-          ] as [InventoryType, string][]
-        ).map(([key, text]) => {
-          const active = value === key;
-          return (
-            <Pressable
-              key={key}
-              onPress={() => onChange(key)}
-              style={[styles.segmentItem, active && styles.segmentItemActive]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={`${label}: ${text}`}
-            >
-              <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>{text}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
+    <SegmentedField
+      label={label}
+      options={POOL_OPTIONS}
+      value={value}
+      onChange={onChange}
+      required
+    />
   );
 }
-
-type Styles = ReturnType<typeof createStyles>;
 
 function createStyles(theme: AppTheme) {
   const { colors, palette } = theme;
@@ -569,19 +547,7 @@ function createStyles(theme: AppTheme) {
     helper: { fontSize: 11.5, color: palette.muted, lineHeight: 16 },
     placeholder: { fontSize: 13, color: palette.muted },
 
-    segment: {
-      flexDirection: 'row',
-      gap: 3,
-      padding: 3,
-      borderRadius: 12,
-      backgroundColor: palette.surfaceElevated,
-      borderWidth: 1,
-      borderColor: palette.divider,
-    },
-    segmentItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10 },
-    segmentItemActive: { backgroundColor: colors.softBg },
-    segmentLabel: { fontSize: 13, fontWeight: '600', color: palette.muted },
-    segmentLabelActive: { color: colors.primary },
+    // The Product/Raw control's own styles moved to `SegmentedField` with the component.
 
     // The summary under the two selectors. Tinted rather than muted: it is the one line that says
     // what the pair adds up to, and it changes under the user's finger.
