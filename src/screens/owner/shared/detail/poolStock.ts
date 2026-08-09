@@ -1,15 +1,31 @@
-import type { InventoryType } from '../../../backend/modules/shared/inventory.types';
-import type { BatchDto } from '../inventory/batch.model';
-import { formatStockedQty } from '../inventory/batchUnits';
-import { poolLabel } from './stockTransfer.view';
+import type { InventoryType } from '../../../../backend/modules/shared/inventory.types';
+import type { BatchDto } from '../../inventory/batch.model';
+import { formatStockedQty } from '../../inventory/batchUnits';
+
+/**
+ * "Product" / "Raw" for the sentences below, defined here rather than imported from a feature.
+ *
+ * Both `stockTransfer.view` and `wastage.view` export a `poolLabel`, and they deliberately DIFFER:
+ * the transfer one defaults a missing pool to "Product", the wastage one returns an empty string
+ * because it renders as a card badge where a guess would be worse than a blank. Neither is wrong
+ * for its own screen, so this module carries the one it needs — every sentence here is written
+ * about a pool that is already known — instead of forcing a shared default onto both.
+ */
+function poolLabel(pool: InventoryType | null | undefined): string {
+  return pool === 'RAW_INVENTORY' ? 'Raw' : 'Product';
+}
 
 /**
  * How much of each product sits in ONE pool, derived from that pool's batches.
  *
- * Exists because the transfer form has to answer the same question in three places — the picker's
- * per-row stock figure, the "Available: …" helper, and the over-draw check — and the obvious way to
- * answer it (`getTotalStock(itemId, businessId, pool)`) is one request PER PRODUCT. A catalog of
- * 500 would be 500 requests to populate one picker.
+ * Shared by the transfer and write-off forms, both of which have to answer the same question in
+ * three places — the picker's per-row stock figure, the "Available: …" helper, and the over-draw
+ * check — and the obvious way to answer it (`getTotalStock(itemId, businessId, pool)`) is one
+ * request PER PRODUCT. A catalog of 500 would be 500 requests to populate one picker.
+ *
+ * It lives here rather than under either feature because the alternative was two copies of the
+ * same stock arithmetic. Wastage originally had none and simply drew no stock on the Raw pool,
+ * which meant a user could pick a product holding nothing and only find out on save.
  *
  * One `GET /byBusiness?inventoryType=…&status=ACTIVE` returns every batch in the pool, and summing
  * it by `itemId` answers all three at once. It also re-derives instantly when the DIRECTION flips,
@@ -17,6 +33,20 @@ import { poolLabel } from './stockTransfer.view';
  *
  * RN-free so jest can cover it — the arithmetic here decides whether a row is pickable.
  */
+
+/**
+ * One page of a pool's ACTIVE batches, which is enough to answer every stock question either form
+ * asks. 500 matches the cap `loadProductOptions` uses on the catalog, for the same reason: the
+ * picker only needs a total, and paging silently would hide that it had been capped.
+ *
+ * ⚠️ What the cap costs, now that the aggregate also names `sourceBatchId`: past 500 ACTIVE batches
+ * in one pool the totals understate the stock and the resolved batch may not be the true lowest id.
+ * Both errors fall on the SAFE side — a low ceiling refuses a movement that would have worked, and
+ * a higher-id starting batch simply has the server begin its overflow further along a list it walks
+ * itself. Neither can move the wrong stock. If a business ever gets near this, page it rather than
+ * raise the number.
+ */
+export const POOL_BATCH_LIMIT = 500;
 
 export interface PoolStock {
   itemId: number;
