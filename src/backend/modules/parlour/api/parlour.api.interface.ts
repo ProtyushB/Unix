@@ -8,6 +8,11 @@ import type {
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+import type {
+  ExpensePayload,
+  ExpenseQuery,
+  ExpenseUpdatePayload,
+} from '../../shared/expense.types';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -411,6 +416,46 @@ export abstract class ParlourApiInterface {
   ): Promise<ApiResponse<unknown[]>>;
   /** Deleting RESTOCKS what was written off, back into the batches it came out of. */
   abstract deleteWastage(id: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Expense ───────────────────────────────────────────────────────────────
+  //
+  // The odd one out: an expense moves no stock, so unlike the three slices above it is MUTABLE.
+  // Six methods rather than four — a real `updateExpense`, plus `markExpenseReimbursed`.
+  //
+  // ⚠️ `updateExpense` REPLACES the receipt list. The server's module updater overwrites `files`
+  // with whatever arrives and writes an empty list when the key is absent, so a PUT that omits
+  // `files` ERASES every attachment. Callers must always send the full list.
+  //
+  // ⚠️ `markExpenseReimbursed` is the only route to a settled expense — PUT silently drops
+  // `reimbursed`/`reimbursedAt`/`reimbursedBy`. It answers **409 STATE_CONFLICT** when the expense
+  // is not reimbursable or is already settled, and there is no un-reimburse endpoint.
+  //
+  // ⚠️ Same `totalPages`-only envelope as the three above, so no `*Total` cell should exist. The ₹
+  // figure in the list header comes from `getExpenseTotalByCategory`, which is a different request.
+  abstract createExpense(data: ExpensePayload): Promise<ApiResponse<unknown>>;
+  abstract getExpense(id: number): Promise<ApiResponse<unknown>>;
+  abstract getExpenseByBusiness(
+    businessId: number,
+    query?: ExpenseQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  abstract updateExpense(id: number, data: ExpenseUpdatePayload): Promise<ApiResponse<unknown>>;
+  abstract deleteExpense(id: number): Promise<ApiResponse<unknown>>;
+  /** `reimbursedBy` is an `employments(id)`; omitted entirely when null. */
+  abstract markExpenseReimbursed(
+    id: number,
+    reimbursedBy?: number | null,
+  ): Promise<ApiResponse<unknown>>;
+  /**
+   * Per-category sums for a date range. Returns all 15 keys, zero-filled — summing them gives the
+   * month total, reading one gives the filtered total.
+   */
+  abstract getExpenseTotalByCategory(
+    businessId: number,
+    from: string,
+    to: string,
+  ): Promise<ApiResponse<Record<string, number>>>;
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   //

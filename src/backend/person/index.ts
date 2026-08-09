@@ -13,5 +13,6 @@ export type {
   UpdateBusinessFlags,
   CreateCustomerPayload,
   CustomerDto,
+  EmploymentDto,
   CustomerLookupMatch,
 } from './api/person.api.interface';

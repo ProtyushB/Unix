@@ -105,4 +105,24 @@ export const PARLOUR_ROUTES = {
   // baked in here so the same constant still serves `GET /{id}` and `DELETE /{id}`.
   STOCK_TRANSFER_BASE: '/parlourStockTransfer',
   STOCK_TRANSFER_BY_BUSINESS: '/parlourStockTransfer/byBusiness',
+
+  // ─── Expense ───────────────────────────────────────────────────────────────
+  // Same shape as the three above — ids are PATH SEGMENTS, the list lives under `/byBusiness` — but
+  // this feature has two endpoints the stock ones do not, because an expense is mutable:
+  //
+  //   • `PUT {base}/{id}` — a real update. Consumption, wastage and stock transfer have no PUT at
+  //     all; changing one of those would mean re-running a stock movement. An expense moves no
+  //     stock, so it can simply be corrected.
+  //   • `PATCH {base}/{id}/reimburse` — the ONLY route to a settled expense. The reimbursement
+  //     state is not writable through PUT (the server drops those three fields), and there is no
+  //     un-reimburse endpoint: settling is terminal.
+  //
+  // ⚠️ POST needs a TRAILING SLASH, exactly as the three above — `@PostMapping("/")` does not match
+  // a bare `/parlourExpense`. Added at the call site so the same constant still serves
+  // `GET|PUT|DELETE /{id}`.
+  EXPENSE_BASE: '/parlourExpense',
+  EXPENSE_BY_BUSINESS: '/parlourExpense/byBusiness',
+  // Per-category sums over a date range. The list endpoint reports `totalPages` and nothing else,
+  // so this is the ONLY way to put a real ₹ figure in the header — a count is simply not available.
+  EXPENSE_TOTAL_BY_CATEGORY: '/parlourExpense/totalByCategory',
 };

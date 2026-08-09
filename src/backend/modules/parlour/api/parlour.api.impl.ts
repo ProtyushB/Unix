@@ -25,6 +25,11 @@ import {
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+import type {
+  ExpensePayload,
+  ExpenseQuery,
+  ExpenseUpdatePayload,
+} from '../../shared/expense.types';
 
 export class ParlourApiImpl extends ParlourApiInterface {
   // ── Products ───────────────────────────────────────────────────────────────
@@ -524,6 +529,85 @@ export class ParlourApiImpl extends ParlourApiInterface {
   async deleteWastage(id: number): Promise<ApiResponse<unknown>> {
     // Deleting RESTOCKS what was written off — a reversal, not a tidy-up.
     const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.WASTAGE_BASE}/${id}`);
+    return res.data;
+  }
+
+  // ─── Expense ───────────────────────────────────────────────────────────────
+  // Same three traps as the slices above, plus two of its own that come from being MUTABLE.
+  // The enum trap is solved a layer up in `parlour.service.ts`, because the fix is to never make
+  // the call — and this feature carries three enums rather than one.
+  async createExpense(data: ExpensePayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ TRAP 1 — the TRAILING SLASH. `@PostMapping("/")` does not match a bare `/parlourExpense`:
+    // the request 404s with nothing in the body to say why.
+    const res = await parlourApiClient.post(`${PARLOUR_ROUTES.EXPENSE_BASE}/`, data);
+    return res.data;
+  }
+  async getExpense(id: number): Promise<ApiResponse<unknown>> {
+    const res = await parlourApiClient.get(`${PARLOUR_ROUTES.EXPENSE_BASE}/${id}`);
+    return res.data;
+  }
+  async getExpenseByBusiness(
+    businessId: number,
+    query: ExpenseQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.EXPENSE_BY_BUSINESS, {
+      // `compactParams`, never a bare spread — see the wastage list above for why.
+      //
+      // It matters more here: `pendingReimbursementOnly` applies only when literally true, so a
+      // serialised `pendingReimbursementOnly=` would be read as false and quietly mean "no filter"
+      // rather than erroring. Dropping the key is the only way to say "no filter" out loud.
+      //
+      // ⚠️ TRAP 2 — paging is 1-BASED and the size param is `limit`. Clamp lives in the service.
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async updateExpense(id: number, data: ExpenseUpdatePayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ TRAP 4 — the id travels in BOTH the path and the body, and the controller overwrites the
+    // body's from the path. Sending only one of the two is not enough: `businessId` is ignored by
+    // the update funnel but is still `@NotNull @Positive`, so a body without it is a 400 naming a
+    // field the user cannot see.
+    //
+    // ⚠️ TRAP 5 — `files` is REPLACE, not append. The module updater writes an empty list when the
+    // key is absent, so a PUT that omits it ERASES every receipt. The caller always sends the list.
+    const res = await parlourApiClient.put(`${PARLOUR_ROUTES.EXPENSE_BASE}/${id}`, data);
+    return res.data;
+  }
+  async deleteExpense(id: number): Promise<ApiResponse<unknown>> {
+    // ⚠️ The response's `files` is ALWAYS `[]` regardless of what was attached — the lazy
+    // collection is uninitialised once the session closes. Never render receipts off this payload.
+    const res = await parlourApiClient.delete(`${PARLOUR_ROUTES.EXPENSE_BASE}/${id}`);
+    return res.data;
+  }
+  async markExpenseReimbursed(
+    id: number,
+    reimbursedBy?: number | null,
+  ): Promise<ApiResponse<unknown>> {
+    // PATCH with no body. `reimbursedAt` is server-stamped; a client cannot supply it.
+    //
+    // ⚠️ Answers 409 `STATE_CONFLICT` when the expense is not reimbursable or is already settled.
+    // That is a real, reachable state — two taps on the same row, or two devices — so the screen
+    // renders it as its own message rather than a generic failure.
+    const res = await parlourApiClient.patch(
+      `${PARLOUR_ROUTES.EXPENSE_BASE}/${id}/reimburse`,
+      undefined,
+      { params: compactParams({ reimbursedBy }) },
+    );
+    return res.data;
+  }
+  async getExpenseTotalByCategory(
+    businessId: number,
+    from: string,
+    to: string,
+  ): Promise<ApiResponse<Record<string, number>>> {
+    // All three params are REQUIRED here — unlike the list, there are no defaults to fall back on,
+    // and `from`/`to` are bound as `Instant` with `@DateTimeFormat(ISO.DATE_TIME)`. A date-only
+    // value like `2026-08-01` is a 500, not a 400, so callers must pass full ISO instants.
+    const res = await parlourApiClient.get(PARLOUR_ROUTES.EXPENSE_TOTAL_BY_CATEGORY, {
+      params: compactParams({ businessId, from, to }),
+    });
     return res.data;
   }
 

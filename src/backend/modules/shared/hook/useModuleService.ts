@@ -21,6 +21,7 @@ import type {
 } from '../inventory.types';
 import type { ConsumptionPayload, ConsumptionQuery } from '../consumption.types';
 import type { WastagePayload, WastageQuery } from '../wastage.types';
+import type { ExpensePayload, ExpenseQuery, ExpenseUpdatePayload } from '../expense.types';
 import type { StockTransferPayload, StockTransferQuery } from '../stockTransfer.types';
 import { DmsService } from '../../../dms/service/dms.service';
 import { createEntityFolder } from '../../../dms/util/EntityFolderUtils';
@@ -348,6 +349,26 @@ interface ModuleService {
   ): Promise<ServiceResult>;
   deleteWastage(id: number): Promise<ServiceResult>;
 
+  // ─── Expense ───────────────────────────────────────────────────────────────
+  //
+  // Six methods, not four: an expense moves no stock, so unlike consumption / wastage / stock
+  // transfer it is genuinely editable and has a real `updateExpense`. `markExpenseReimbursed` is the
+  // only route to a settled expense and surfaces 409 STATE_CONFLICT as a `code` for the screen to
+  // branch on, the same way `deleteStockTransfer` surfaces STOCK_MOVEMENT_LOCKED.
+  createExpense(data: ExpensePayload): Promise<ServiceResult>;
+  getExpense(id: number): Promise<ServiceResult>;
+  getExpenseByBusiness(
+    businessId: number,
+    query?: ExpenseQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ServiceResult>;
+  /** ⚠️ `data.files` must be the FULL list — the server replaces the collection, it does not merge. */
+  updateExpense(id: number, data: ExpenseUpdatePayload): Promise<ServiceResult>;
+  deleteExpense(id: number): Promise<ServiceResult>;
+  markExpenseReimbursed(id: number, reimbursedBy?: number | null): Promise<ServiceResult>;
+  getExpenseTotalByCategory(businessId: number, from: string, to: string): Promise<ServiceResult>;
+
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   // The consumption four, with `StockTransferQuery` in place of `ConsumptionQuery` — note it has no
   // `reason` key, deliberately, because the transfer controller reads no such param.
@@ -494,6 +515,17 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     // literal) would re-run that effect, re-setState, and spin the screen until React blanks it.
     const [stockTransfers, setStockTransfers] = useState<unknown[]>([]);
     const [stockTransfersTotalPages, setStockTransfersTotalPages] = useState(1);
+
+    // ─── Expense ─────────────────────────────────────────────────────────────
+    // Two cells, and DELIBERATELY not a third — same envelope as the three above: `/byBusiness`
+    // reports `totalPages` and no `totalElements`, so an `expensesTotal` could only hold a guess.
+    //
+    // The list header DOES carry a real ₹ figure, but it does not come from here: it is a separate
+    // `totalByCategory` call over a date range, kept out of this slice because it answers a
+    // different question (what a month cost) than the rows do (which expenses match the filters).
+    // Notably it does NOT narrow with the search box — see `expense.view.ts`.
+    const [expenses, setExpenses] = useState<unknown[]>([]);
+    const [expensesTotalPages, setExpensesTotalPages] = useState(1);
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -2284,6 +2316,193 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       [service],
     );
 
+    // ─── Expense ─────────────────────────────────────────────────────────────
+
+    /**
+     * Page of expenses. `append` distinguishes infinite-scroll from a fresh query, exactly as the
+     * three stock slices do — page 2 of a different query is not the continuation of page 1.
+     *
+     * Only `totalPages` is captured. There is no row count to capture — see the state cells.
+     */
+    const loadExpenseByBusiness = useCallback(
+      async (
+        businessId: number,
+        query: ExpenseQuery = {},
+        page = 1,
+        limit = 20,
+        append = false,
+      ) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.getExpenseByBusiness(businessId, query, page, limit);
+          if (response.success) {
+            const rows = Array.isArray(response.data) ? response.data : [];
+            setExpenses((prev) => (append ? [...prev, ...rows] : rows));
+            setExpensesTotalPages(response.totalPages ?? 1);
+            return { success: true, data: rows };
+          }
+          setError(response.error || response.message || null);
+          if (!append) setExpenses([]);
+          return { success: false, error: response.error };
+        } catch (err) {
+          const message = (err as Error).message || 'Failed to load expenses';
+          setError(message);
+          if (!append) setExpenses([]);
+          return { success: false, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /** Fetch ONE expense for the detail screen. Contract and reasoning: see `readOne`. */
+    const loadExpense = useCallback(
+      (id: number) => readOne(() => service.getExpense(id), 'Failed to load expense'),
+      [service],
+    );
+
+    const createExpense = useCallback(
+      async (data: ExpensePayload) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.createExpense(data);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to record expense');
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to record expense';
+          setError(message);
+          // `code` carries TAB_DISABLED and FEATURE_DISABLED, both 403s the screen words for itself:
+          // the EXPENSES tab being off, and the reimbursement feature being off while an employee
+          // is attached.
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Correct an expense.
+     *
+     * ⚠️ `data.files` must be the FULL receipt list on every call. The server REPLACES the
+     * collection and writes an empty one when the key is absent, so a partial payload silently
+     * erases every attachment. The service layer refuses a missing list rather than letting that
+     * reach the wire.
+     */
+    const updateExpense = useCallback(
+      async (id: number, data: ExpenseUpdatePayload) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.updateExpense(id, data);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to save this expense');
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error || body?.message || (err as Error).message || 'Failed to save this expense';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    const deleteExpense = useCallback(
+      async (id: number) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.deleteExpense(id);
+          if (response.success) return { success: true, data: response.data };
+          throw new Error(response.error || response.message || 'Failed to delete this expense');
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to delete this expense';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Settle a reimbursement. The server stamps the time; the client supplies nothing but the id.
+     *
+     * ⚠️ Like `deleteStockTransfer`, a 409 RESOLVES as `{ success: false, code, error }` rather than
+     * throwing, so the screen can say WHY. `STATE_CONFLICT` here means the expense is not
+     * reimbursable or was already settled — reachable by two taps on the same row, or by two
+     * devices — and "Could not mark reimbursed" is the wrong thing to say about a row that already
+     * is. There is no un-reimburse endpoint, so this is one-way.
+     */
+    const markExpenseReimbursed = useCallback(
+      async (id: number, reimbursedBy?: number | null) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await service.markExpenseReimbursed(id, reimbursedBy);
+          if (response.success) return { success: true, data: response.data };
+          return { success: false, error: response.error || response.message || null };
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          const message =
+            body?.error ||
+            body?.message ||
+            (err as Error).message ||
+            'Failed to mark this expense reimbursed';
+          setError(message);
+          return { success: false, code: body?.code, error: message };
+        } finally {
+          setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Per-category ₹ sums for a date range — what the list header's "This month · ₹68,020" is built
+     * from. Writes NO shared state: it answers a different question than the rows do, and holding it
+     * in a cell beside `expenses` would invite someone to render one against the other's filters.
+     */
+    const loadExpenseTotalByCategory = useCallback(
+      (businessId: number, from: string, to: string) =>
+        readOne(
+          () => service.getExpenseTotalByCategory(businessId, from, to),
+          'Failed to load expense totals',
+        ),
+      [service],
+    );
+
     const clearError = useCallback(() => {
       setError(null);
     }, []);
@@ -2324,6 +2543,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       // No `stockTransfersTotal` — the endpoint reports no row count. See the state cells.
       stockTransfers,
       stockTransfersTotalPages,
+
+      // ─── Expense ───────────────────────────────────────────────────────────
+      // No `expensesTotal` — the endpoint reports no row count. The header's ₹ figure comes from
+      // `loadExpenseTotalByCategory`, which holds no state. See the state cells.
+      expenses,
+      expensesTotalPages,
 
       loading,
       error,
@@ -2418,6 +2643,16 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       loadStockTransfer,
       createStockTransfer,
       deleteStockTransfer,
+
+      // Expense — the mutable one: a real update, plus a reimburse action whose 409 STATE_CONFLICT
+      // resolves rather than throws so the screen can word it.
+      loadExpenseByBusiness,
+      loadExpense,
+      createExpense,
+      updateExpense,
+      deleteExpense,
+      markExpenseReimbursed,
+      loadExpenseTotalByCategory,
 
       // Utility
       clearError,

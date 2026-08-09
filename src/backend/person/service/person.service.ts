@@ -12,6 +12,7 @@ import {
   ClaimCustomerPayload,
   CreateCustomerPayload,
   CustomerDto,
+  EmploymentDto,
   CustomerLookupMatch,
 } from '../api/person.api.interface';
 import { AxiosError } from 'axios';
@@ -205,6 +206,40 @@ export class PersonService {
         success: false,
         data: null,
         error: this.extractErrorMessage(error, 'Failed to load customers'),
+      };
+    }
+  }
+
+  /**
+   * A business's ACTIVE staff, for the expense form's "Reimburse to" picker.
+   *
+   * ⚠️ The rows are EMPLOYMENTS. `EmploymentDto.id` is the `employments(id)` an expense's
+   * `paidByEmployeeId` refers to — not the person's id. Callers must pass that through unchanged.
+   */
+  async getActiveEmployees(
+    businessId: number,
+    page = 1,
+    limit = 50,
+  ): Promise<ServiceResult<EmploymentDto[]> & { totalPages?: number }> {
+    if (!businessId) {
+      return { success: false, data: null, error: 'Business ID is required' };
+    }
+    try {
+      const response = await this.api.getActiveEmployees(businessId, page, limit);
+      if (response.success) {
+        return {
+          success: true,
+          data: response.data,
+          error: null,
+          totalPages: (response as { totalPages?: number }).totalPages,
+        };
+      }
+      return { success: false, data: null, error: response.error || response.message };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: this.extractErrorMessage(error, 'Failed to load employees'),
       };
     }
   }
