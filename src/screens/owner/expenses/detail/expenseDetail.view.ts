@@ -164,6 +164,26 @@ export function writeRefusalMessage(code: string | undefined, error: string | nu
   return error || 'Could not save this expense.';
 }
 
+/**
+ * Which message the detail screen's banner shows, or null for none.
+ *
+ * A SAVE error outranks a LOAD error, because it is the more recent thing the user did and the one
+ * they are waiting on. A load failure that is still on screen underneath is not more interesting
+ * than "your save was refused".
+ *
+ * This exists because the screen had neither: `saveError` was set by the form hook and rendered
+ * nowhere, so every write refusal — the 403 when the Expenses tab is off, the 403 when
+ * reimbursement is off, the 409 on an already-settled expense, a receipt that failed to upload —
+ * left the form sitting there looking like nothing had happened. That is exactly the flaw this
+ * feature's own notes call out in the web portal's expense page; it is not one to reproduce.
+ */
+export function detailBanner(
+  saveError: string | null | undefined,
+  loadError: string | null | undefined,
+): string | null {
+  return saveError || loadError || null;
+}
+
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 export type ValidationErrors = Record<string, string>;

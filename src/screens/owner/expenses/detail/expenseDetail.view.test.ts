@@ -3,6 +3,7 @@ import {
   appBarSubtitle,
   appBarTitle,
   deriveDetailView,
+  detailBanner,
   errorSummary,
   hasErrors,
   isEditable,
@@ -129,6 +130,27 @@ describe('app-bar copy', () => {
     expect(saveCtaLabel('edit')).toBe('Save');
     expect(saveButtonLabel('add')).toBe('Record expense');
     expect(saveButtonLabel('edit')).toBe('Save changes');
+  });
+});
+
+describe('detailBanner', () => {
+  it('shows a save refusal ahead of a stale load failure', () => {
+    // The save is what the user just did and is waiting on.
+    expect(detailBanner('Expenses are turned off for this business.', 'Could not load')).toBe(
+      'Expenses are turned off for this business.',
+    );
+  });
+
+  it('falls back to the load failure', () => {
+    expect(detailBanner(null, 'Could not load this expense.')).toBe(
+      'Could not load this expense.',
+    );
+  });
+
+  it('is null when nothing went wrong, so no banner is drawn', () => {
+    expect(detailBanner(null, null)).toBeNull();
+    expect(detailBanner('', '')).toBeNull();
+    expect(detailBanner(undefined, undefined)).toBeNull();
   });
 });
 

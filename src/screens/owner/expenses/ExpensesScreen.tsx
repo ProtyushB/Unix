@@ -20,6 +20,7 @@ import type { AppTheme } from '../../../theme/theme.types';
 import { AnimatedFlatList, CollapsingHeader } from '../../../components/layout/CollapsingHeader';
 import { FAB } from '../../../components/layout/FAB';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
+import { ErrorBanner } from '../../../components/common/ErrorBanner';
 import { useCollapsingHeader } from '../../../hooks/useCollapsingHeader';
 import { useAppContext } from '../../../context/AppContext';
 import { useParlour } from '../../../backend/modules/parlour';
@@ -43,6 +44,7 @@ import {
   FILTERED_EMPTY_TITLE,
   NO_RESULTS_BODY,
   REIMBURSEMENT_CHIPS,
+  REFRESH_FAILED,
   SEARCH_IDLE_BODY,
   SEARCH_IDLE_TITLE,
   SEARCH_PLACEHOLDER,
@@ -460,6 +462,20 @@ export function ExpensesScreen({ navigation }: Props) {
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       {/* Body FIRST — the header is an absolute overlay. */}
       {body}
+
+      {/*
+        A refresh that failed while rows are ALREADY on screen.
+
+        The ERROR hero only covers an empty list (`hasError` gates on `rows.length === 0`), because
+        replacing good rows with an error page throws away data the user can still use. But saying
+        nothing leaves them looking at a list that quietly stopped updating — so this says so and
+        leaves the rows alone. It is what the mockup's "Couldn't refresh" banner is.
+      */}
+      {activeModule.error && rows.length > 0 ? (
+        <View style={styles.bannerHost} pointerEvents="box-none">
+          <ErrorBanner message={REFRESH_FAILED} onDismiss={activeModule.clearError} />
+        </View>
+      ) : null}
 
       <CollapsingHeader
         {...headerProps}
@@ -886,6 +902,9 @@ function createStyles(theme: AppTheme) {
     cardMeta: { flex: 1, fontSize: 11.5, color: palette.muted },
     cardTrailing: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 
+    // Pinned to the bottom above the FAB: the header is an absolute overlay at the top, and a
+    // banner there would be hidden by it.
+    bannerHost: { position: 'absolute', left: 0, right: 0, bottom: 0 },
     bodyPad: { flex: 1, paddingHorizontal: SIDE_PAD },
     footerSpinner: { marginVertical: 18 },
 
