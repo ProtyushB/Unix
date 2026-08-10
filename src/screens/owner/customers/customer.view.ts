@@ -82,6 +82,15 @@ export const EMPTY_TITLE = 'No customers yet';
 export const EMPTY_BODY =
   'People appear here automatically after their first order, booking or bill.';
 
+/**
+ * The banner when a refresh fails while rows are ALREADY on screen.
+ *
+ * The ERROR hero covers an empty list only — replacing good rows with an error page throws away
+ * data the user can still use. But saying nothing leaves them looking at a list that quietly
+ * stopped updating.
+ */
+export const REFRESH_FAILED = "Couldn't refresh";
+
 export const ERROR_TITLE = "Couldn't load customers";
 export const ERROR_BODY = 'Something went wrong. Check your connection and try again.';
 export const ERROR_CTA = 'Retry';

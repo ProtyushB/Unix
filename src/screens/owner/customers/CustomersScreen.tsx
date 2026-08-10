@@ -18,6 +18,7 @@ import type { AppTheme } from '../../../theme/theme.types';
 import { AnimatedFlatList, CollapsingHeader } from '../../../components/layout/CollapsingHeader';
 import { useCollapsingHeader } from '../../../hooks/useCollapsingHeader';
 import { getSelectedBusinessId } from '../../../backend/modules/shared/hook/useModuleService';
+import { ErrorBanner } from '../../../components/common/ErrorBanner';
 import { getPersonService } from '../../../backend/person';
 import type { CustomerDto } from '../../../backend/person';
 import { Badge } from '../shared/detail/parts/Badge';
@@ -33,6 +34,7 @@ import {
   ERROR_TITLE,
   LIST_SUBTITLE,
   NO_RESULTS_BODY,
+  REFRESH_FAILED,
   SEARCH_IDLE_BODY,
   SEARCH_IDLE_TITLE,
   SEARCH_PLACEHOLDER,
@@ -264,6 +266,13 @@ export function CustomersScreen({ navigation }: Props) {
       {/* Body FIRST — the header is an absolute overlay. */}
       {body}
 
+      {/* A refresh that failed with rows already on screen — see `REFRESH_FAILED`. */}
+      {error && rows.length > 0 ? (
+        <View style={styles.bannerHost} pointerEvents="box-none">
+          <ErrorBanner message={REFRESH_FAILED} onDismiss={() => setError(null)} />
+        </View>
+      ) : null}
+
       <CollapsingHeader
         {...headerProps}
         backgroundColor={theme.palette.background}
@@ -477,6 +486,8 @@ function createStyles(theme: AppTheme) {
     cardActivity: { fontSize: 11, color: palette.muted },
     cardFooter: { fontSize: 11.5, color: palette.muted },
 
+    // Bottom-pinned: the header is an absolute overlay at the top and would hide a banner there.
+    bannerHost: { position: 'absolute', left: 0, right: 0, bottom: 0 },
     bodyPad: { flex: 1, paddingHorizontal: SIDE_PAD },
     footerSpinner: { marginVertical: 18 },
 
