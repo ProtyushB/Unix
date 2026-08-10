@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { CustomerDto } from '../backend/person';
 
 // AuthStackParamList intentionally lives in AuthNavigator.tsx, next to the
 // routes it describes. A second copy here drifted the moment the signup screens
@@ -30,7 +31,7 @@ export type OwnerTabParamList = {
   StockTransfers: NavigatorScreenParams<StockTransfersStackParamList>;
   Wastage: NavigatorScreenParams<WastageStackParamList>;
   Expenses: NavigatorScreenParams<ExpensesStackParamList>;
-  Customers: undefined;
+  Customers: NavigatorScreenParams<CustomersStackParamList>;
   Employees: undefined;
   WarrantyClaims: undefined;
   Loyalty: undefined;
@@ -124,6 +125,23 @@ export type WastageStackParamList = {
 export type ExpensesStackParamList = {
   ExpensesMain: undefined;
   ExpenseDetail: { expenseId?: number; mode: 'view' | 'add' | 'edit' };
+};
+
+/**
+ * The Customers tab's stack.
+ *
+ * ⚠️ `CustomerProfile` carries the WHOLE RECORD, not an id — the only param list in the app that
+ * does. There is no customer-by-id endpoint, and `GET /persons/{personId}` both drops every
+ * per-business rollup and requires a `CUSTOMER` authority an owner's token lacks, so the profile
+ * cannot fetch what it displays. Passing an id would produce a screen that can only render blanks.
+ *
+ * The cost, accepted: no deep link to a customer profile, because a cold route has no row to carry.
+ *
+ * Two entries and no detail-mode union — this tab authors nothing.
+ */
+export type CustomersStackParamList = {
+  CustomersMain: undefined;
+  CustomerProfile: { customer: CustomerDto };
 };
 
 /** The Stock Transfers tab's stack. Same shape and same reasons — see the consumptions one. */

@@ -23,6 +23,7 @@ import type {
   StockTransfersStackParamList,
   WastageStackParamList,
   ExpensesStackParamList,
+  CustomersStackParamList,
 } from './types';
 
 import DashboardScreen from '../screens/owner/DashboardScreen';
@@ -50,7 +51,8 @@ import { WastageScreen } from '../screens/owner/wastage/WastageScreen';
 import { WastageDetailScreen } from '../screens/owner/wastage/detail/WastageDetailScreen';
 import { ExpensesScreen } from '../screens/owner/expenses/ExpensesScreen';
 import { ExpenseDetailScreen } from '../screens/owner/expenses/detail/ExpenseDetailScreen';
-import { CustomersScreen } from '../screens/owner/CustomersScreen';
+import { CustomersScreen } from '../screens/owner/customers/CustomersScreen';
+import { CustomerProfileScreen } from '../screens/owner/customers/CustomerProfileScreen';
 import { EmployeesScreen } from '../screens/owner/EmployeesScreen';
 import { WarrantyClaimsScreen } from '../screens/owner/WarrantyClaimsScreen';
 import { LoyaltyScreen } from '../screens/owner/LoyaltyScreen';
@@ -159,6 +161,23 @@ function ExpensesNavigator() {
       <ExpensesStack.Screen name="ExpensesMain" component={ExpensesScreen} />
       <ExpensesStack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
     </ExpensesStack.Navigator>
+  );
+}
+
+const CustomersStack = createNativeStackNavigator<CustomersStackParamList>();
+
+/**
+ * Nested inside the Customers tab, like every other stack here.
+ *
+ * Two screens and nothing else — this tab authors nothing, so there is no detail-add route and no
+ * ProductDetail to push into.
+ */
+function CustomersNavigator() {
+  return (
+    <CustomersStack.Navigator screenOptions={{ headerShown: false }}>
+      <CustomersStack.Screen name="CustomersMain" component={CustomersScreen} />
+      <CustomersStack.Screen name="CustomerProfile" component={CustomerProfileScreen} />
+    </CustomersStack.Navigator>
   );
 }
 
@@ -411,7 +430,13 @@ export function OwnerTabNavigator() {
                   tabPress: () => navigation.navigate('Expenses', { screen: 'ExpensesMain' }),
                 })}
               />
-              <Tab.Screen name="Customers" component={CustomersScreen} />
+              <Tab.Screen
+                name="Customers"
+                component={CustomersNavigator}
+                listeners={({ navigation }) => ({
+                  tabPress: () => navigation.navigate('Customers', { screen: 'CustomersMain' }),
+                })}
+              />
               <Tab.Screen name="Employees" component={EmployeesScreen} />
               <Tab.Screen name="WarrantyClaims" component={WarrantyClaimsScreen} />
               <Tab.Screen name="Loyalty" component={LoyaltyScreen} />
