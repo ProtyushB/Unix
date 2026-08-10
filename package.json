@@ -23,6 +23,7 @@
     "axios": "^1.7.9",
     "expo": "~55.0.17",
     "expo-blur": "~55.0.14",
+    "expo-document-picker": "~55.0.15",
     "jszip": "^3.10.1",
     "lucide-react-native": "^1.11.0",
     "react": "19.1.1",

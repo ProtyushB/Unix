@@ -177,7 +177,7 @@ interface ModuleService {
   ensureEntityFolder?(params: {
     businessId: number;
     /** Mirrors the server's `EntityFolderType`; products and services each get their own root. */
-    type: 'PRODUCT' | 'SERVICE';
+    type: 'PRODUCT' | 'SERVICE' | 'EXPENSE';
     entityId: number;
     entityName?: string;
     currentFolderId?: number | null;
@@ -696,7 +696,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
      */
     const ensureFolder = useCallback(
       async (
-        type: 'PRODUCT' | 'SERVICE',
+        type: 'PRODUCT' | 'SERVICE' | 'EXPENSE',
         params: {
           businessId: number;
           entityId: number;
@@ -727,6 +727,19 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
     const ensureServiceFolder = useCallback(
       (params: Parameters<typeof ensureFolder>[1]) => ensureFolder('SERVICE', params),
+      [ensureFolder],
+    );
+
+    /**
+     * The receipt folder for one expense.
+     *
+     * ⚠️ Unlike the two above, `entityName` is IGNORED server-side for this type. Product and
+     * service folders are named `{name}_{id}` and follow a rename; an expense folder is the stable
+     * `Expense_{id}`, because an expense TITLE is freely edited and the id-keyed form is what keeps
+     * `/folder/ensure` idempotent across that. Passing a name here is harmless but pointless.
+     */
+    const ensureExpenseFolder = useCallback(
+      (params: Parameters<typeof ensureFolder>[1]) => ensureFolder('EXPENSE', params),
       [ensureFolder],
     );
 
@@ -2571,6 +2584,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       updateServiceAvailability,
       deleteService,
       ensureServiceFolder,
+      // Receipts. Named beside its siblings rather than in the expense block below, because it is
+      // the same `ensureFolder` with a third discriminator — see the callback for how it differs.
+      ensureExpenseFolder,
 
       // Order CRUD
       loadOrders,

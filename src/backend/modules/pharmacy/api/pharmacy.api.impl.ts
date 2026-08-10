@@ -71,7 +71,7 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
   }
   async ensureEntityFolder(params: {
     businessId: number;
-    type: 'PRODUCT' | 'SERVICE';
+    type: 'PRODUCT' | 'SERVICE' | 'EXPENSE';
     entityId: number;
     entityName?: string;
     currentFolderId?: number | null;

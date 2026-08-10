@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import { useAppContext } from '../../../../context/AppContext';
 import { useParlour } from '../../../../backend/modules/parlour';
 import { usePharmacy } from '../../../../backend/modules/pharmacy';
@@ -25,6 +25,7 @@ import { ExpenseDetailBase } from './ExpenseDetailBase';
 import { parlourExpenseSlots } from './ParlourExpenseDetail';
 import { pharmacyExpenseSlots } from './PharmacyExpenseDetail';
 import { useExpenseDetailForm } from './useExpenseDetailForm';
+import { toReceiptRows } from './receipts';
 import {
   DELETE_BODY,
   DELETE_CTA,
@@ -191,6 +192,30 @@ export function ExpenseDetailScreen({ route, navigation }: Props) {
 
   const closeSheet = useCallback(() => setSheet(null), []);
 
+  const receiptRows = useMemo(
+    () => toReceiptRows(engine.form.files, engine.pendingFiles),
+    [engine.form.files, engine.pendingFiles],
+  );
+
+  /**
+   * Open a saved receipt.
+   *
+   * Handed to the OS rather than rendered in-app: a receipt can be a PDF, and building a viewer for
+   * one is a feature, not a detail of this screen. `Linking` gives the user their own PDF reader or
+   * browser, which is where they can already zoom, print and share it.
+   *
+   * A pending row has no URL yet — the strip disables those, so this is only reached for saved ones.
+   */
+  const openReceipt = useCallback((row: { url: string | null; name: string }) => {
+    if (!row.url) return;
+    void Linking.openURL(row.url).catch(() => {
+      // A receipt that will not open is worth saying out loud; it usually means the DMS URL needs
+      // an auth the external app does not carry.
+      engine.setSaveError(`Could not open ${row.name}.`);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <View style={styles.host}>
       <ExpenseDetailBase
@@ -208,6 +233,12 @@ export function ExpenseDetailScreen({ route, navigation }: Props) {
         onPickRecurrence={() => setSheet('recurrence')}
         onPickTime={() => setSheet('time')}
         onPickEmployee={() => setSheet('employee')}
+        receiptRows={receiptRows}
+        uploadProgress={engine.uploadProgress}
+        onAddReceiptPhoto={engine.pickReceiptPhoto}
+        onAddReceiptDocument={engine.pickReceiptDocument}
+        onRemoveReceipt={engine.removeReceipt}
+        onOpenReceipt={openReceipt}
         onBack={() => (mode === 'edit' ? setMode('view') : navigation?.goBack())}
         onSave={engine.save}
         onEdit={() => setMode('edit')}

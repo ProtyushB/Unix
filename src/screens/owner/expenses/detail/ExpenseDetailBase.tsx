@@ -10,6 +10,7 @@ import {
   Clock,
   Pencil,
   Repeat,
+  Receipt,
   Trash2,
   User,
   X,
@@ -29,6 +30,8 @@ import { DateField } from '../../shared/detail/parts/DateField';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
 import { SegmentedField } from '../../shared/detail/parts/SegmentedField';
+import { ReceiptStrip } from './parts/ReceiptStrip';
+import type { ReceiptRow } from './receipts';
 import { formatClock } from '../../shared/detail/wallClock';
 import { formatAmount, formatExpenseStampLong } from '../expense.model';
 import { reimbursementPill } from '../expense.view';
@@ -73,6 +76,10 @@ interface ExpenseDetailBaseProps {
   categoryEnabled: boolean;
   /** The resolved name for `form.paidByEmployeeId`, or null when nobody is chosen. */
   employeeName: string | null;
+  /** Saved receipts then pending ones, already shaped by `toReceiptRows`. */
+  receiptRows: ReceiptRow[];
+  /** 0–100 while receipts are in flight. */
+  uploadProgress?: number;
 
   onFieldChange: <K extends keyof ExpenseFormState>(field: K, value: ExpenseFormState[K]) => void;
   onChangeReimbursable: (next: boolean) => void;
@@ -81,6 +88,10 @@ interface ExpenseDetailBaseProps {
   onPickRecurrence: () => void;
   onPickTime: () => void;
   onPickEmployee: () => void;
+  onAddReceiptPhoto: () => void;
+  onAddReceiptDocument: () => void;
+  onRemoveReceipt: (index: number) => void;
+  onOpenReceipt: (row: ReceiptRow) => void;
 
   onBack: () => void;
   onSave?: () => void;
@@ -105,6 +116,8 @@ export function ExpenseDetailBase({
   slots,
   categoryEnabled,
   employeeName,
+  receiptRows,
+  uploadProgress = 0,
   onFieldChange,
   onChangeReimbursable,
   onPickCategory,
@@ -112,6 +125,10 @@ export function ExpenseDetailBase({
   onPickRecurrence,
   onPickTime,
   onPickEmployee,
+  onAddReceiptPhoto,
+  onAddReceiptDocument,
+  onRemoveReceipt,
+  onOpenReceipt,
   onBack,
   onSave,
   onEdit,
@@ -286,6 +303,18 @@ export function ExpenseDetailBase({
               ) : null}
             </DetailCard>
 
+            <DetailCard title="Receipt" icon={Receipt} gap={13}>
+              <ReceiptStrip
+                rows={receiptRows}
+                editable
+                uploadProgress={uploadProgress}
+                onAddPhoto={onAddReceiptPhoto}
+                onAddDocument={onAddReceiptDocument}
+                onRemove={onRemoveReceipt}
+                onOpen={onOpenReceipt}
+              />
+            </DetailCard>
+
             <DetailCard title="More" icon={Repeat} gap={13}>
               <PickerField
                 label="Recurring"
@@ -387,6 +416,14 @@ export function ExpenseDetailBase({
                 />
               ) : null}
             </DetailCard>
+
+            {/* Only when there is something to show — an empty Receipt card on a read screen is a
+                heading over nothing. */}
+            {receiptRows.length > 0 ? (
+              <DetailCard title="Receipt" icon={Receipt}>
+                <ReceiptStrip rows={receiptRows} onOpen={onOpenReceipt} />
+              </DetailCard>
+            ) : null}
 
             <View style={styles.actionRow}>
               {showsEditCta(mode) && onEdit ? (
