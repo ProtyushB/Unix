@@ -229,7 +229,13 @@ export function useExpenseDetailForm({
       return { success: false, error: errorSummary(found) };
     }
     if (businessId == null) {
-      return { success: false, error: 'No business is selected.' };
+      // Set it, do not just return it. This branch has no other surface — unlike a validation
+      // failure, which marks the offending field — so returning quietly leaves Save doing visibly
+      // nothing. Found while checking the banner: the save was refused here and the screen said
+      // nothing at all.
+      const message = 'No business is selected.';
+      setSaveError(message);
+      return { success: false, error: message };
     }
 
     setSaving(true);

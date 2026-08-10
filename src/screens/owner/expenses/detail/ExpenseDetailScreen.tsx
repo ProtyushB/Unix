@@ -28,6 +28,7 @@ import { useExpenseDetailForm } from './useExpenseDetailForm';
 import { toReceiptRows } from './receipts';
 import {
   DELETE_BODY,
+  detailBanner,
   DELETE_CTA,
   DELETE_TITLE,
   REIMBURSE_BODY,
@@ -235,6 +236,14 @@ export function ExpenseDetailScreen({ route, navigation }: Props) {
         onPickEmployee={() => setSheet('employee')}
         receiptRows={receiptRows}
         uploadProgress={engine.uploadProgress}
+        error={detailBanner(engine.saveError, loadError)}
+        onDismissError={() => {
+          // Clear BOTH, not just whichever is showing: dismissing means "I have read it", and
+          // leaving the other behind would pop a second banner the user did not do anything to
+          // provoke.
+          engine.setSaveError(null);
+          setLoadError(null);
+        }}
         onAddReceiptPhoto={engine.pickReceiptPhoto}
         onAddReceiptDocument={engine.pickReceiptDocument}
         onRemoveReceipt={engine.removeReceipt}

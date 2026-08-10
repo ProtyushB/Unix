@@ -30,6 +30,7 @@ import { DateField } from '../../shared/detail/parts/DateField';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
 import { SegmentedField } from '../../shared/detail/parts/SegmentedField';
+import { ErrorBanner } from '../../../../components/common/ErrorBanner';
 import { ReceiptStrip } from './parts/ReceiptStrip';
 import type { ReceiptRow } from './receipts';
 import { formatClock } from '../../shared/detail/wallClock';
@@ -80,6 +81,9 @@ interface ExpenseDetailBaseProps {
   receiptRows: ReceiptRow[];
   /** 0–100 while receipts are in flight. */
   uploadProgress?: number;
+  /** A save refusal or a load failure — see `detailBanner`. Null draws no banner. */
+  error?: string | null;
+  onDismissError?: () => void;
 
   onFieldChange: <K extends keyof ExpenseFormState>(field: K, value: ExpenseFormState[K]) => void;
   onChangeReimbursable: (next: boolean) => void;
@@ -118,6 +122,8 @@ export function ExpenseDetailBase({
   employeeName,
   receiptRows,
   uploadProgress = 0,
+  error = null,
+  onDismissError,
   onFieldChange,
   onChangeReimbursable,
   onPickCategory,
@@ -192,6 +198,10 @@ export function ExpenseDetailBase({
           <View style={styles.iconButtonSpacer} />
         )}
       </View>
+
+      {/* Pinned between the app bar and the content, deliberately: a save refusal that scrolls away
+          is barely better than one that never rendered, and the form below can be long. */}
+      {error ? <ErrorBanner message={error} onDismiss={onDismissError} /> : null}
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
