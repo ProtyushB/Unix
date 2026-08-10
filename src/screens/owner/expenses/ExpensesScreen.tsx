@@ -127,7 +127,11 @@ function useExpenseListApi(
 }
 
 interface Props {
-  navigation?: { navigate?: (screen: string, params?: Record<string, unknown>) => void };
+  navigation?: {
+    navigate?: (screen: string, params?: Record<string, unknown>) => void;
+    /** Optional so the web preview, which mounts screens without a navigator, still renders. */
+    addListener?: (event: 'focus', handler: () => void) => (() => void) | undefined;
+  };
 }
 
 export function ExpensesScreen({ navigation }: Props) {
@@ -207,6 +211,31 @@ export function ExpensesScreen({ navigation }: Props) {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  /**
+   * Refetch on RETURN from the detail screen.
+   *
+   * Without this, an expense recorded from the FAB does not appear when the form closes — the list
+   * still holds the page it fetched on mount, and nothing about creating a record changes any of
+   * this screen's own dependencies. Verified live: the record was written (200, id in the
+   * response) and simply was not on screen, which reads as a failed save.
+   *
+   * The same applies to an edit and a delete made from the detail screen.
+   *
+   * Skips the FIRST focus — the effect above already fetched on mount, and firing both races two
+   * identical requests. Same shape as `WastageScreen`.
+   */
+  const hasFocusedRef = useRef(false);
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      if (!hasFocusedRef.current) {
+        hasFocusedRef.current = true;
+        return;
+      }
+      reload();
+    });
+    return unsubscribe;
+  }, [navigation, reload]);
 
   /**
    * The month's ₹ figure for the header.
