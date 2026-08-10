@@ -1,10 +1,11 @@
-import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check } from 'lucide-react-native';
+import { Check, Search } from 'lucide-react-native';
 import { useTheme } from '../../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../../theme/theme.types';
+import { filterSheetOptions, noOptionMatchText } from '../optionSheet.view';
 
 export interface SheetOption {
   value: string;
@@ -20,6 +21,12 @@ interface Props {
   selected?: string | null;
   onSelect: (value: string) => void;
   onClose: () => void;
+  /**
+   * Supplying this turns on a search box, using the string as its placeholder. OPT-IN: most callers
+   * list four to eight statuses, where a search box is clutter. It exists for lists long enough to
+   * scroll — the expense category picker is fifteen.
+   */
+  searchPlaceholder?: string;
 }
 
 /**
@@ -35,10 +42,27 @@ interface Props {
  * ⚠️ Never mount this while another Modal is up — on react-native-web the previous one's portal
  * stays mounted after `visible` flips false and silently eats taps.
  */
-export function OptionSheet({ visible, title, options, selected, onSelect, onClose }: Props) {
+export function OptionSheet({
+  visible,
+  title,
+  options,
+  selected,
+  onSelect,
+  onClose,
+  searchPlaceholder,
+}: Props) {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
+  const [query, setQuery] = useState('');
+
+  // Clear the box each time the sheet opens. A sheet that reopens still filtered looks like it has
+  // lost options, and the query is not a setting the user asked to keep.
+  useEffect(() => {
+    if (visible) setQuery('');
+  }, [visible]);
+
+  const shown = filterSheetOptions(options, searchPlaceholder ? query : '');
 
   return (
     <Modal
@@ -58,8 +82,26 @@ export function OptionSheet({ visible, title, options, selected, onSelect, onClo
         />
         <View style={[styles.sheet, { paddingBottom: 24 + insets.bottom }]}>
           <Text style={styles.title}>{title}</Text>
-          <ScrollView bounces={false}>
-            {options.map((option) => {
+          {searchPlaceholder ? (
+            <View style={styles.searchRow}>
+              <Search size={16} color={theme.palette.muted} />
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder={searchPlaceholder}
+                placeholderTextColor={theme.palette.muted}
+                style={styles.searchInput}
+                autoCorrect={false}
+                autoCapitalize="none"
+                accessibilityLabel={searchPlaceholder}
+              />
+            </View>
+          ) : null}
+          <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
+            {shown.length === 0 ? (
+              <Text style={styles.empty}>{noOptionMatchText(query)}</Text>
+            ) : null}
+            {shown.map((option) => {
               const active = option.value === selected;
               return (
                 <Pressable
@@ -117,6 +159,20 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: theme.palette.divider,
     },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      height: 44,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      marginBottom: 12,
+      backgroundColor: theme.palette.surfaceElevated,
+      borderWidth: 1,
+      borderColor: theme.palette.divider,
+    },
+    searchInput: { flex: 1, fontSize: 13.5, color: theme.palette.onSurface, padding: 0 },
+    empty: { fontSize: 12.5, color: theme.palette.muted, paddingVertical: 18, textAlign: 'center' },
     optionActive: { backgroundColor: theme.colors.softBg, borderColor: theme.colors.border },
     optionBody: { flex: 1, gap: 2 },
     label: { fontSize: 14, fontWeight: '600', color: theme.palette.onSurface },

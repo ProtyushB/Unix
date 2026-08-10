@@ -10,6 +10,17 @@ import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 import { isWastageReason } from '../../shared/wastage.types';
 import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
 import { isStockTransferReason } from '../../shared/stockTransfer.types';
+import type {
+  ExpensePayload,
+  ExpenseQuery,
+  ExpenseUpdatePayload,
+} from '../../shared/expense.types';
+import {
+  isExpenseCategory,
+  isExpenseRecurrence,
+  isExpenseSortKey,
+  isPaymentMethod,
+} from '../../shared/expense.types';
 import {
   ParlourApiInterface,
   BillableListOptions,
@@ -48,7 +59,7 @@ export class ParlourService {
   }
   async ensureEntityFolder(params: {
     businessId: number;
-    type: 'PRODUCT' | 'SERVICE';
+    type: 'PRODUCT' | 'SERVICE' | 'EXPENSE';
     entityId: number;
     entityName?: string;
     currentFolderId?: number | null;
@@ -378,6 +389,82 @@ export class ParlourService {
   async deleteWastage(id: number) {
     if (!id) throw new Error('Wastage ID is required');
     return this.api.deleteWastage(id);
+  }
+
+  // ─── Expense ───────────────────────────────────────────────────────────────
+  //
+  // The mutable one. Six passthroughs rather than four, and THREE enum guards rather than one —
+  // category, payment method and recurrence each 500 the same way if a bad constant reaches Spring.
+  private assertExpenseShape(data: ExpensePayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    if (!data?.title?.trim()) throw new Error('Give the expense a title');
+    // ⚠️ TRAP 3 — a bad enum is an HTTP **500**, not a 400. Spring cannot bind an unknown constant
+    // into the body's enum, so `@Valid` never runs: no field name, nothing a screen could show.
+    // All three guards run BEFORE the axios call.
+    if (!isExpenseCategory(data?.category)) throw new Error('Pick a valid category');
+    // Null is the legal way to say "not specified" — `''` is NOT a member and would be a 500.
+    if (data?.paymentMethod != null && !isPaymentMethod(data.paymentMethod)) {
+      throw new Error('Pick a valid payment method');
+    }
+    // Null is legal here too and reads as NONE server-side.
+    if (data?.recurrence != null && !isExpenseRecurrence(data.recurrence)) {
+      throw new Error('Pick a valid recurrence');
+    }
+    // `@NotNull @Positive`. `> 0` rather than truthiness so `'0'` and `NaN` are both refused.
+    if (!(Number(data?.amount) > 0)) throw new Error('Amount must be more than zero');
+  }
+
+  async createExpense(data: ExpensePayload) {
+    this.assertExpenseShape(data);
+    // ⚠️ Refused here rather than sent: `recordExpense` never clears these three and the mapper
+    // copies them straight through, so a payload carrying them would persist an already-settled
+    // expense and skip both of `markReimbursed`'s eligibility checks. They are not on
+    // `ExpensePayload`, so this only catches an object widened past its type at runtime.
+    const forged = data as unknown as Record<string, unknown>;
+    if (forged.reimbursed != null || forged.reimbursedAt != null || forged.reimbursedBy != null) {
+      throw new Error('Reimbursement is settled through its own action, not on create');
+    }
+    return this.api.createExpense(data);
+  }
+  async getExpense(id: number) {
+    if (!id) throw new Error('Expense ID is required');
+    return this.api.getExpense(id);
+  }
+  async getExpenseByBusiness(businessId: number, query: ExpenseQuery = {}, page = 1, limit = 20) {
+    if (!businessId) throw new Error('Business ID is required');
+    // A miscased sort key is not an error server-side — it silently falls back to `expenseDate`, so
+    // the list looks sorted by something it is not. Dropping it here makes the fallback deliberate.
+    const safe: ExpenseQuery = { ...query };
+    if (safe.sortBy != null && !isExpenseSortKey(safe.sortBy)) delete safe.sortBy;
+    if (safe.category != null && !isExpenseCategory(safe.category)) delete safe.category;
+    // ⚠️ TRAP 2 — `page` is 1-BASED. `page=0` is a 400, NOT "the first page".
+    return this.api.getExpenseByBusiness(businessId, safe, Math.max(1, page), limit);
+  }
+  async updateExpense(id: number, data: ExpenseUpdatePayload) {
+    if (!id) throw new Error('Expense ID is required');
+    this.assertExpenseShape(data);
+    // ⚠️ `files` must be present — the server REPLACES the collection and writes an empty list when
+    // the key is absent, so an omitted `files` silently erases every receipt on the expense. An
+    // empty array is a legitimate value (the user removed them all); `undefined` is not.
+    if (data.files == null) {
+      throw new Error('Receipts must be sent on every update, or the server erases them');
+    }
+    return this.api.updateExpense(id, data);
+  }
+  async deleteExpense(id: number) {
+    if (!id) throw new Error('Expense ID is required');
+    return this.api.deleteExpense(id);
+  }
+  async markExpenseReimbursed(id: number, reimbursedBy?: number | null) {
+    if (!id) throw new Error('Expense ID is required');
+    return this.api.markExpenseReimbursed(id, reimbursedBy);
+  }
+  async getExpenseTotalByCategory(businessId: number, from: string, to: string) {
+    if (!businessId) throw new Error('Business ID is required');
+    // Bound as `Instant` with `@DateTimeFormat(ISO.DATE_TIME)`: a date-only value is a 500, not a
+    // 400, so the shape is checked here rather than discovered as an outage.
+    if (!from || !to) throw new Error('A date range is required');
+    return this.api.getExpenseTotalByCategory(businessId, from, to);
   }
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────

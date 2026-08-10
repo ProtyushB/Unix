@@ -152,7 +152,28 @@ export const REGISTRY: ScreenEntry[] = [
     id: 'owner/customers',
     title: 'Customers',
     group: 'Owner',
-    load: () => import('../src/screens/owner/CustomersScreen'),
+    load: () => import('../src/screens/owner/customers/CustomersScreen'),
+  },
+  {
+    id: 'owner/customer-profile',
+    title: 'Customer Profile',
+    group: 'Owner',
+    // The whole record, because this screen cannot fetch one — see `CustomerProfileScreen`. That
+    // also makes this the one preview entry whose params are a fixture rather than an id.
+    params: {
+      customer: {
+        personId: 42,
+        firstName: 'Priya',
+        lastName: 'Sharma',
+        email: 'priya@mail.com',
+        phoneNumber: '+91 98765 43210',
+        totalSpent: 42300,
+        activityCount: 18,
+        firstSeenAt: '2025-03-12T09:20:00.000Z',
+        lastActivityAt: '2026-08-04T12:50:00.000Z',
+      },
+    },
+    load: () => import('../src/screens/owner/customers/CustomerProfileScreen'),
   },
   {
     // One entry, not three: unlike the product/service detail screens the picker's three states
@@ -297,6 +318,33 @@ export const REGISTRY: ScreenEntry[] = [
     group: 'Owner',
     params: { mode: 'add' },
     load: () => import('../src/screens/owner/wastage/detail/WastageDetailScreen'),
+  },
+  {
+    id: 'owner/expenses',
+    title: 'Expenses',
+    group: 'Owner',
+    load: () => import('../src/screens/owner/expenses/ExpensesScreen'),
+  },
+  {
+    id: 'owner/expense-detail-view',
+    title: 'Expense Detail · View',
+    group: 'Owner',
+    params: { expenseId: 1, mode: 'view' },
+    load: () => import('../src/screens/owner/expenses/detail/ExpenseDetailScreen'),
+  },
+  {
+    id: 'owner/expense-detail-add',
+    title: 'Expense Detail · Add',
+    group: 'Owner',
+    params: { mode: 'add' },
+    load: () => import('../src/screens/owner/expenses/detail/ExpenseDetailScreen'),
+  },
+  {
+    id: 'owner/expense-detail-edit',
+    title: 'Expense Detail · Edit',
+    group: 'Owner',
+    params: { expenseId: 1, mode: 'edit' },
+    load: () => import('../src/screens/owner/expenses/detail/ExpenseDetailScreen'),
   },
   {
     id: 'owner/stock-transfers',

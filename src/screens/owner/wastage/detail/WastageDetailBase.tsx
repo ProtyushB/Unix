@@ -14,15 +14,14 @@ import {
 import { useTheme } from '../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../theme/theme.types';
-import type {
-  InventoryType,
-  StockUnitLine,
-} from '../../../../backend/modules/shared/inventory.types';
+import type { StockUnitLine } from '../../../../backend/modules/shared/inventory.types';
+import { POOL_OPTIONS } from '../../../../backend/modules/shared/inventory.types';
 import type { WastageDto, WastageReason } from '../../../../backend/modules/shared/wastage.types';
 import { WASTAGE_REASON_CHOICES } from '../../../../backend/modules/shared/wastage.types';
 import { Badge } from '../../shared/detail/parts/Badge';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
+import { SegmentedField } from '../../shared/detail/parts/SegmentedField';
 import { UnitRowsEditor } from '../../shared/detail/parts/UnitRowsEditor';
 import { formatStamp } from '../../inventory/batch.model';
 import { poolLabel, reasonLabel } from '../wastage.view';
@@ -225,47 +224,19 @@ export function WastageDetailBase({
             product can hold stock in both, and writing off the wrong one is a silent loss of real
             stock. It does NOT travel on the payload; it decides which batch does.
           */}
-          {editable ? (
-            <View style={styles.field}>
-              <View style={styles.labelRow}>
-                <Text style={styles.editLabel}>Inventory Type</Text>
-                <Text style={styles.required}>*</Text>
-              </View>
-              <View style={styles.segment}>
-                {(
-                  [
-                    ['PRODUCT_INVENTORY', 'Product'],
-                    ['RAW_INVENTORY', 'Raw'],
-                  ] as [InventoryType, string][]
-                ).map(([key, label]) => {
-                  const active = form.inventoryType === key;
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => onFieldChange('inventoryType', key)}
-                      style={[styles.segmentItem, active && styles.segmentItemActive]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <Text style={styles.helper}>{poolDescription(form.inventoryType)}</Text>
-              {errors.inventoryType ? (
-                <Text style={styles.error}>{errors.inventoryType}</Text>
-              ) : null}
-            </View>
-          ) : (
-            <DetailField
-              label="Inventory Type"
-              value={poolLabel(item?.inventoryType ?? form.inventoryType)}
-              editable={false}
-            />
-          )}
+          <SegmentedField
+            label="Inventory Type"
+            options={POOL_OPTIONS}
+            value={form.inventoryType}
+            onChange={(next) => onFieldChange('inventoryType', next)}
+            editable={editable}
+            // The saved record's pool, not the form's — a read screen describes what WAS written
+            // off, and the form defaults to PRODUCT regardless of what the record says.
+            readValue={poolLabel(item?.inventoryType ?? form.inventoryType)}
+            required
+            helper={poolDescription(form.inventoryType)}
+            error={errors.inventoryType}
+          />
         </DetailCard>
 
         <DetailCard title="Quantity" icon={Scale} gap={13}>
@@ -498,19 +469,7 @@ function createStyles(theme: AppTheme) {
     error: { fontSize: 11.5, color: palette.error },
     placeholder: { fontSize: 13, color: palette.muted },
 
-    segment: {
-      flexDirection: 'row',
-      gap: 3,
-      padding: 3,
-      borderRadius: 12,
-      backgroundColor: palette.surfaceElevated,
-      borderWidth: 1,
-      borderColor: palette.divider,
-    },
-    segmentItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10 },
-    segmentItemActive: { backgroundColor: colors.softBg },
-    segmentLabel: { fontSize: 13, fontWeight: '600', color: palette.muted },
-    segmentLabelActive: { color: colors.primary },
+    // The Inventory Type control's own styles moved to `SegmentedField` with the component.
 
     pickerButton: {
       alignSelf: 'flex-start',

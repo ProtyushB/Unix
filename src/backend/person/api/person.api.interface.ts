@@ -58,6 +58,27 @@ export interface UpdateBusinessFlags {
  * ⚠️ The id key is `personId`, NOT `id` — this is a projection over Person, not a Person. Anything
  * that treats these rows interchangeably with `PersonDto` has to normalise first.
  */
+/**
+ * ONE employment — a person's tie to a business, not the person.
+ *
+ * ⚠️ `id` here is the `employments(id)` that an expense's `paidByEmployeeId` points at. The person
+ * behind it has a DIFFERENT id, and sending that one instead produces a 409 CONSTRAINT_VIOLATION at
+ * best and a silent mis-attribution at worst. The two are not interchangeable.
+ *
+ * Loose beyond the keys the picker reads — the server returns a good deal more.
+ */
+export interface EmploymentDto {
+  /** ⚠️ `employments(id)`, NOT a person id. This is what an expense stores. */
+  id: number;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phoneNumber?: string;
+  roles?: string[];
+  [key: string]: unknown;
+}
+
 export interface CustomerDto {
   personId: number;
   firstName?: string;
@@ -140,4 +161,16 @@ export abstract class PersonApiInterface {
    * creates no folders.
    */
   abstract createCustomer(payload: CreateCustomerPayload): Promise<ApiResponse<PersonDto>>;
+  /**
+   * A business's ACTIVE staff, paginated (1-based). Backs the expense form's "Reimburse to" picker.
+   *
+   * ⚠️ Returns EMPLOYMENTS, not persons — `EmploymentDto.id` is the `employments(id)` an expense's
+   * `paidByEmployeeId` refers to. The person's own id is on the nested person, and is NOT the one
+   * to send.
+   */
+  abstract getActiveEmployees(
+    businessId: number,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<EmploymentDto[]>>;
 }
