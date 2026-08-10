@@ -10,6 +10,7 @@ import {
   UpdatePersonFlags,
   CreateCustomerPayload,
   CustomerDto,
+  EmploymentDto,
   CustomerLookupMatch,
   ClaimCustomerPayload,
 } from './person.api.interface';
@@ -89,6 +90,24 @@ export class PersonApiImpl extends PersonApiInterface {
     const response = await personApiClient.get(
       PERSON_API_CONFIG.ENDPOINTS.BUSINESS_CUSTOMERS(businessId),
       { params },
+    );
+    return response.data;
+  }
+
+  async getActiveEmployees(
+    businessId: number,
+    page = 1,
+    limit = 50,
+  ): Promise<ApiResponse<EmploymentDto[]>> {
+    // ⚠️ 1-BASED, like every other paginated endpoint on this backend — `page=0` is a 400, not the
+    // first page.
+    //
+    // The default limit is 50 rather than the usual 20: this backs a "Reimburse to" picker, and a
+    // business's staff list is small and bounded in a way a catalog is not. One page is almost
+    // always the whole answer, which keeps the picker from needing scroll-to-load for a dozen rows.
+    const response = await personApiClient.get(
+      PERSON_API_CONFIG.ENDPOINTS.BUSINESS_ACTIVE_EMPLOYEES(businessId),
+      { params: { page: Math.max(1, page), limit } },
     );
     return response.data;
   }

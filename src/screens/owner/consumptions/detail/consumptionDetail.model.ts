@@ -243,83 +243,19 @@ export function nextUnitRow(
 
 // ─── Consumed-at: a date field plus a clock ──────────────────────────────────
 //
-// `consumedAt` is one zone-less IST wall clock on the wire (`2026-08-08T14:30:00`) and two controls
-// on screen — a `DateField` and a slot list. Deliberately NOT a new datetime component: the shared
-// `DateField` already owns the `YYYY-MM-DD` contract (and the UTC off-by-one it exists to prevent),
-// and `OptionSheet` already owns single-select. The only thing missing was the arithmetic joining
-// them, which is what this section is.
+// The arithmetic moved to `shared/detail/wallClock.ts` when Expenses needed the same date+time
+// pairing — a second copy of a timezone rule is how two screens come to disagree about what "now"
+// is. Re-exported under this feature's own names so the contract reads locally and the existing
+// tests keep pinning it.
 //
-// The slot list rather than a platform time picker is the choice `AppointmentDetailScreen` made and
-// documents: a native picker hands back a `Date` in the DEVICE's zone, and converting that into an
-// IST wall clock is precisely the conversion this whole field exists to avoid.
+// ⚠️ `consumedAt` is a ZONE-LESS `LocalDateTime` on the wire (`2026-08-08T14:30:00`) — an offset
+// here THROWS server-side. That is why this re-exports `joinWallClock` and NOT the instant variant
+// beside it, which exists for expense's `expenseDate`.
 
-/** Quarter-hour slots across the full day — a service can be recorded at any hour a salon opens. */
-export const CONSUMED_TIME_SLOTS: readonly string[] = Array.from({ length: 96 }, (_, i) => {
-  const minutes = i * 15;
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
-});
-
-/**
- * "17:10" → "5:10 PM".
- *
- * Built by hand rather than by `toLocaleTimeString`, which renders the meridiem lowercase on Chrome
- * and uppercase elsewhere. `% 12` alone turns midnight into a nonsense "0", so both ends are
- * special-cased.
- */
-export function formatClock(hhmm: string | null | undefined): string {
-  if (!hhmm) return '';
-  const [rawH, rawM] = String(hhmm).split(':');
-  const h = Number(rawH);
-  if (!Number.isFinite(h)) return '';
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${(rawM ?? '00').padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
-}
-
-/**
- * A stored `consumedAt` split into the two controls that edit it.
- *
- * String surgery, never `new Date(...)`: the value carries no zone, so JS would parse it as
- * device-local — right by accident on an IST phone and wrong everywhere else, including the web
- * preview. `splitDateTime` in the appointment model records the same rule for the same reason.
- */
-export function splitConsumedAt(value: string | null | undefined): { date: string; time: string } {
-  const raw = String(value ?? '').trim();
-  if (!raw) return { date: '', time: '' };
-  const [datePart, timePart = ''] = raw.split('T');
-  return { date: datePart, time: timePart.slice(0, 5) };
-}
-
-/**
- * The two controls recombined into what the server wants: `YYYY-MM-DDTHH:mm:ss`, no zone, no `Z`.
- *
- * Seconds are mandatory — the backend parses with `ISO_LOCAL_DATE_TIME`, which rejects a value
- * missing them, and anything carrying an offset throws.
- *
- * An empty DATE means the field is unset, so this answers `''` and `buildCreatePayload` turns that
- * into the `null` that means "stamp it now". An empty TIME does not clear the field — the user
- * picked a day and that must not be silently discarded — so it falls back to midnight; in practice
- * the screen seeds a clock the moment a date is chosen, so this branch is the safety net rather
- * than the path.
- */
-export function joinConsumedAt(date: string, time: string): string {
-  const d = String(date ?? '').trim();
-  if (!d) return '';
-  const t = String(time ?? '').trim() || '00:00';
-  return `${d}T${t.length === 5 ? `${t}:00` : t}`;
-}
-
-/**
- * The nearest slot at or BEFORE `hhmm` — "17:10" → "17:00".
- *
- * Floors rather than rounds so seeding the field from the current clock can never land on a time
- * that has not happened yet, which the server refuses. Out-of-range input falls back to the first
- * slot rather than to an empty string, so the picker always has something selected.
- */
-export function snapToSlot(hhmm: string | null | undefined): string {
-  const [rawH, rawM] = String(hhmm ?? '').split(':');
-  const h = Number(rawH);
-  const m = Number(rawM);
-  if (!Number.isFinite(h) || !Number.isFinite(m) || h < 0 || h > 23) return CONSUMED_TIME_SLOTS[0];
-  const floored = Math.floor(Math.min(Math.max(m, 0), 59) / 15) * 15;
-  return `${String(h).padStart(2, '0')}:${String(floored).padStart(2, '0')}`;
-}
+export {
+  TIME_SLOTS as CONSUMED_TIME_SLOTS,
+  formatClock,
+  splitWallClock as splitConsumedAt,
+  joinWallClock as joinConsumedAt,
+  snapToSlot,
+} from '../../shared/detail/wallClock';

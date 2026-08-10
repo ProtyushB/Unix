@@ -25,6 +25,11 @@ import {
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+import type {
+  ExpensePayload,
+  ExpenseQuery,
+  ExpenseUpdatePayload,
+} from '../../shared/expense.types';
 
 export class PharmacyApiImpl extends PharmacyApiInterface {
   async getAllProducts(
@@ -66,7 +71,7 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
   }
   async ensureEntityFolder(params: {
     businessId: number;
-    type: 'PRODUCT' | 'SERVICE';
+    type: 'PRODUCT' | 'SERVICE' | 'EXPENSE';
     entityId: number;
     entityName?: string;
     currentFolderId?: number | null;
@@ -487,6 +492,63 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
   async deleteWastage(id: number): Promise<ApiResponse<unknown>> {
     // Deleting RESTOCKS what was written off.
     const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.WASTAGE_BASE}/${id}`);
+    return res.data;
+  }
+
+  // ─── Expense ───────────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — read that file for the five traps (trailing slash, 1-based paging,
+  // the 500-on-bad-enum, the id in both path and body, and `files` being REPLACE not append).
+  async createExpense(data: ExpensePayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ TRAILING SLASH.
+    const res = await pharmacyApiClient.post(`${PHARMACY_ROUTES.EXPENSE_BASE}/`, data);
+    return res.data;
+  }
+  async getExpense(id: number): Promise<ApiResponse<unknown>> {
+    const res = await pharmacyApiClient.get(`${PHARMACY_ROUTES.EXPENSE_BASE}/${id}`);
+    return res.data;
+  }
+  async getExpenseByBusiness(
+    businessId: number,
+    query: ExpenseQuery = {},
+    page = 1,
+    limit = 20,
+  ): Promise<ApiResponse<unknown[]>> {
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.EXPENSE_BY_BUSINESS, {
+      params: compactParams({ businessId, page, limit, ...query }),
+    });
+    return res.data;
+  }
+  async updateExpense(id: number, data: ExpenseUpdatePayload): Promise<ApiResponse<unknown>> {
+    // ⚠️ `files` is REPLACE — an omitted list erases every receipt.
+    const res = await pharmacyApiClient.put(`${PHARMACY_ROUTES.EXPENSE_BASE}/${id}`, data);
+    return res.data;
+  }
+  async deleteExpense(id: number): Promise<ApiResponse<unknown>> {
+    // ⚠️ The response's `files` is always `[]` — never render receipts off it.
+    const res = await pharmacyApiClient.delete(`${PHARMACY_ROUTES.EXPENSE_BASE}/${id}`);
+    return res.data;
+  }
+  async markExpenseReimbursed(
+    id: number,
+    reimbursedBy?: number | null,
+  ): Promise<ApiResponse<unknown>> {
+    // ⚠️ 409 STATE_CONFLICT when not reimbursable or already settled. No un-reimburse exists.
+    const res = await pharmacyApiClient.patch(
+      `${PHARMACY_ROUTES.EXPENSE_BASE}/${id}/reimburse`,
+      undefined,
+      { params: compactParams({ reimbursedBy }) },
+    );
+    return res.data;
+  }
+  async getExpenseTotalByCategory(
+    businessId: number,
+    from: string,
+    to: string,
+  ): Promise<ApiResponse<Record<string, number>>> {
+    // ⚠️ `from`/`to` must be full ISO instants — a date-only value is a 500.
+    const res = await pharmacyApiClient.get(PHARMACY_ROUTES.EXPENSE_TOTAL_BY_CATEGORY, {
+      params: compactParams({ businessId, from, to }),
+    });
     return res.data;
   }
 

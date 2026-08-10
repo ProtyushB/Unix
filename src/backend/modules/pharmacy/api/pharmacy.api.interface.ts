@@ -8,6 +8,11 @@ import type {
 import type { ConsumptionPayload, ConsumptionQuery } from '../../shared/consumption.types';
 import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+import type {
+  ExpensePayload,
+  ExpenseQuery,
+  ExpenseUpdatePayload,
+} from '../../shared/expense.types';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -199,7 +204,7 @@ export abstract class PharmacyApiInterface {
    */
   abstract ensureEntityFolder(params: {
     businessId: number;
-    type: 'PRODUCT' | 'SERVICE';
+    type: 'PRODUCT' | 'SERVICE' | 'EXPENSE';
     entityId: number;
     entityName?: string;
     currentFolderId?: number | null;
@@ -379,6 +384,30 @@ export abstract class PharmacyApiInterface {
   ): Promise<ApiResponse<unknown[]>>;
   /** Deleting RESTOCKS what was written off. */
   abstract deleteWastage(id: number): Promise<ApiResponse<unknown>>;
+
+  // ─── Expense ───────────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — read that file for why this one is mutable when the three above
+  // are not, why `updateExpense` must always carry `files`, and why `markExpenseReimbursed` is the
+  // only route to a settled expense (and answers 409 STATE_CONFLICT when it is not available).
+  abstract createExpense(data: ExpensePayload): Promise<ApiResponse<unknown>>;
+  abstract getExpense(id: number): Promise<ApiResponse<unknown>>;
+  abstract getExpenseByBusiness(
+    businessId: number,
+    query?: ExpenseQuery,
+    page?: number,
+    limit?: number,
+  ): Promise<ApiResponse<unknown[]>>;
+  abstract updateExpense(id: number, data: ExpenseUpdatePayload): Promise<ApiResponse<unknown>>;
+  abstract deleteExpense(id: number): Promise<ApiResponse<unknown>>;
+  abstract markExpenseReimbursed(
+    id: number,
+    reimbursedBy?: number | null,
+  ): Promise<ApiResponse<unknown>>;
+  abstract getExpenseTotalByCategory(
+    businessId: number,
+    from: string,
+    to: string,
+  ): Promise<ApiResponse<Record<string, number>>>;
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────
   // Mirror of the parlour four — read that file for the full contract, including why

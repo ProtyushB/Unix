@@ -68,4 +68,11 @@ export const PHARMACY_ROUTES = {
   // Mirror of the parlour pair. ⚠️ POST needs a TRAILING SLASH — see the parlour table.
   STOCK_TRANSFER_BASE: '/pharmacyStockTransfer',
   STOCK_TRANSFER_BY_BUSINESS: '/pharmacyStockTransfer/byBusiness',
+
+  // ─── Expense ───────────────────────────────────────────────────────────────
+  // Mirror of the parlour trio. ⚠️ POST needs a TRAILING SLASH — see the parlour table, which also
+  // explains why this feature has a PUT and a reimburse PATCH when the three above have neither.
+  EXPENSE_BASE: '/pharmacyExpense',
+  EXPENSE_BY_BUSINESS: '/pharmacyExpense/byBusiness',
+  EXPENSE_TOTAL_BY_CATEGORY: '/pharmacyExpense/totalByCategory',
 };

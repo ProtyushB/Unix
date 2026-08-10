@@ -85,16 +85,70 @@ export function toDmsFiles(results: UploadedFile[], pending: PendingFile[] = [])
  *
  * `startIndex` is the count already pending, so the generated fallback names stay unique across
  * successive picks rather than restarting at 1 and colliding.
+ *
+ * ⚠️ The FALLBACKS assume an image, and that is correct for its two original callers — the product
+ * and service forms open `launchImageLibrary({ mediaType: 'photo' })`, so an asset with no
+ * `fileName` is a photo whatever else is missing. A caller that can pick a PDF must not inherit
+ * them: naming a receipt `image-1.jpg` and declaring it `image/jpeg` would upload a PDF that every
+ * reader then tries to decode as a photo. Such callers pass `fallback` — see `toPendingDocuments`.
  */
-export function toPendingFiles(assets: PickedAsset[] | undefined, startIndex = 0): PendingFile[] {
+export function toPendingFiles(
+  assets: PickedAsset[] | undefined,
+  startIndex = 0,
+  fallback: { namePrefix: string; extension: string; type: string } = {
+    namePrefix: 'image',
+    extension: 'jpg',
+    type: 'image/jpeg',
+  },
+): PendingFile[] {
   if (!assets?.length) return [];
   return assets
     .filter((a) => !!a.uri)
     .map((a, i) => ({
       uri: a.uri as string,
       // Some Android providers hand back an asset with no fileName at all; the server needs one.
-      name: a.fileName || `image-${startIndex + i + 1}.jpg`,
-      type: a.type || 'image/jpeg',
+      name: a.fileName || `${fallback.namePrefix}-${startIndex + i + 1}.${fallback.extension}`,
+      type: a.type || fallback.type,
       size: a.fileSize,
+    }));
+}
+
+/**
+ * The shape `expo-document-picker` returns, narrowed to what matters here.
+ *
+ * Its keys differ from the image picker's — `name` and `size` rather than `fileName` and
+ * `fileSize`, and `mimeType` rather than `type` — which is exactly the kind of near-miss that
+ * uploads a filename-less part and still answers 200.
+ */
+export interface PickedDocument {
+  uri?: string;
+  name?: string;
+  size?: number;
+  mimeType?: string;
+}
+
+/**
+ * Map documents from `expo-document-picker` onto upload-ready files.
+ *
+ * A separate function rather than a flag on `toPendingFiles`, because the INPUT shape differs, not
+ * just the fallbacks. Normalising here keeps the difference in one tested place instead of at every
+ * call site.
+ *
+ * The fallback type is `application/octet-stream`, not a PDF MIME: a document picker that omits
+ * `mimeType` has told us nothing about the file, and guessing "PDF" would be a claim rather than a
+ * default. The server stores whatever arrives and the viewer branches on it.
+ */
+export function toPendingDocuments(
+  documents: PickedDocument[] | undefined,
+  startIndex = 0,
+): PendingFile[] {
+  if (!documents?.length) return [];
+  return documents
+    .filter((d) => !!d.uri)
+    .map((d, i) => ({
+      uri: d.uri as string,
+      name: d.name || `document-${startIndex + i + 1}`,
+      type: d.mimeType || 'application/octet-stream',
+      size: d.size,
     }));
 }

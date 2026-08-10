@@ -9,7 +9,18 @@ import { isConsumptionReason } from '../../shared/consumption.types';
 import type { WastagePayload, WastageQuery } from '../../shared/wastage.types';
 import { isWastageReason } from '../../shared/wastage.types';
 import type { StockTransferPayload, StockTransferQuery } from '../../shared/stockTransfer.types';
+import type {
+  ExpensePayload,
+  ExpenseQuery,
+  ExpenseUpdatePayload,
+} from '../../shared/expense.types';
 import { isStockTransferReason } from '../../shared/stockTransfer.types';
+import {
+  isExpenseCategory,
+  isExpenseRecurrence,
+  isExpenseSortKey,
+  isPaymentMethod,
+} from '../../shared/expense.types';
 import {
   PharmacyApiInterface,
   BillableListOptions,
@@ -47,7 +58,7 @@ export class PharmacyService {
   }
   async ensureEntityFolder(params: {
     businessId: number;
-    type: 'PRODUCT' | 'SERVICE';
+    type: 'PRODUCT' | 'SERVICE' | 'EXPENSE';
     entityId: number;
     entityName?: string;
     currentFolderId?: number | null;
@@ -339,6 +350,64 @@ export class PharmacyService {
   async deleteWastage(id: number) {
     if (!id) throw new Error('Wastage ID is required');
     return this.api.deleteWastage(id);
+  }
+
+  // ─── Expense ───────────────────────────────────────────────────────────────
+  // Mirror of the parlour slice — read that file for why THREE enum guards run before the request,
+  // why the sort key is dropped rather than sent when unrecognised, and why `files` is mandatory on
+  // update.
+  private assertExpenseShape(data: ExpensePayload) {
+    if (!data?.businessId) throw new Error('Business ID is required');
+    if (!data?.title?.trim()) throw new Error('Give the expense a title');
+    if (!isExpenseCategory(data?.category)) throw new Error('Pick a valid category');
+    if (data?.paymentMethod != null && !isPaymentMethod(data.paymentMethod)) {
+      throw new Error('Pick a valid payment method');
+    }
+    if (data?.recurrence != null && !isExpenseRecurrence(data.recurrence)) {
+      throw new Error('Pick a valid recurrence');
+    }
+    if (!(Number(data?.amount) > 0)) throw new Error('Amount must be more than zero');
+  }
+
+  async createExpense(data: ExpensePayload) {
+    this.assertExpenseShape(data);
+    const forged = data as unknown as Record<string, unknown>;
+    if (forged.reimbursed != null || forged.reimbursedAt != null || forged.reimbursedBy != null) {
+      throw new Error('Reimbursement is settled through its own action, not on create');
+    }
+    return this.api.createExpense(data);
+  }
+  async getExpense(id: number) {
+    if (!id) throw new Error('Expense ID is required');
+    return this.api.getExpense(id);
+  }
+  async getExpenseByBusiness(businessId: number, query: ExpenseQuery = {}, page = 1, limit = 20) {
+    if (!businessId) throw new Error('Business ID is required');
+    const safe: ExpenseQuery = { ...query };
+    if (safe.sortBy != null && !isExpenseSortKey(safe.sortBy)) delete safe.sortBy;
+    if (safe.category != null && !isExpenseCategory(safe.category)) delete safe.category;
+    return this.api.getExpenseByBusiness(businessId, safe, Math.max(1, page), limit);
+  }
+  async updateExpense(id: number, data: ExpenseUpdatePayload) {
+    if (!id) throw new Error('Expense ID is required');
+    this.assertExpenseShape(data);
+    if (data.files == null) {
+      throw new Error('Receipts must be sent on every update, or the server erases them');
+    }
+    return this.api.updateExpense(id, data);
+  }
+  async deleteExpense(id: number) {
+    if (!id) throw new Error('Expense ID is required');
+    return this.api.deleteExpense(id);
+  }
+  async markExpenseReimbursed(id: number, reimbursedBy?: number | null) {
+    if (!id) throw new Error('Expense ID is required');
+    return this.api.markExpenseReimbursed(id, reimbursedBy);
+  }
+  async getExpenseTotalByCategory(businessId: number, from: string, to: string) {
+    if (!businessId) throw new Error('Business ID is required');
+    if (!from || !to) throw new Error('A date range is required');
+    return this.api.getExpenseTotalByCategory(businessId, from, to);
   }
 
   // ─── Stock Transfer ────────────────────────────────────────────────────────

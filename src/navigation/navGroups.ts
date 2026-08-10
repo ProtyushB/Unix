@@ -148,8 +148,8 @@ export const NAV_GROUPS: NavGroup[] = [
         tabKey: 'STOCK_TRANSFER',
       },
       { icon: AlertTriangle, label: 'Wastage', route: { tab: 'Wastage' }, tabKey: 'WASTAGE' },
-      // No real Expenses screen yet — routes to PlaceholderScreen so the mobile
-      // nav lists the same items as the web sidebar and gates on the same key.
+      // The odd one out in this group: the four above move stock, this one only records money
+      // leaving. It is here because that is where a business looks for "what did we spend on".
       { icon: Banknote, label: 'Expenses', route: { tab: 'Expenses' }, tabKey: 'EXPENSES' },
     ],
   },

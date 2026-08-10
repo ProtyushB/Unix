@@ -1,4 +1,4 @@
-import { toDmsFiles, toPendingFiles } from './pendingFiles';
+import { toDmsFiles, toPendingDocuments, toPendingFiles } from './pendingFiles';
 
 describe('toPendingFiles', () => {
   it('names the key `name`, because FormData reads value.name for the filename', () => {
@@ -85,5 +85,69 @@ describe('toDmsFiles', () => {
     expect(toDmsFiles([{ id: 9 }])).toEqual([
       { dmsFileId: 9, url: null, fileName: null, fileType: null, fileSize: null },
     ]);
+  });
+});
+
+describe('toPendingDocuments', () => {
+  it('normalises the document picker’s DIFFERENT key names', () => {
+    // expo-document-picker returns name/size/mimeType where the image picker returns
+    // fileName/fileSize/type. Reading the wrong one produces a filename-less part that Spring
+    // declines to bind — and the request still answers 200, which is what makes it invisible.
+    const [f] = toPendingDocuments([
+      { uri: 'file:///r.pdf', name: 'receipt.pdf', size: 240_000, mimeType: 'application/pdf' },
+    ]);
+    expect(f).toEqual({
+      uri: 'file:///r.pdf',
+      name: 'receipt.pdf',
+      type: 'application/pdf',
+      size: 240_000,
+    });
+  });
+
+  it('does NOT guess a PDF when the picker omits the MIME type', () => {
+    // A picker that told us nothing has told us nothing; "application/pdf" would be a claim.
+    const [f] = toPendingDocuments([{ uri: 'file:///x', name: 'x' }]);
+    expect(f.type).toBe('application/octet-stream');
+  });
+
+  it('numbers unnamed documents from startIndex, so successive picks do not collide', () => {
+    const got = toPendingDocuments([{ uri: 'a' }, { uri: 'b' }], 2);
+    expect(got.map((f) => f.name)).toEqual(['document-3', 'document-4']);
+  });
+
+  it('drops entries the picker returned without a uri', () => {
+    expect(toPendingDocuments([{ name: 'no uri' }, { uri: 'a', name: 'ok' }])).toHaveLength(1);
+    expect(toPendingDocuments(undefined)).toEqual([]);
+    expect(toPendingDocuments([])).toEqual([]);
+  });
+});
+
+describe('toPendingFiles fallbacks', () => {
+  it('still defaults to an IMAGE, so the product and service forms are unchanged', () => {
+    const [f] = toPendingFiles([{ uri: 'file:///a' }]);
+    expect(f.name).toBe('image-1.jpg');
+    expect(f.type).toBe('image/jpeg');
+  });
+
+  it('accepts a different fallback, so a receipt is not named image-1.jpg', () => {
+    // Naming a PDF image-1.jpg and declaring it image/jpeg uploads a document every reader then
+    // tries to decode as a photo.
+    const [f] = toPendingFiles([{ uri: 'file:///a' }], 0, {
+      namePrefix: 'receipt',
+      extension: 'pdf',
+      type: 'application/pdf',
+    });
+    expect(f.name).toBe('receipt-1.pdf');
+    expect(f.type).toBe('application/pdf');
+  });
+
+  it('prefers what the picker actually reported over any fallback', () => {
+    const [f] = toPendingFiles([{ uri: 'u', fileName: 'real.png', type: 'image/png' }], 0, {
+      namePrefix: 'receipt',
+      extension: 'pdf',
+      type: 'application/pdf',
+    });
+    expect(f.name).toBe('real.png');
+    expect(f.type).toBe('image/png');
   });
 });
