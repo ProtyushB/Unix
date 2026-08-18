@@ -1,5 +1,12 @@
 import { toFormState, buildBillPayload, type BillFormState } from './billDetail.model';
-import { newBareLine, toCustomProducts, toCustomServices } from './billLines';
+import {
+  newBareLine,
+  newQuickLine,
+  toCustomProducts,
+  toCustomServices,
+  type BillLine,
+} from './billLines';
+import type { QuickBillItem } from './quickItem';
 import {
   alsoNeedsStatusPatch,
   appBarSubtitle,
@@ -252,5 +259,68 @@ describe('server traps the payload must not walk into', () => {
     expect(p).not.toHaveProperty('personId');
     expect(p.productId).toBe(77);
     expect(p.salesPersonId).toBe(2);
+  });
+});
+
+describe('contentKey with quick items', () => {
+  const quick = (over: Partial<QuickBillItem> = {}): BillLine =>
+    newQuickLine({
+      lineId: 'q-1',
+      name: 'Imported Clay Mask',
+      price: 450,
+      quantity: 2,
+      unit: 'jar',
+      discount: 0,
+      dmsFolderId: null,
+      photos: [],
+      photo: null,
+      ...over,
+    });
+
+  it('changes when a quick item is added', () => {
+    expect(contentKey(base())).not.toBe(contentKey(base({ lines: [quick()] })));
+  });
+
+  it('changes when one quick item is swapped for another of the same count', () => {
+    // Every quick line carries refId 0, so a key built from [kind, refId] alone cannot tell these
+    // apart — and an unchanged key routes a payment-and-content save to PATCH_PAYMENT, which
+    // silently drops the swap.
+    const a = base({ lines: [quick()] });
+    const b = base({ lines: [quick({ lineId: 'q-2', name: 'Handmade Soy Candle', price: 600 })] });
+    expect(contentKey(a)).not.toBe(contentKey(b));
+
+    // And the routing consequence, which is the part that actually loses data: with the payment
+    // also moved, an unchanged content key sends this through PATCH_PAYMENT and the swap is never
+    // written.
+    const asShape = (f: BillFormState, over: Partial<SaveShape> = {}): SaveShape => ({
+      billStatus: f.billStatus,
+      paymentStatus: f.paymentStatus,
+      paidAmount: f.paidAmount,
+      refundedAmount: f.refundedAmount,
+      content: contentKey(f),
+      ...over,
+    });
+    expect(saveRoute(asShape(a), asShape(b, { paymentStatus: 'PAID' }))).toBe('PUT');
+  });
+
+  it('changes when only the price, quantity or unit of a quick item moves', () => {
+    const a = base({ lines: [quick()] });
+    expect(contentKey(a)).not.toBe(contentKey(base({ lines: [quick({ price: 500 })] })));
+    expect(contentKey(a)).not.toBe(contentKey(base({ lines: [quick({ quantity: 3 })] })));
+    expect(contentKey(a)).not.toBe(contentKey(base({ lines: [quick({ unit: 'tub' })] })));
+  });
+
+  it('changes when a photo is staged on an otherwise untouched quick item', () => {
+    const photo = { uri: 'file:///mask.jpg', name: 'mask.jpg', type: 'image/jpeg' };
+    expect(contentKey(base({ lines: [quick()] }))).not.toBe(
+      contentKey(base({ lines: [quick({ photo })] })),
+    );
+  });
+
+  it('still ignores a status move on a bill that has quick items', () => {
+    const withQuick = { lines: [quick()] };
+    expect(contentKey(base(withQuick))).toBe(
+      contentKey(base({ ...withQuick, paymentStatus: 'PAID' })),
+    );
   });
 });

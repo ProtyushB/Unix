@@ -81,6 +81,29 @@ export class ParlourApiImpl extends ParlourApiInterface {
     return res.data;
   }
 
+  async ensureBillItemFolder(params: {
+    businessId: number;
+    billId: number;
+    lineId: string;
+    itemName?: string;
+    currentFolderId?: number | null;
+  }): Promise<ApiResponse<Record<string, number>>> {
+    const res = await parlourApiClient.post(PARLOUR_ROUTES.DMS_BILL_ITEM_FOLDER, params);
+    return res.data;
+  }
+
+  async attachQuickItemPhotos(
+    billId: number,
+    links: Array<{ lineId: string; dmsFolderId: number; photos: unknown[] }>,
+  ): Promise<ApiResponse<unknown>> {
+    // The body is the BARE ARRAY, not an object wrapping it.
+    const res = await parlourApiClient.patch(
+      `${PARLOUR_ROUTES.BILLS_BASE}/${billId}/quick-item-photos`,
+      links,
+    );
+    return res.data;
+  }
+
   // ── Services ───────────────────────────────────────────────────────────────
   async getAllServices(
     businessId: number,

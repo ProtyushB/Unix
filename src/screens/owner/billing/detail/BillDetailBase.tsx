@@ -25,6 +25,7 @@ import type { AppTheme } from '../../../../theme/theme.types';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
 import { Badge } from '../../shared/detail/parts/Badge';
+import { AdhocLineRow } from '../../shared/detail/parts/AdhocLineRow';
 import {
   attachedCount,
   formatAmount,
@@ -266,7 +267,7 @@ export function BillDetailBase({
             <Plus size={16} color={theme.colors.primary} />
             <Text style={styles.addItemsWideLabel}>
               Add items{' '}
-              <Text style={styles.addItemsWideHint}>· orders, appointments or catalog</Text>
+              <Text style={styles.addItemsWideHint}>· orders, appts, catalog or quick add</Text>
             </Text>
           </Pressable>
         ) : null}
@@ -578,12 +579,16 @@ function CustomerRow({
   );
 }
 
-const LINE_ICON = {
+/**
+ * No QUICK entry, deliberately. An ad-hoc line draws its own photo thumbnail in place of the icon
+ * chip, so it takes a different row component entirely — see the branch in `LineRow`.
+ */
+const LINE_ICON: Partial<Record<BillLine['kind'], typeof ShoppingBag>> = {
   ORDER: ShoppingBag,
   APPOINTMENT: Calendar,
   PRODUCT: Package,
   SERVICE: Sparkles,
-} as const;
+};
 
 function LineRow({
   line,
@@ -600,6 +605,20 @@ function LineRow({
   theme: AppTheme;
   onRemoveLine?: (index: number) => void;
 }) {
+  // An ad-hoc line is a different row: a photo thumbnail instead of an icon chip, and an AD-HOC
+  // pill so it cannot be mistaken for a catalog product sitting beside it.
+  if (line.kind === 'QUICK' && line.quick) {
+    return (
+      <AdhocLineRow
+        item={line.quick}
+        meta={line.sublabel}
+        amount={formatAmount(line.amount)}
+        editable={editable && !!onRemoveLine}
+        onRemove={onRemoveLine ? () => onRemoveLine(index) : undefined}
+      />
+    );
+  }
+
   const Icon = LINE_ICON[line.kind] ?? Package;
   return (
     <View style={styles.itemRow}>

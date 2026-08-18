@@ -218,6 +218,34 @@ export abstract class ParlourApiInterface {
     currentFolderId?: number | null;
   }): Promise<ApiResponse<Record<string, number>>>;
 
+  /**
+   * Idempotent: the DMS folder for ONE quick-add line on ONE bill.
+   *
+   * Separate from `ensureEntityFolder` because the key is different, not just the type — a
+   * quick-add line is identified by a bill id AND a client-minted `lineId` uuid, and it has no
+   * entity of its own to hang off. The backend names the folder `{itemName}_{lineId}` and ensures
+   * the `Bill_{billId}` parent itself; do not create that parent from here.
+   */
+  abstract ensureBillItemFolder(params: {
+    businessId: number;
+    billId: number;
+    lineId: string;
+    itemName?: string;
+    currentFolderId?: number | null;
+  }): Promise<ApiResponse<Record<string, number>>>;
+
+  /**
+   * Point a saved bill's quick-add lines at their uploaded photos. Matched server-side by `lineId`.
+   *
+   * ⚠️ Deliberately NOT the full `updateBill`. A PUT rebuilds the whole bill: it mints a second
+   * auto-generated order for any order-required line and orphans the first, and it reprices and
+   * restocks every bare line. This endpoint exists so recording a file id costs none of that.
+   */
+  abstract attachQuickItemPhotos(
+    billId: number,
+    links: Array<{ lineId: string; dmsFolderId: number; photos: unknown[] }>,
+  ): Promise<ApiResponse<unknown>>;
+
   // Services
   abstract getAllServices(
     businessId: number,

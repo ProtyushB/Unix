@@ -10,7 +10,8 @@ import {
   type BillDetailItem,
   type BillFormState,
 } from './billDetail.model';
-import type { BillLine } from './billLines';
+import { newQuickLine, type BillLine } from './billLines';
+import type { QuickBillItem } from './quickItem';
 
 /** A fetched bill with all three line kinds, money, and both status axes set. */
 function serverBill(): BillDetailItem {
@@ -269,5 +270,73 @@ describe('read-mode helpers', () => {
     expect(formatBillDate('')).toBe('');
     expect(formatStamp('2026-08-05T13:10:00Z')).toContain('Aug 2026');
     expect(formatStamp(null)).toBe('');
+  });
+});
+
+// ─── Quick Add (ad-hoc) lines ────────────────────────────────────────────────
+
+function quickLineOf(over: Partial<QuickBillItem> = {}): BillLine {
+  return newQuickLine({
+    lineId: 'q-1',
+    name: 'Imported Clay Mask',
+    price: 450,
+    quantity: 2,
+    unit: 'jar',
+    discount: 0,
+    dmsFolderId: null,
+    photos: [],
+    photo: null,
+    ...over,
+  });
+}
+
+describe('quickItems on the payload', () => {
+  it('sends them, or every ad-hoc line on the bill is deleted', () => {
+    const f = form({ lines: [...toFormState(serverBill()).lines, quickLineOf()] });
+    expect(buildBillPayload(f, 3).quickItems).toEqual([
+      { lineId: 'q-1', name: 'Imported Clay Mask', price: 450, quantity: 2, unit: 'jar' },
+    ]);
+  });
+
+  it('sends an empty array rather than dropping the key when there are none', () => {
+    // The rule is "rebuild every erasable field on every write". An exception for the empty case
+    // is one more thing to remember at the next edit.
+    const payload = buildBillPayload(form(), 3);
+    expect(payload.quickItems).toEqual([]);
+    expect('quickItems' in payload).toBe(true);
+  });
+
+  it('keeps quick items out of customProducts', () => {
+    const f = form({ lines: [quickLineOf()] });
+    expect(buildBillPayload(f, 3).customProducts).toEqual([]);
+    expect(buildBillPayload(f, 3).quickItems).toHaveLength(1);
+  });
+
+  it('still sends no server-computed money', () => {
+    const payload = buildBillPayload(form({ lines: [quickLineOf()] }), 3);
+    expect(payload).not.toHaveProperty('subtotal');
+    expect(payload).not.toHaveProperty('grandTotal');
+  });
+});
+
+describe('money with quick items', () => {
+  it('folds an ad-hoc line into the subtotal', () => {
+    const withQuick = form({ lines: [quickLineOf()] });
+    expect(money(withQuick).subtotal).toBe(900);
+  });
+
+  it('taxes it like any other line, with tips still added last', () => {
+    const f = form({
+      lines: [quickLineOf()],
+      tips: 200,
+      discount: { type: 'PERCENTAGE', value: 10 },
+      taxRate: 18,
+    });
+    const m = money(f);
+    // 900 − 90 = 810; tax 145.8; + tips 200 → tips are NOT taxed.
+    expect(m.discountAmount).toBe(90);
+    expect(m.afterDiscount).toBe(810);
+    expect(m.taxAmount).toBeCloseTo(145.8, 5);
+    expect(m.grandTotal).toBeCloseTo(1155.8, 5);
   });
 });

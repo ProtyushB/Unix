@@ -79,6 +79,29 @@ export class PharmacyApiImpl extends PharmacyApiInterface {
     const res = await pharmacyApiClient.post(PHARMACY_ROUTES.DMS_ENTITY_FOLDER, params);
     return res.data;
   }
+
+  async ensureBillItemFolder(params: {
+    businessId: number;
+    billId: number;
+    lineId: string;
+    itemName?: string;
+    currentFolderId?: number | null;
+  }): Promise<ApiResponse<Record<string, number>>> {
+    const res = await pharmacyApiClient.post(PHARMACY_ROUTES.DMS_BILL_ITEM_FOLDER, params);
+    return res.data;
+  }
+
+  async attachQuickItemPhotos(
+    billId: number,
+    links: Array<{ lineId: string; dmsFolderId: number; photos: unknown[] }>,
+  ): Promise<ApiResponse<unknown>> {
+    // The body is the BARE ARRAY, not an object wrapping it.
+    const res = await pharmacyApiClient.patch(
+      `${PHARMACY_ROUTES.BILLS_BASE}/${billId}/quick-item-photos`,
+      links,
+    );
+    return res.data;
+  }
   async getAllServices(
     businessId: number,
     page: number,

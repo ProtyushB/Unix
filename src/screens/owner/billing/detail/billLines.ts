@@ -6,7 +6,7 @@
  *
  *   billedOrderDetails[]        enriched order snapshots
  *   billedAppointmentDetails[]  enriched appointment snapshots
- *   bareProducts[]              BareBillLineDto
+ *   bareProducts[]              BareBillLineDto — catalog lines AND ad-hoc ones, mixed
  *   bareServices[]              BareBillLineDto
  *
  * and the PUT wants:
@@ -15,11 +15,27 @@
  *   billedAppointments: number[]
  *   customProducts[]            CustomProductItem — a DIFFERENT shape from BareBillLineDto
  *   customServices[]            CustomServiceItem
+ *   quickItems[]                QuickItemWrite — a THIRD shape again
  *
  * Getting the rebuild wrong is not an error. Omitting `customProducts` removes the bare lines AND
  * restocks their inventory; getting a field wrong re-prices or re-attributes a line. So the mapping
  * lives here, alone, with a test per field.
+ *
+ * ⚠️ `bareProducts[]` is TWO kinds of line in one array. Rows flagged `adhoc: true` are Quick Add
+ * items and have NO `refId`; every other row is a catalog line keyed by one. Reading them all as
+ * catalog lines is not a display bug — `toCustomProducts` drops a line with no usable `refId`, so
+ * the next PUT would omit the ad-hoc rows and the server would delete them, with a 200. That is
+ * why the split happens here, at the point of reading, rather than anywhere downstream.
  */
+
+import {
+  quickItemMeta,
+  quickLineTotal,
+  type QuickBillItem,
+  type QuickItemWrite,
+} from './quickItem';
+
+import type { DmsFile } from '../../shared/detail/pendingFiles';
 
 // ─── Read shapes ─────────────────────────────────────────────────────────────
 
@@ -47,20 +63,27 @@ interface RawRef {
 
 // ─── Display ─────────────────────────────────────────────────────────────────
 
-export type BillLineKind = 'ORDER' | 'APPOINTMENT' | 'PRODUCT' | 'SERVICE';
+export type BillLineKind = 'ORDER' | 'APPOINTMENT' | 'PRODUCT' | 'SERVICE' | 'QUICK';
 
-/** One row of the BILLED ITEMS list, whichever of the three kinds it is. */
+/** One row of the BILLED ITEMS list, whichever of the four kinds it is. */
 export interface BillLine {
   kind: BillLineKind;
-  /** Order/appointment id, or product/service id for a bare line. Unique WITHIN a kind, not across. */
+  /**
+   * Order/appointment id, or product/service id for a bare line. Unique WITHIN a kind, not across.
+   *
+   * Always 0 on a QUICK line, which has no server-side id of any sort — its identity is the
+   * `lineId` uuid on `quick`. Nothing may key a quick line by `refId`; see `contentKey`.
+   */
   refId: number;
   /** "ORD-05082026-042" or "Face Serum ×2". */
   label: string;
-  /** "Order · 5 Aug · 3 items" or "Billed directly · Product". */
+  /** "Order · 5 Aug · 3 items", "Billed directly · Product", "Quick add · 2 × ₹450 · jar". */
   sublabel: string;
   amount: number;
   /** Bare lines only — the row the PUT has to rebuild. */
   bare?: BareBillLine;
+  /** Quick Add lines only. Mutually exclusive with `bare`. */
+  quick?: QuickBillItem;
 }
 
 function str(v: unknown): string {
@@ -167,13 +190,69 @@ export function toBillLines(item: Record<string, unknown> | null): BillLine[] {
   }
 
   for (const raw of arrayOf(item?.bareProducts)) {
-    lines.push(bareLine(raw as BareBillLine, 'PRODUCT'));
+    const row = raw as BareBillLine;
+    if (row.adhoc === true) {
+      // A quick item with no `lineId` cannot be echoed back — the server matches on it, and the
+      // photos PATCH keys on it. Dropping the row loses one line; sending it without an id would
+      // fail the whole save.
+      const line = quickLine(row);
+      if (line) lines.push(line);
+      continue;
+    }
+    lines.push(bareLine(row, 'PRODUCT'));
   }
   for (const raw of arrayOf(item?.bareServices)) {
+    // No ad-hoc branch here on purpose: Quick Add is products only, and there is no ad-hoc service
+    // variant on either client.
     lines.push(bareLine(raw as BareBillLine, 'SERVICE'));
   }
 
   return lines;
+}
+
+/**
+ * One ad-hoc row from `bareProducts[]`, as a QUICK line.
+ *
+ * `itemPrice` on the read side is the unit price — `price` on the write side. `totalPrice` is the
+ * server's frozen figure and is trusted for display rather than recomputed, so a line whose
+ * discount was set on the web still shows the number the web showed.
+ */
+export function quickLine(raw: BareBillLine): BillLine | null {
+  const lineId = str(raw.lineId);
+  if (!lineId) return null;
+
+  const quick: QuickBillItem = {
+    lineId,
+    name: str(raw.name),
+    price: num(raw.itemPrice),
+    quantity: num(raw.quantity, 1),
+    unit: str(raw.unit),
+    discount: num(raw.discount),
+    dmsFolderId: toId(raw.dmsFolderId),
+    photos: arrayOf(raw.photos) as DmsFile[],
+    photo: null,
+  };
+
+  return {
+    kind: 'QUICK',
+    refId: 0,
+    label: quick.name,
+    sublabel: quickItemMeta(quick, 'bill'),
+    amount: num(raw.totalPrice, quickLineTotal(quick)),
+    quick,
+  };
+}
+
+/** A QUICK line for an item the user just typed. No server figure yet, so the total is computed. */
+export function newQuickLine(item: QuickBillItem): BillLine {
+  return {
+    kind: 'QUICK',
+    refId: 0,
+    label: item.name,
+    sublabel: quickItemMeta(item, 'bill'),
+    amount: quickLineTotal(item),
+    quick: item,
+  };
 }
 
 function bareLine(raw: BareBillLine, kind: 'PRODUCT' | 'SERVICE'): BillLine {
@@ -279,7 +358,13 @@ export function attachedIds(lines: BillLine[], kind: 'ORDER' | 'APPOINTMENT'): n
   return lines.filter((l) => l.kind === kind).map((l) => l.refId);
 }
 
-/** The bare lines still on the bill, as the two write arrays. */
+/**
+ * The bare lines still on the bill, as the two write arrays.
+ *
+ * QUICK lines match neither filter, so they are excluded here and rebuilt by `quickToWrite`. That
+ * separation is the point: a quick item routed into `customProducts` would be sent without a
+ * `productId` and fail the catalog lookup, taking the whole save with it.
+ */
 export function bareToWrite(lines: BillLine[]): {
   customProducts: CustomProductItem[];
   customServices: CustomServiceItem[];
@@ -292,6 +377,33 @@ export function bareToWrite(lines: BillLine[]): {
       lines.filter((l) => l.kind === 'SERVICE' && l.bare).map((l) => l.bare),
     ),
   };
+}
+
+/**
+ * The quick items still on the bill, as `quickItems[]`.
+ *
+ * Optional keys are OMITTED rather than sent empty or zero, matching what the web portal writes —
+ * `unit: ''` and `discount: 0` are the absence of a unit and the absence of a discount, and the
+ * server reads a missing key the same way. `dmsFolderId` and `photos` only appear once an upload
+ * has actually landed; sending `photos: []` on every write would blank a photo the phone has not
+ * fetched yet.
+ */
+export function quickToWrite(lines: BillLine[]): QuickItemWrite[] {
+  return lines
+    .filter((l) => l.kind === 'QUICK' && l.quick)
+    .map((l) => {
+      const q = l.quick as QuickBillItem;
+      return {
+        lineId: q.lineId,
+        name: q.name,
+        price: q.price,
+        quantity: q.quantity,
+        ...(q.unit ? { unit: q.unit } : {}),
+        ...(q.discount ? { discount: q.discount } : {}),
+        ...(q.dmsFolderId != null ? { dmsFolderId: q.dmsFolderId } : {}),
+        ...(q.photos?.length ? { photos: q.photos } : {}),
+      };
+    });
 }
 
 /** A bare line for a catalog row the user just quick-added. */

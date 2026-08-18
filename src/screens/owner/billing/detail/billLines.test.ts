@@ -5,6 +5,8 @@ import {
   newBareLine,
   toBillLines,
   toCustomProducts,
+  newQuickLine,
+  quickToWrite,
   toCustomServices,
 } from './billLines';
 
@@ -250,5 +252,188 @@ describe('adding lines', () => {
 
   it('refuses a record with no id', () => {
     expect(attachedLine('ORDER', { orderNumber: 'X' })).toBeNull();
+  });
+});
+
+// ─── Quick Add (ad-hoc) lines ────────────────────────────────────────────────
+
+/** One ad-hoc row exactly as the server echoes it back, inside `bareProducts[]`. */
+function adhocRow(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    adhoc: true,
+    lineId: '1f3c9a44-8e7b-4a21-9c55-2b0d6e7f1a30',
+    name: 'Imported Clay Mask',
+    quantity: 2,
+    itemPrice: 450,
+    totalPrice: 900,
+    unit: 'jar',
+    discount: 0,
+    dmsFolderId: 503,
+    photos: [
+      { dmsFileId: 91, url: null, fileName: 'mask.jpg', fileType: 'image/jpeg', fileSize: 1024 },
+    ],
+    ...over,
+  };
+}
+
+describe('reading ad-hoc lines out of bareProducts', () => {
+  it('reads an `adhoc: true` row as a QUICK line, not a bare product', () => {
+    const lines = toBillLines({ bareProducts: [adhocRow()] });
+    expect(lines).toHaveLength(1);
+    expect(lines[0].kind).toBe('QUICK');
+    expect(lines[0].label).toBe('Imported Clay Mask');
+    expect(lines[0].sublabel).toBe('Quick add · 2 × ₹450 · jar');
+    expect(lines[0].amount).toBe(900);
+    expect(lines[0].bare).toBeUndefined();
+  });
+
+  it('carries the whole quick item across, photos and folder included', () => {
+    const [line] = toBillLines({ bareProducts: [adhocRow()] });
+    expect(line.quick).toEqual({
+      lineId: '1f3c9a44-8e7b-4a21-9c55-2b0d6e7f1a30',
+      name: 'Imported Clay Mask',
+      price: 450,
+      quantity: 2,
+      unit: 'jar',
+      discount: 0,
+      dmsFolderId: 503,
+      photos: [
+        { dmsFileId: 91, url: null, fileName: 'mask.jpg', fileType: 'image/jpeg', fileSize: 1024 },
+      ],
+      photo: null,
+    });
+  });
+
+  it('splits a mixed bareProducts array by the flag', () => {
+    const lines = toBillLines({
+      bareProducts: [
+        { refId: 77, name: 'Face Serum', quantity: 2, itemPrice: 600, totalPrice: 1200 },
+        adhocRow(),
+      ],
+    });
+    expect(lines.map((l) => l.kind)).toEqual(['PRODUCT', 'QUICK']);
+  });
+
+  it('trusts the server total over a recomputation', () => {
+    // The web can set a per-line discount this screen has no UI for; recomputing would show a
+    // different number from the one the web shows for the same line.
+    const [line] = toBillLines({ bareProducts: [adhocRow({ discount: 10, totalPrice: 810 })] });
+    expect(line.amount).toBe(810);
+  });
+
+  it('computes the total when the server sent none', () => {
+    const [line] = toBillLines({ bareProducts: [adhocRow({ totalPrice: null })] });
+    expect(line.amount).toBe(900);
+  });
+
+  it('drops an ad-hoc row that has no lineId rather than echoing it back id-less', () => {
+    expect(toBillLines({ bareProducts: [adhocRow({ lineId: null })] })).toEqual([]);
+  });
+});
+
+describe('quickToWrite', () => {
+  it('rebuilds the quick items and leaves the other kinds alone', () => {
+    const lines = toBillLines(serverBill());
+    const withQuick = [...lines, ...toBillLines({ bareProducts: [adhocRow()] })];
+    expect(quickToWrite(withQuick)).toEqual([
+      {
+        lineId: '1f3c9a44-8e7b-4a21-9c55-2b0d6e7f1a30',
+        name: 'Imported Clay Mask',
+        price: 450,
+        quantity: 2,
+        unit: 'jar',
+        dmsFolderId: 503,
+        photos: [
+          {
+            dmsFileId: 91,
+            url: null,
+            fileName: 'mask.jpg',
+            fileType: 'image/jpeg',
+            fileSize: 1024,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('omits unit, discount, folder and photos rather than sending them empty', () => {
+    const item = {
+      lineId: 'id-1',
+      name: 'Handmade Soy Candle',
+      price: 600,
+      quantity: 1,
+      unit: '',
+      discount: 0,
+      dmsFolderId: null,
+      photos: [],
+      photo: null,
+    };
+    expect(quickToWrite([newQuickLine(item)])).toEqual([
+      { lineId: 'id-1', name: 'Handmade Soy Candle', price: 600, quantity: 1 },
+    ]);
+  });
+
+  it('never writes a productId — that absence keeps it off the catalog channel', () => {
+    const [written] = quickToWrite(toBillLines({ bareProducts: [adhocRow()] }));
+    expect(written).not.toHaveProperty('productId');
+    expect(written).not.toHaveProperty('refId');
+  });
+
+  it('is empty when the bill has no quick items', () => {
+    expect(quickToWrite(toBillLines(serverBill()))).toEqual([]);
+  });
+});
+
+describe('the ad-hoc round trip — the bug this fixes', () => {
+  it('does not smuggle an ad-hoc line into customProducts, where it would be dropped', () => {
+    // Read as a bare product, an ad-hoc row has no `refId`, so `toCustomProducts` filters it out
+    // and the PUT omits it — which the server reads as "delete this line", with a 200.
+    const lines = toBillLines({ bareProducts: [adhocRow()] });
+    expect(bareToWrite(lines).customProducts).toEqual([]);
+    expect(quickToWrite(lines)).toHaveLength(1);
+  });
+
+  it('survives a full read → write → read cycle unchanged', () => {
+    const first = toBillLines({ bareProducts: [adhocRow()] });
+    const written = quickToWrite(first);
+    const again = toBillLines({
+      bareProducts: written.map((w) => ({
+        ...w,
+        adhoc: true,
+        itemPrice: w.price,
+        totalPrice: 900,
+      })),
+    });
+    expect(again).toHaveLength(1);
+    expect(again[0].quick?.lineId).toBe(first[0].quick?.lineId);
+    expect(again[0].amount).toBe(first[0].amount);
+  });
+});
+
+describe('newQuickLine', () => {
+  it('computes the amount from quantity, price and discount', () => {
+    const line = newQuickLine({
+      lineId: 'id-1',
+      name: 'Clay Mask',
+      price: 100,
+      quantity: 2,
+      unit: '',
+      discount: 10,
+      dmsFolderId: null,
+      photos: [],
+      photo: null,
+    });
+    expect(line.kind).toBe('QUICK');
+    expect(line.refId).toBe(0);
+    expect(line.amount).toBe(180);
+    expect(line.sublabel).toBe('Quick add · 2 × ₹100');
+  });
+});
+
+describe('attachedIds with quick lines present', () => {
+  it('ignores them — a quick line has no id to attach', () => {
+    const lines = [...toBillLines(serverBill()), ...toBillLines({ bareProducts: [adhocRow()] })];
+    expect(attachedIds(lines, 'ORDER')).toEqual([94]);
+    expect(attachedIds(lines, 'APPOINTMENT')).toEqual([12]);
   });
 });

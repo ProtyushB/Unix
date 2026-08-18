@@ -11,14 +11,32 @@ import {
   type DetailMode,
   type SaveShape,
 } from './billDetail.view';
-import { attachedLine, newBareLine, type BillLine } from './billLines';
+import { attachedLine, newBareLine, newQuickLine, type BillLine } from './billLines';
 import { settlementField, type DiscountType } from './billMoney';
+import type { QuickBillItem } from './quickItem';
+import {
+  applyPhotoLinks,
+  pendingPhotoItems,
+  photoWarning,
+  uploadQuickItemPhotos,
+  type QuickItemPhotoLink,
+} from './quickItemPhotos';
+
+import { FileService } from '../../../../backend/dms/service/file.service';
+
+import type { PendingFile } from '../../shared/detail/pendingFiles';
 
 interface SaveResult {
   success: boolean;
   data?: unknown;
   error?: string | null;
   code?: string;
+  /**
+   * A photo did not attach. The BILL still saved — this is a warning, never an error, and the
+   * screen must toast it as one. Reporting it as a failure would tell the user to try again on a
+   * bill that is already written.
+   */
+  warning?: string | null;
 }
 
 /**
@@ -36,6 +54,19 @@ interface ModuleApi {
     paymentStatus: string,
     options?: { paidAmount?: number; refundedAmount?: number },
   ): Promise<SaveResult>;
+  /**
+   * Quick Add photos. Optional, and genuinely so: a module wired without them still bills ad-hoc
+   * lines perfectly — it just cannot carry a picture, which is the one part of the feature that is
+   * decoration rather than money.
+   */
+  ensureBillItemFolder?(params: {
+    businessId: number;
+    billId: number;
+    lineId: string;
+    itemName?: string;
+    currentFolderId?: number | null;
+  }): Promise<SaveResult>;
+  attachQuickItemPhotos?(billId: number, links: QuickItemPhotoLink[]): Promise<SaveResult>;
 }
 
 interface UseBillDetailFormInput {
@@ -176,6 +207,23 @@ export function useBillDetailForm({
     });
   }, []);
 
+  /**
+   * Append the ad-hoc lines the user typed on the Quick Add tab.
+   *
+   * Deduped by `lineId` rather than by name: two genuinely different items can share a name, and
+   * the id is minted per commit, so the only way a duplicate id arrives is the sheet handing back
+   * the same list twice.
+   */
+  const addQuickItems = useCallback((items: QuickBillItem[]) => {
+    setForm((prev) => {
+      const present = new Set(
+        prev.lines.filter((l) => l.kind === 'QUICK').map((l) => l.quick?.lineId),
+      );
+      const additions = items.filter((i) => !present.has(i.lineId)).map(newQuickLine);
+      return additions.length ? { ...prev, lines: [...prev.lines, ...additions] } : prev;
+    });
+  }, []);
+
   const removeLine = useCallback((index: number) => {
     setForm((prev) => ({ ...prev, lines: prev.lines.filter((_, i) => i !== index) }));
   }, []);
@@ -192,6 +240,79 @@ export function useBillDetailForm({
       baseline.refundedAmount !== next.refundedAmount
     );
   }, [baseline, form]);
+
+  /**
+   * Upload any staged quick-item photos, once the bill has an id.
+   *
+   * Runs AFTER the save on both create and edit, because the DMS folder is named after the bill id
+   * and on create that id does not exist until the POST returns. Doing edit differently would be
+   * two code paths for one problem.
+   *
+   * It never throws and never fails the save: by the time this runs the bill is already written, so
+   * an error here is a warning about a picture, not a failed bill. The names that did not make it
+   * come back in `photoWarning`, which the screen toasts.
+   */
+  const uploadQuickPhotos = useCallback(
+    async (billId: number): Promise<{ warning: string | null; saved?: BillDetailItem }> => {
+      const items = form.lines
+        .filter((l) => l.kind === 'QUICK' && l.quick)
+        .map((l) => l.quick as QuickBillItem);
+      if (!items.length || businessId == null) return { warning: null };
+
+      /**
+       * ⚠️ Say so rather than returning quietly.
+       *
+       * These two are optional on `ModuleApi`, and an early `return null` here reads as "this
+       * module has no photo support". It is far more often a WIRING fault — the screen assembles
+       * `moduleApi` as an object literal, so a method left out of it is neither a type error nor a
+       * runtime one. That is not hypothetical: it shipped exactly once, and the symptom was a bill
+       * that saved cleanly, warned about nothing, and came back with `dmsFolderId: null`.
+       *
+       * Only worth saying when there is actually a photo waiting — a module with no photo support
+       * must stay silent for the photoless items that are the common case.
+       */
+      if (!moduleApi.ensureBillItemFolder || !moduleApi.attachQuickItemPhotos) {
+        const waiting = pendingPhotoItems(items);
+        return {
+          warning: waiting.length
+            ? `Bill saved — photos are not wired up for this module, so the picture for ${waiting
+                .map((i) => i.name)
+                .join(', ')} was not attached.`
+            : null,
+        };
+      }
+
+      const { links, failed, saved } = await uploadQuickItemPhotos(
+        items,
+        { businessId, billId },
+        {
+          ensureBillItemFolder: moduleApi.ensureBillItemFolder,
+          uploadFiles: (files: PendingFile[], folderId: number) =>
+            new FileService().createMultipleFiles(files, folderId),
+          attachQuickItemPhotos: moduleApi.attachQuickItemPhotos,
+        },
+      );
+
+      if (links.length) {
+        // Fold the file ids back onto the lines and drop the staged files, so a second Save does
+        // not re-upload what already landed.
+        setForm((prev) => ({
+          ...prev,
+          lines: prev.lines.map((line) => {
+            if (line.kind !== 'QUICK' || !line.quick) return line;
+            const [updated] = applyPhotoLinks([line.quick], links);
+            return updated === line.quick ? line : { ...line, quick: updated };
+          }),
+        }));
+      }
+
+      return {
+        warning: photoWarning(failed),
+        saved: (saved as BillDetailItem) ?? undefined,
+      };
+    },
+    [form.lines, businessId, moduleApi],
+  );
 
   const save = useCallback(async (): Promise<SaveResult> => {
     const found = validateBill(form);
@@ -211,8 +332,16 @@ export function useBillDetailForm({
           setSaveError(result.error || 'Could not create this bill.');
           return result;
         }
-        onSaved((result.data as BillDetailItem) ?? null);
-        return result;
+
+        // The bill exists now, so its DMS folder can finally be named. Photos land here, never
+        // before — and a failure past this point is a warning, not a failed create.
+        const created = (result.data as BillDetailItem) ?? null;
+        const billId = created?.id;
+        const photos =
+          billId != null ? await uploadQuickPhotos(billId as number) : { warning: null };
+
+        onSaved(photos.saved ?? created);
+        return { ...result, warning: photos.warning };
       }
 
       const billId = item.id as number;
@@ -260,14 +389,18 @@ export function useBillDetailForm({
         return result;
       }
 
-      const saved = (result.data as BillDetailItem) ?? (item as BillDetailItem);
+      // Only the content route can have carried a new quick item or a newly staged photo — the two
+      // PATCH routes fire when nothing but a status or the money moved.
+      const photos = route === 'PUT' ? await uploadQuickPhotos(billId) : { warning: null };
+
+      const saved = photos.saved ?? (result.data as BillDetailItem) ?? (item as BillDetailItem);
       setBaseline(shapeOf(toFormState(saved)));
       onSaved(saved);
-      return { success: true, data: saved };
+      return { success: true, data: saved, warning: photos.warning };
     } finally {
       setSaving(false);
     }
-  }, [form, mode, item, businessId, moduleApi, onSaved, baseline]);
+  }, [form, mode, item, businessId, moduleApi, onSaved, baseline, uploadQuickPhotos]);
 
   const remove = useCallback(async (): Promise<SaveResult> => {
     if (item?.id == null) {
@@ -301,6 +434,7 @@ export function useBillDetailForm({
     setCustomer,
     attachRecords,
     quickAdd,
+    addQuickItems,
     removeLine,
     save,
     remove,

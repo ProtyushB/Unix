@@ -70,6 +70,29 @@ export class PharmacyService {
     return this.api.ensureEntityFolder(params);
   }
 
+  async ensureBillItemFolder(params: {
+    businessId: number;
+    billId: number;
+    lineId: string;
+    itemName?: string;
+    currentFolderId?: number | null;
+  }) {
+    // The bill must already be saved — the backend names the parent folder after its id.
+    if (!params?.businessId || !params?.billId || !params?.lineId) {
+      throw new Error('Business ID, bill ID and line ID are required');
+    }
+    return this.api.ensureBillItemFolder(params);
+  }
+
+  async attachQuickItemPhotos(
+    billId: number,
+    links: Array<{ lineId: string; dmsFolderId: number; photos: unknown[] }>,
+  ) {
+    if (!billId) throw new Error('Bill ID is required');
+    if (!links?.length) throw new Error('At least one photo link is required');
+    return this.api.attachQuickItemPhotos(billId, links);
+  }
+
   async getAllServices(businessId: number, page = 1, limit = 10, options: ServiceListOptions = {}) {
     if (!businessId) throw new Error('Business ID is required');
     return this.api.getAllServices(businessId, page, limit, options);
