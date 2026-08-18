@@ -9,6 +9,7 @@
  *   omit `billedAppointments`→ same for appointments
  *   omit `customProducts`    → the bare lines are deleted AND their inventory is RESTOCKED
  *   omit `customServices`    → same
+ *   omit `quickItems`        → every ad-hoc line is deleted, photos and DMS folder orphaned
  *   omit `notes`             → erased
  *   omit `tips`              → forced to zero
  *   omit `discount`          → set to null
@@ -23,7 +24,7 @@
  * any of them.
  */
 
-import { attachedIds, bareToWrite, toBillLines, type BillLine } from './billLines';
+import { attachedIds, bareToWrite, quickToWrite, toBillLines, type BillLine } from './billLines';
 import {
   computeBillMoney,
   readDiscount,
@@ -175,6 +176,15 @@ export function buildBillPayload(form: BillFormState, businessId: number): Recor
     // Always sent. Omitting either deletes the bare lines AND restocks their inventory.
     customProducts,
     customServices,
+
+    /**
+     * Always sent too, and for the same reason — an omitted `quickItems` deletes every ad-hoc line
+     * on the bill. Sent as `[]` rather than dropped when there are none: on this screen an empty
+     * array and an absent key mean the same thing to the server, and writing it unconditionally is
+     * what keeps the "rebuild every erasable field on every write" rule true without an exception
+     * to remember.
+     */
+    quickItems: quickToWrite(form.lines),
 
     // Money INPUTS only. subtotal / discountAmount / taxAmount / grandTotal are server-computed and
     // have no field on the request — sending them would be ignored at best.

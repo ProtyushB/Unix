@@ -18,6 +18,7 @@ import { dayLabelOf, statusLabel as orderStatusLabel } from '../../orders/order.
 import { STATUS_LABEL as APPOINTMENT_STATUS_LABEL } from '../../appointments/appointment.model';
 import { BillDetailBase } from './BillDetailBase';
 import { useBillDetailForm, type QuickAddPick } from './useBillDetailForm';
+import type { QuickBillItem } from './quickItem';
 import { configFor, type BillModuleKey } from './billDetail.modules';
 import { type BillDetailItem } from './billDetail.model';
 import {
@@ -117,12 +118,36 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
     deleteBill,
     updateBillStatus,
     updateBillPayment,
+    ensureBillItemFolder,
+    attachQuickItemPhotos,
     services: serviceList,
   } = activeModule;
 
+  /**
+   * ⚠️ This literal is the whole API surface the form hook gets. A method left out of it is not a
+   * type error and not a runtime error — `useBillDetailForm` guards the optional ones with `?.` and
+   * simply does nothing. Leaving the two photo methods out cost a silent no-op upload: the bill
+   * saved, no warning fired, and the line came back with `dmsFolderId: null`.
+   */
   const moduleApi = useMemo(
-    () => ({ createBill, updateBill, deleteBill, updateBillStatus, updateBillPayment }),
-    [createBill, updateBill, deleteBill, updateBillStatus, updateBillPayment],
+    () => ({
+      createBill,
+      updateBill,
+      deleteBill,
+      updateBillStatus,
+      updateBillPayment,
+      ensureBillItemFolder,
+      attachQuickItemPhotos,
+    }),
+    [
+      createBill,
+      updateBill,
+      deleteBill,
+      updateBillStatus,
+      updateBillPayment,
+      ensureBillItemFolder,
+      attachQuickItemPhotos,
+    ],
   );
 
   const billId = route?.params?.billId;
@@ -347,9 +372,23 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
       PRODUCT: [],
       SERVICE: [],
     };
-    for (const line of engine.form.lines) map[line.kind].push(line.refId);
+    // QUICK lines are skipped, and must be: they all carry `refId: 0`, so pushing them would mark
+    // the catalog row with id 0 as already-added — and there is no catalog row to re-add anyway.
+    for (const line of engine.form.lines) {
+      if (line.kind === 'QUICK') continue;
+      map[line.kind].push(line.refId);
+    }
     return map;
   }, [engine.form.lines]);
+
+  /** The ad-hoc lines already on the bill, so the sheet's empty state can say so. */
+  const attachedQuickItems = useMemo(
+    () =>
+      engine.form.lines
+        .filter((l) => l.kind === 'QUICK' && l.quick)
+        .map((l) => l.quick as QuickBillItem),
+    [engine.form.lines],
+  );
 
   const sheetSources = useMemo<Record<AddItemKind, AddItemSource>>(() => {
     const build = (kind: AddItemKind, rows: AddItemRow[]): AddItemSource => ({
@@ -431,7 +470,13 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
 
   const onSave = useCallback(async () => {
     const result = await engine.save();
-    if (!result.success && result.error) showToast(result.error, 'error');
+    if (!result.success && result.error) {
+      showToast(result.error, 'error');
+      return;
+    }
+    // The bill saved; only a photo did not. A warning, never an error — telling the user to retry
+    // a write that already landed would have them save the same bill twice.
+    if (result.warning) showToast(result.warning, 'warning');
   }, [engine, showToast]);
 
   const onConfirmDelete = useCallback(async () => {
@@ -541,6 +586,8 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
         sources={sheetSources}
         onAdd={onAddItems}
         onTabShown={onTabShown}
+        quickItems={attachedQuickItems}
+        onAddQuickItems={engine.addQuickItems}
         onClose={() => setSheet('none')}
       />
 

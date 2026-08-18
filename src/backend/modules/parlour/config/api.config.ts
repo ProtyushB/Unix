@@ -24,6 +24,12 @@ export const PARLOUR_ROUTES = {
   // pharmacy table carries its own identical copy.
   DMS_ENTITY_FOLDER: '/api/dms/entity-folder',
 
+  // The same common controller, one level more specific: the folder for ONE quick-add line on ONE
+  // bill. Not a `type` on the entity-folder call above — that one takes PRODUCT/SERVICE/EXPENSE and
+  // keys on a single entity id, and a quick-add line is keyed by a bill id AND a client-minted uuid.
+  // The backend ensures the `Bill_{billId}` parent itself; the client must not create it.
+  DMS_BILL_ITEM_FOLDER: '/api/dms/bill-item-folder',
+
   SERVICES_BASE: '/parlourService',
   SERVICES_VIEW_ALL: '/parlourService/viewAll',
 

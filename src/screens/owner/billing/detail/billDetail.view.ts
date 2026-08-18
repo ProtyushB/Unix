@@ -204,11 +204,33 @@ export interface SaveShape {
  *
  * Used only to answer "did anything other than the statuses change?". A hash rather than a deep
  * compare because the answer is a yes/no and the inputs are small.
+ *
+ * ⚠️ QUICK lines must be hashed by their CONTENT, not by `refId`. Every quick line carries
+ * `refId: 0` — it has no server id — so a key built from `[kind, refId]` alone reads "one quick
+ * line" for any quick line. Swap an item for a different one and the count is unchanged, the key
+ * is unchanged, and if the payment also moved `saveRoute` would answer PATCH_PAYMENT: the swap
+ * would never reach the server and the save would still report success.
  */
 export function contentKey(form: BillFormState): string {
   return JSON.stringify([
     form.customerId,
-    form.lines.map((l) => [l.kind, l.refId, l.bare?.quantity ?? null]),
+    form.lines.map((l) => [
+      l.kind,
+      l.refId,
+      l.bare?.quantity ?? null,
+      l.quick
+        ? [
+            l.quick.lineId,
+            l.quick.name,
+            l.quick.price,
+            l.quick.quantity,
+            l.quick.unit,
+            // A photo picked but not yet uploaded is a change the save has to act on, even when
+            // nothing else about the line moved.
+            !!l.quick.photo,
+          ]
+        : null,
+    ]),
     form.notes.trim(),
     form.tips,
     form.discount.type,

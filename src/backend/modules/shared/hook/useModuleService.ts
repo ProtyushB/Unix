@@ -182,6 +182,24 @@ interface ModuleService {
     entityName?: string;
     currentFolderId?: number | null;
   }): Promise<ServiceResult>;
+  /**
+   * The same idea one level down: the folder for ONE quick-add line on ONE bill.
+   *
+   * Its own method rather than a fourth `EntityFolderType`, because the KEY differs — a quick-add
+   * line has no entity id, only a bill id and a client-minted `lineId` uuid.
+   */
+  ensureBillItemFolder?(params: {
+    businessId: number;
+    billId: number;
+    lineId: string;
+    itemName?: string;
+    currentFolderId?: number | null;
+  }): Promise<ServiceResult>;
+  /** Narrow PATCH that records file ids on a saved bill's quick-add lines. Never the full PUT. */
+  attachQuickItemPhotos?(
+    billId: number,
+    links: Array<{ lineId: string; dmsFolderId: number; photos: unknown[] }>,
+  ): Promise<ServiceResult>;
 
   getAllServices(
     businessId: number,
@@ -1689,6 +1707,69 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       [service],
     );
 
+    /**
+     * The DMS folder for one Quick Add line on one bill.
+     *
+     * Not `ensureFolder` with a fourth discriminator: that one keys on a single entity id, and a
+     * quick-add line is keyed by a bill id AND a client-minted `lineId` uuid — it has no entity of
+     * its own. The backend names it `{itemName}_{lineId}` and ensures the `Bill_{billId}` parent.
+     */
+    const ensureBillItemFolder = useCallback(
+      async (params: {
+        businessId: number;
+        billId: number;
+        lineId: string;
+        itemName?: string;
+        currentFolderId?: number | null;
+      }) => {
+        if (!service.ensureBillItemFolder) {
+          return { success: false, error: 'Bill item folders are not supported for this module' };
+        }
+        try {
+          const response = await service.ensureBillItemFolder(params);
+          if (response.success) return { success: true, data: response.data };
+          return { success: false, error: response.error || response.message || null };
+        } catch (err) {
+          const message = (err as Error).message || 'Failed to prepare the photo folder';
+          return { success: false, error: message };
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Link uploaded photos to a saved bill's quick-add lines.
+     *
+     * ⚠️ Never reach for `updateBill` to do this. The PUT rebuilds the bill: it mints a second
+     * auto-generated order for any order-required line and orphans the first, and it reprices and
+     * restocks every bare line. This endpoint records the file ids and nothing else.
+     */
+    const attachQuickItemPhotos = useCallback(
+      async (
+        billId: number,
+        links: Array<{ lineId: string; dmsFolderId: number; photos: unknown[] }>,
+      ) => {
+        if (!service.attachQuickItemPhotos) {
+          return { success: false, error: 'Not supported for this module' };
+        }
+        try {
+          return await service.attachQuickItemPhotos(billId, links);
+        } catch (err) {
+          const e = err as {
+            response?: { data?: { code?: string; error?: string; message?: string } };
+            message?: string;
+          };
+          const body = e.response?.data;
+          return {
+            success: false,
+            code: body?.code,
+            error: body?.error || body?.message || e.message || 'Failed to attach the photos',
+          };
+        }
+      },
+      [service],
+    );
+
     // ═══════════════════════════════════════════════════════════════
     // Inventory CRUD
     // ═══════════════════════════════════════════════════════════════
@@ -2222,7 +2303,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         setLoading(true);
         setError(null);
         try {
-          const response = await service.getStockTransfersByBusiness(businessId, query, page, limit);
+          const response = await service.getStockTransfersByBusiness(
+            businessId,
+            query,
+            page,
+            limit,
+          );
           if (response.success) {
             const rows = Array.isArray(response.data) ? response.data : [];
             setStockTransfers((prev) => (append ? [...prev, ...rows] : rows));
@@ -2621,6 +2707,10 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       createBill,
       updateBill,
       deleteBill,
+      // Quick Add photos. Both belong to the bill, not to the shared folder helpers above, because
+      // neither is keyed by an entity id.
+      ensureBillItemFolder,
+      attachQuickItemPhotos,
 
       // Other
       loadEmployees,
