@@ -36,6 +36,7 @@ import {
   type AddItemSelection,
   type AddItemSource,
 } from './AddItemsSheet';
+import { openingTab } from './addItemsSheet.view';
 import { destinationNote, productNeedsOrder, serviceNeedsAppointment } from './quickAddRouting';
 
 /**
@@ -338,12 +339,14 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
     [sources, loadSource],
   );
 
-  // The sheet opens on Orders, so that tab has to be fetched when the sheet opens rather than only
-  // when a tab is tapped.
+  // Whichever tab the sheet will actually open on has to be fetched when it opens, rather than only
+  // when a tab is tapped. That tab is no longer always Orders — a bill with no customer opens on the
+  // Catalog instead, because the records list cannot fill without one. Asking `openingTab` rather
+  // than repeating the choice here is what keeps the fetch and the tab from drifting apart.
   useEffect(() => {
     if (sheet !== 'addItems') return;
-    onTabShown('ORDER');
-  }, [sheet, onTabShown]);
+    onTabShown(openingTab(engine.form.customerId != null).kind);
+  }, [sheet, onTabShown, engine.form.customerId]);
 
   const serviceRows = useMemo<AddItemRow[]>(
     () =>
@@ -583,6 +586,7 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
       <AddItemsSheet
         visible={sheet === 'addItems'}
         customerName={engine.form.customerName}
+        hasCustomer={engine.form.customerId != null}
         sources={sheetSources}
         onAdd={onAddItems}
         onTabShown={onTabShown}
