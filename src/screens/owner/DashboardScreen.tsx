@@ -37,7 +37,7 @@ import type { DashboardMetric } from '../../backend/dashboard/api/dashboard.api.
 import { useAppContext } from '../../context/AppContext';
 import { refreshBusinessProfile } from '../../backend/person/service/profile.sync';
 import { findBusiness, type Business } from '../../storage/session.storage';
-import { formatCompactCurrency, formatSyncTime } from '../../utils/formatters';
+import { formatCompactCurrency, formatSyncTime, NO_CUSTOMER } from '../../utils/formatters';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { AppTheme } from '../../theme/theme.types';
@@ -63,7 +63,10 @@ function customerNameOf(row: any): string {
   if (row.customerFirstName && row.customerLastName) {
     return `${row.customerFirstName} ${row.customerLastName}`;
   }
-  return row.customerName || row.customer || 'Unknown Customer';
+  // NO_CUSTOMER, not "Unknown Customer" — a counter sale belongs to nobody and that is not a
+  // failure to load. This duplicates orders/order.model.ts#customerNameOf; the two must agree,
+  // since the same order appears in both the dashboard's recent list and the orders list.
+  return row.customerName || row.customer || NO_CUSTOMER;
 }
 
 function toRecentOrder(row: any, index: number): RecentOrder {

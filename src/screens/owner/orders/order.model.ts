@@ -11,7 +11,7 @@
  * way from the start.
  */
 
-import { formatCurrency, initialsOf } from '../../../utils/formatters';
+import { formatCurrency, initialsOf, NO_CUSTOMER } from '../../../utils/formatters';
 
 // Re-exported so the list and the detail screen have one import surface, and so a card and a
 // record can never disagree about how a customer's initials are drawn.
@@ -110,11 +110,11 @@ function str(v: unknown): string {
  * teaching every producer to agree.
  */
 export function customerNameOf(raw: RawOrder | null | undefined): string {
-  if (!raw) return 'Unknown Customer';
+  if (!raw) return NO_CUSTOMER;
   const first = str(raw.customerFirstName).trim();
   const last = str(raw.customerLastName).trim();
   if (first || last) return [first, last].filter(Boolean).join(' ');
-  return str(raw.customerName).trim() || str(raw.customer).trim() || 'Unknown Customer';
+  return str(raw.customerName).trim() || str(raw.customer).trim() || NO_CUSTOMER;
 }
 
 export function toOrderRow(raw: RawOrder | null | undefined, index: number): OrderRow {

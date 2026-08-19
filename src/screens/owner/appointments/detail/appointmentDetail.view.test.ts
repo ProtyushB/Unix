@@ -91,8 +91,11 @@ describe('validateAppointment', () => {
     expect(hasErrors(validateAppointment(form()))).toBe(false);
   });
 
-  it('requires a customer rather than defaulting to person 1 like the web portal does', () => {
-    expect(validateAppointment(form({ customerId: null })).customer).toBeTruthy();
+  it('saves without a customer, and still never invents one', () => {
+    // Nullable since V121. This used to refuse outright, which was right while the column was NOT
+    // NULL — and still better than the web portal's old habit of quietly attaching the booking to
+    // person 1. Absence now travels as absence rather than as either.
+    expect(hasErrors(validateAppointment(form({ customerId: null })))).toBe(false);
   });
 
   it('requires a date and a time, because a null datetime is a 500 not a 400', () => {
@@ -110,7 +113,6 @@ describe('validateAppointment', () => {
   });
 
   it('summarises to the most useful message', () => {
-    expect(errorSummary(validateAppointment(form({ customerId: null })))).toContain('customer');
     expect(errorSummary(validateAppointment(form({ date: '' })))).toContain('date');
     expect(errorSummary(validateAppointment(form({ lines: [] })))).toContain('service');
   });

@@ -16,6 +16,8 @@ import {
   User,
   X,
 } from 'lucide-react-native';
+import { useIsTabEnabled } from '../../../../backend/tab-config';
+import { customerPickable, showsCustomerCard } from '../../shared/detail/customerGate';
 import { useTheme } from '../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../theme/theme.types';
@@ -140,6 +142,12 @@ export function OrderDetailBase({
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const editable = isEditable(mode);
+
+  // Read unconditionally, never behind `&&` — a hook whose call depends on a flag changes hook
+  // order the moment the flag flips, which crashes React. Same reasoning as ProductDetailScreen.
+  const customersEnabled = useIsTabEnabled('CUSTOMERS');
+  const showCustomerCard = showsCustomerCard(customersEnabled, form.customerId != null);
+  const customerEditable = customerPickable(editable, customersEnabled);
   const showsFab = showsEditCta(mode) && !!onEdit;
 
   const orderNumber = String(item?.orderNumber ?? '');
@@ -216,17 +224,22 @@ export function OrderDetailBase({
           </View>
         ) : null}
 
-        {/* ── Customer ─────────────────────────────────────────────────────── */}
-        <DetailCard title="Customer" icon={User} gap={editable ? 13 : 12}>
-          <CustomerRow
-            form={form}
-            editable={editable}
-            error={errors.customer}
-            onPress={onPickCustomer}
-            styles={styles}
-            theme={theme}
-          />
-        </DetailCard>
+        {/* ── Customer ───────────────────────────────────────────────────────
+            Absent entirely when the Customers module is off AND this order has nobody on it —
+            that business does not track customers, so every order is anonymous and there is no
+            choice to offer. One that already CARRIES a customer still shows them, read-only. */}
+        {showCustomerCard ? (
+          <DetailCard title="Customer" icon={User} gap={customerEditable ? 13 : 12}>
+            <CustomerRow
+              form={form}
+              editable={customerEditable}
+              error={errors.customer}
+              onPress={onPickCustomer}
+              styles={styles}
+              theme={theme}
+            />
+          </DetailCard>
+        ) : null}
 
         {/* ── Items ────────────────────────────────────────────────────────── */}
         <View style={styles.sectionHead}>

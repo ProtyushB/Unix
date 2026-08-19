@@ -28,6 +28,7 @@ import {
   RotateCw,
   Search,
   SlidersHorizontal,
+  User,
   X,
 } from 'lucide-react-native';
 
@@ -51,6 +52,7 @@ import {
   type OrderRow,
 } from './order.model';
 import type { AppTheme } from '../../../theme/theme.types';
+import { NO_CUSTOMER } from '../../../utils/formatters';
 import { DATE_PRESETS, rangeForPreset, toYmd, type DatePresetId } from '../../../utils/dateRange';
 
 import { useAppContext } from '../../../context/AppContext';
@@ -500,10 +502,16 @@ export function OrdersScreen({ navigation }: OrdersScreenProps = {}) {
           accessibilityRole="button"
           accessibilityLabel={`${item.orderNumber} · ${item.customerName}`}
         >
+          {/* A person glyph rather than initials for a counter sale — initials of an em dash are an
+              em dash, and the detail screen already draws this state as a glyph. */}
           <View style={[styles.avatar, { backgroundColor: pair.bg + '26' }]}>
-            <Text style={[styles.avatarText, { color: pair.bg }]}>
-              {initialsOf(item.customerName)}
-            </Text>
+            {item.customerName === NO_CUSTOMER ? (
+              <User size={16} color={palette.muted} />
+            ) : (
+              <Text style={[styles.avatarText, { color: pair.bg }]}>
+                {initialsOf(item.customerName)}
+              </Text>
+            )}
           </View>
 
           <View style={styles.cardMid}>
@@ -527,7 +535,7 @@ export function OrdersScreen({ navigation }: OrdersScreenProps = {}) {
         </Pressable>
       );
     },
-    [theme, styles, palette.divider, openDetail],
+    [theme, styles, palette.divider, palette.muted, openDetail],
   );
 
   const { headerProps, listProps, headerHeight } = useCollapsingHeader({
@@ -1164,9 +1172,13 @@ function ActionsSheet({
 
         <View style={styles.summaryWrap}>
           <View style={[styles.summaryAvatar, { backgroundColor: pair.bg + '26' }]}>
-            <Text style={[styles.avatarText, { color: pair.bg }]}>
-              {initialsOf(order.customerName)}
-            </Text>
+            {order.customerName === NO_CUSTOMER ? (
+              <User size={16} color={theme.palette.muted} />
+            ) : (
+              <Text style={[styles.avatarText, { color: pair.bg }]}>
+                {initialsOf(order.customerName)}
+              </Text>
+            )}
           </View>
           <View style={styles.cardMid}>
             <Text style={styles.cardName} numberOfLines={1}>

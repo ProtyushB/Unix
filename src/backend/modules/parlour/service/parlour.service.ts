@@ -140,8 +140,9 @@ export class ParlourService {
     return this.api.getOrderById(id);
   }
   async createOrder(data: Record<string, unknown>) {
-    if (!data.customerId || !data.businessId)
-      throw new Error('Customer ID and Business ID are required');
+    // The customer is deliberately not required: a counter sale has nobody to record, and
+    // `customer_id` has been nullable on every order and appointment table since V121.
+    if (!data.businessId) throw new Error('Business ID is required');
     return this.api.createOrder(data);
   }
   async updateOrder(data: Record<string, unknown>) {
@@ -204,8 +205,9 @@ export class ParlourService {
     return this.api.getAppointmentById(id);
   }
   async createAppointment(data: Record<string, unknown>) {
-    if (!data.customerId || !data.businessId)
-      throw new Error('Customer ID and Business ID are required');
+    // No customer requirement — see createOrder above. The date stays required: it has no
+    // server-side fallback, so omitting it is a 500 rather than a clean 400.
+    if (!data.businessId) throw new Error('Business ID is required');
     if (!data.appointmentDateTime) throw new Error('Appointment date and time is required');
     return this.api.createAppointment(data);
   }

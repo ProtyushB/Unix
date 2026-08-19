@@ -29,9 +29,11 @@ describe('customerNameOf', () => {
     expect(customerNameOf({ customer: 'Priya Nair' })).toBe('Priya Nair');
   });
 
-  it('never renders an empty customer', () => {
-    expect(customerNameOf({})).toBe('Unknown Customer');
-    expect(customerNameOf(null)).toBe('Unknown Customer');
+  it('renders an em dash for an order that belongs to nobody', () => {
+    // Not 'Unknown Customer'. A counter sale has no customer by choice, and 'unknown' reads as data
+    // we failed to load. Bills and appointments say the same thing — see NO_CUSTOMER.
+    expect(customerNameOf({})).toBe('—');
+    expect(customerNameOf(null)).toBe('—');
   });
 });
 

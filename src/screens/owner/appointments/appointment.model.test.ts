@@ -82,7 +82,7 @@ describe('toAppointmentRow', () => {
 
   it('falls back when the customer name is absent', () => {
     const { customerFirstName, customerLastName, ...anon } = raw;
-    expect(toAppointmentRow(anon).customerName).toBe('Unknown customer');
+    expect(toAppointmentRow(anon).customerName).toBe('—');
   });
 
   it('uses only the first name when there is no last name', () => {

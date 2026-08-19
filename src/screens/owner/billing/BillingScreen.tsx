@@ -27,6 +27,7 @@ import {
   Download,
   Share2,
   Lock,
+  User,
 } from 'lucide-react-native';
 import { FAB } from '../../../components/layout/FAB';
 import { CollapsingHeader, AnimatedSectionList } from '../../../components/layout/CollapsingHeader';
@@ -51,6 +52,7 @@ import {
   PAYMENT_STATUS_LABEL,
   type BillRow,
 } from './bill.model';
+import { NO_CUSTOMER } from '../../../utils/formatters';
 import {
   deriveBillView,
   showsBillFab,
@@ -400,10 +402,15 @@ export function BillingScreen({ navigation }: BillingScreenProps = {}) {
           accessibilityRole="button"
           accessibilityLabel={`${item.billNumber} · ${item.customerName}`}
         >
+          {/* A person glyph rather than initials for a counter sale — see OrdersScreen. */}
           <View style={[styles.avatar, { backgroundColor: pair.bg }]}>
-            <Text style={[styles.avatarText, { color: pair.text }]}>
-              {initials(item.customerName)}
-            </Text>
+            {item.customerName === NO_CUSTOMER ? (
+              <User size={16} color={pair.text} />
+            ) : (
+              <Text style={[styles.avatarText, { color: pair.text }]}>
+                {initials(item.customerName)}
+              </Text>
+            )}
           </View>
 
           <View style={styles.cardBody}>

@@ -137,8 +137,8 @@ export class PharmacyService {
     return this.api.getOrderById(id);
   }
   async createOrder(data: Record<string, unknown>) {
-    if (!data.customerId || !data.businessId)
-      throw new Error('Customer ID and Business ID are required');
+    // No customer requirement — see the parlour twin.
+    if (!data.businessId) throw new Error('Business ID is required');
     return this.api.createOrder(data);
   }
   async updateOrder(data: Record<string, unknown>) {
@@ -199,8 +199,8 @@ export class PharmacyService {
     return this.api.getAppointmentById(id);
   }
   async createAppointment(data: Record<string, unknown>) {
-    if (!data.customerId || !data.businessId)
-      throw new Error('Customer ID and Business ID are required');
+    // No customer requirement — see the parlour twin.
+    if (!data.businessId) throw new Error('Business ID is required');
     return this.api.createAppointment(data);
   }
   async updateAppointment(data: Record<string, unknown>) {
