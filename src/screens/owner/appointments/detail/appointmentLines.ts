@@ -20,7 +20,8 @@ export interface ServiceLine {
   serviceId: number;
   servicePersonId?: number | null;
   quantity: number;
-  itemPrice: number;
+  /** Null on any row the portal wrote — see {@link unitPrice}. */
+  itemPrice: number | null;
   totalPrice: number;
   discount: number;
   status?: string;
@@ -83,10 +84,34 @@ export function newServiceLine(
   };
 }
 
-/** Set a line's quantity, keeping its total in step. Never below one. */
+/**
+ * What one of this service costs.
+ *
+ * `itemPrice` is authoritative when the row has one, but a row the portal wrote does not: its
+ * appointment payload sends `totalPrice` per line and no unit price at all, so the field comes back
+ * null. The portal never notices because it derives the unit the same way on read. This screen took
+ * `itemPrice ?? 0` at face value, so bumping the quantity on a portal-booked appointment priced the
+ * service at nothing — and, since the grand total is the sum of the lines, the appointment with it.
+ *
+ * Orders are not exposed to this: their payload does send a unit price.
+ */
+export function unitPrice(line: ServiceLine): number {
+  const stored = Number(line.itemPrice);
+  if (line.itemPrice != null && Number.isFinite(stored)) return stored;
+  const qty = Number(line.quantity ?? 0);
+  return qty > 0 ? Number(line.totalPrice ?? 0) / qty : 0;
+}
+
+/**
+ * Set a line's quantity, keeping its total in step. Never below one.
+ *
+ * Writes the unit price back so a portal-written row stops being ambiguous once it has been edited
+ * here, instead of being re-derived on every later change.
+ */
 export function setQuantity(line: ServiceLine, quantity: number): ServiceLine {
   const qty = Math.max(1, Math.trunc(quantity) || 1);
-  return { ...line, quantity: qty, totalPrice: qty * Number(line.itemPrice ?? 0) };
+  const price = unitPrice(line);
+  return { ...line, quantity: qty, itemPrice: price, totalPrice: qty * price };
 }
 
 /**
