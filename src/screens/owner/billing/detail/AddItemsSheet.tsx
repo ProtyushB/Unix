@@ -45,7 +45,17 @@ import {
   type QuickItemDraft,
 } from './quickItem';
 
-export type AddItemKind = 'ORDER' | 'APPOINTMENT' | 'PRODUCT' | 'SERVICE';
+// Declared in `addItemsSheet.view.ts` so the tab and copy rules that turn on them can be tested
+// without React Native. Re-exported here because that is where callers have always imported them.
+import {
+  emptyLine,
+  helperLine,
+  openingTab,
+  type AddItemKind,
+  type TopTab,
+} from './addItemsSheet.view';
+
+export type { AddItemKind };
 
 /** One pickable row, already flattened by the screen. Same contract as `CatalogRow`. */
 export interface AddItemRow {
@@ -75,6 +85,11 @@ interface Props {
   visible: boolean;
   /** "Billing · Anjali Rao". Empty until a customer is chosen. */
   customerName: string;
+  /**
+   * Whether the bill has a customer at all — NOT whether it has a name. A walk-in can be a real
+   * Person with a phone and no name, which is why this cannot be derived from `customerName`.
+   */
+  hasCustomer: boolean;
   sources: Record<AddItemKind, AddItemSource>;
   onAdd: (selection: AddItemSelection) => void;
   onClose: () => void;
@@ -84,14 +99,6 @@ interface Props {
   quickItems?: QuickBillItem[];
   onAddQuickItems?: (items: QuickBillItem[]) => void;
 }
-
-/**
- * The three item SOURCES. Distinct from `AddItemKind`, which names the four DATA lists — Quick Add
- * has no list, no source and nothing to fetch, so folding it into that union would put an
- * unreachable key in `sources`, `EMPTY_SELECTION`, `alreadyAdded` and every `Record<AddItemKind, …>`
- * the screen builds.
- */
-type TopTab = 'RECORDS' | 'CATALOG' | 'QUICK';
 
 /**
  * ⚠️ The middle tab used to be labelled "Quick Add" and was never that. Its sub-tabs are Products
@@ -134,13 +141,6 @@ const NOUN: Record<AddItemKind, string> = {
   SERVICE: 'service',
 };
 
-const HELPER: Record<AddItemKind, string> = {
-  ORDER: "This customer's unbilled orders",
-  APPOINTMENT: "This customer's unbilled appointments",
-  PRODUCT: 'Catalog — added as a bare line, or via a new order',
-  SERVICE: 'Catalog — added as a bare line, or via a new appointment',
-};
-
 const EMPTY_SELECTION: AddItemSelection = {
   ORDER: [],
   APPOINTMENT: [],
@@ -167,6 +167,7 @@ const EMPTY_SELECTION: AddItemSelection = {
 export function AddItemsSheet({
   visible,
   customerName,
+  hasCustomer,
   sources,
   onAdd,
   onClose,
@@ -178,8 +179,11 @@ export function AddItemsSheet({
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
 
-  const [top, setTop] = useState<TopTab>('RECORDS');
-  const [kind, setKind] = useState<AddItemKind>('ORDER');
+  // Opens on Catalog when the bill has nobody on it — the records tab cannot fill without a
+  // customer, so landing there would be a dead end before the seller has done anything.
+  const opening = openingTab(hasCustomer);
+  const [top, setTop] = useState<TopTab>(opening.top);
+  const [kind, setKind] = useState<AddItemKind>(opening.kind);
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<AddItemSelection>(EMPTY_SELECTION);
 
@@ -219,8 +223,8 @@ export function AddItemsSheet({
   const reset = () => {
     setPicked(EMPTY_SELECTION);
     setQuery('');
-    setTop('RECORDS');
-    setKind('ORDER');
+    setTop(opening.top);
+    setKind(opening.kind);
     setDraft(emptyQuickDraft());
     setQuickErrors({});
     setQuickItems([]);
@@ -435,7 +439,7 @@ export function AddItemsSheet({
               />
             </View>
 
-            <Text style={styles.helper}>{HELPER[kind]}</Text>
+            <Text style={styles.helper}>{helperLine(kind, hasCustomer)}</Text>
 
             {source.error ? (
               <View style={styles.errorBlock}>
@@ -497,7 +501,7 @@ export function AddItemsSheet({
               ListEmptyComponent={
                 source.loading ? null : (
                   <Text style={styles.empty}>
-                    {query ? `No ${NOUN[kind]} matches “${query}”.` : emptyLine(kind, customerName)}
+                    {query ? `No ${NOUN[kind]} matches “${query}”.` : emptyLine(kind, customerName, hasCustomer)}
                   </Text>
                 )
               }
@@ -733,20 +737,6 @@ function QuickAddPanel({
       )}
     </ScrollView>
   );
-}
-
-function emptyLine(kind: AddItemKind, customerName: string): string {
-  const who = customerName || 'This customer';
-  switch (kind) {
-    case 'ORDER':
-      return `${who} has no unbilled orders.`;
-    case 'APPOINTMENT':
-      return `${who} has no unbilled appointments.`;
-    case 'PRODUCT':
-      return 'No products in this catalog yet.';
-    default:
-      return 'No services in this catalog yet.';
-  }
 }
 
 function toneColor(theme: AppTheme, tone: NonNullable<AddItemRow['badge']>['tone']): string {
