@@ -380,7 +380,13 @@ export function useBillDetailForm({
         }
         result = await moduleApi.updateBillStatus(billId, form.billStatus);
       } else {
-        result = await moduleApi.updateBill(billId, buildBillPayload(form, businessId ?? 0));
+        // Guarded exactly like the create path above, and for a worse reason. `businessId` is
+        // `number | null` while buildBillPayload wants a `number`, and this used to close that gap
+        // with `?? 0` — which satisfies the compiler and silently REASSIGNS the bill to business 0
+        // on every PUT made before a business resolves. A create at least refused; an update
+        // returned 200 and moved the bill out of the business that owns it.
+        if (businessId == null) return { success: false, error: 'No business is selected.' };
+        result = await moduleApi.updateBill(billId, buildBillPayload(form, businessId));
       }
 
       if (!result.success) {
