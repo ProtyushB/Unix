@@ -169,9 +169,11 @@ describe('validateBill', () => {
     expect(hasErrors(validateBill(base()))).toBe(false);
   });
 
-  it('requires the three fields the server @Valids', () => {
-    expect(validateBill(base({ customerId: null })).customer).toBeTruthy();
-    expect(validateBill(base({ customerPhone: '' })).customerPhone).toBeTruthy();
+  it('saves a counter sale — no customer, and therefore no phone', () => {
+    // Both annotations came off CreateBillRequest with V121. The phone is the half that hides: a
+    // customerless bill's phone is '', so a lingering check there would keep refusing the bill long
+    // after the customer check went, complaining about a customer that is not there.
+    expect(hasErrors(validateBill(base({ customerId: null, customerPhone: '' })))).toBe(false);
   });
 
   it('requires at least one item and a date', () => {
@@ -201,7 +203,6 @@ describe('validateBill', () => {
   });
 
   it('summarises to the most useful message', () => {
-    expect(errorSummary(validateBill(base({ customerId: null })))).toContain('customer');
     expect(errorSummary(validateBill(base({ lines: [] })))).toContain('item');
   });
 });

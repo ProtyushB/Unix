@@ -141,11 +141,10 @@ export type ValidationErrors = Record<string, string>;
 export function validateBill(form: BillFormState): ValidationErrors {
   const errors: ValidationErrors = {};
 
-  // @NotNull / @NotBlank on CreateBillRequest.
-  if (form.customerId == null) errors.customer = 'Pick a customer for this bill.';
-  if (!form.customerPhone.trim()) {
-    errors.customerPhone = 'This customer has no phone number, which a bill requires.';
-  }
+  // No customer check, and none on the phone either. Both annotations came off CreateBillRequest
+  // when V121 made the columns nullable, and the phone is the half that hides: a counter sale's
+  // phone is '', so leaving that check in place would keep refusing the bill long after the
+  // customer check went — with a message about a customer that isn't there.
 
   if (!form.lines.length) errors.items = 'Add at least one item.';
   if (!form.billDate) errors.billDate = 'Pick a bill date.';

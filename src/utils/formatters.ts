@@ -145,6 +145,18 @@ export function formatSyncTime(date: Date): string {
   return `${hours12}:${pad(date.getMinutes())} ${hours24 < 12 ? 'AM' : 'PM'}`;
 }
 
+// ─── Absent customer ────────────────────────────────────────────────────────
+
+/**
+ * What a bill, order or appointment shows when it belongs to nobody.
+ *
+ * Since V121 that is a legitimate state — a counter sale — not missing data. The app used to give
+ * three different answers for it: "Unknown Customer" on orders, "Walk-in" on bills, "Unknown
+ * customer" on appointments. "Unknown" was the worst of them, because it reads as something we
+ * failed to load rather than something the seller chose. The web says the same em dash.
+ */
+export const NO_CUSTOMER = '—';
+
 // ─── Initials → "AR" ────────────────────────────────────────────────────────
 
 /**

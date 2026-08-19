@@ -92,9 +92,9 @@ export type ValidationErrors = Record<string, string>;
 export function validateAppointment(form: AppointmentFormState): ValidationErrors {
   const errors: ValidationErrors = {};
 
-  // NOT NULL, and unlike the web portal this refuses rather than quietly attaching the appointment
-  // to whoever person 1 happens to be.
-  if (form.customerId == null) errors.customer = 'Pick a customer for this appointment.';
+  // No customer check — nullable since V121. This used to refuse rather than attach the appointment
+  // to whoever person 1 happens to be, which was the right call while the column was NOT NULL; the
+  // web has since dropped that fallback too, so absence now travels as absence on both clients.
 
   // NOT NULL with no server-side fallback: a missing date is an HTTP 500, not a validation error.
   if (!form.date) errors.date = 'Pick a date.';

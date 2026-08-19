@@ -69,9 +69,11 @@ describe('toBillRow', () => {
     expect(row.balance).toBeCloseTo(205.62);
   });
 
-  it('names an unlinked walk-in rather than rendering a blank', () => {
-    expect(toBillRow({ customerName: '   ' }).customerName).toBe('Walk-in');
-    expect(toBillRow({}).customerName).toBe('Walk-in');
+  it('renders an em dash for a bill that belongs to nobody', () => {
+    // Was 'Walk-in'. Accurate, but it made three record types give three different answers for one
+    // state; orders said 'Unknown Customer' and appointments 'Unknown customer'.
+    expect(toBillRow({ customerName: '   ' }).customerName).toBe('—');
+    expect(toBillRow({}).customerName).toBe('—');
   });
 
   it('defaults the statuses a legacy row may not carry', () => {

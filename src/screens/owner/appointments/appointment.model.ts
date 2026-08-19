@@ -6,6 +6,8 @@
  * live in a `.ts` module like this one. Same split the updater's `evaluateManifest` uses.
  */
 
+import { NO_CUSTOMER } from '../../../utils/formatters';
+
 export type AppointmentStatusKey =
   | 'PENDING'
   | 'CONFIRMED'
@@ -96,7 +98,8 @@ export function toAppointmentRow(raw: Record<string, any>): AppointmentRow {
   return {
     id: Number(raw.id),
     appointmentNumber: String(pick(raw, 'appointmentNumber') ?? `#${raw.id}`),
-    customerName: name || 'Unknown customer',
+    // See order.model.ts — one em dash across all three record types.
+    customerName: name || NO_CUSTOMER,
     // Both taken from the server's pre-split IST fields — never parsed out of appointmentDateTime.
     date: String(pick(raw, 'appointmentDate') ?? ''),
     time: String(pick(raw, 'appointmentTime') ?? ''),

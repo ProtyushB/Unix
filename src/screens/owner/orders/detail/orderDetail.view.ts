@@ -69,7 +69,9 @@ export function appBarTitle(mode: DetailMode, orderNumber: string): string {
 }
 
 export function appBarSubtitle(mode: DetailMode): string {
-  if (mode === 'add') return 'Add a customer and items';
+  // Items only. Naming the customer here read as an instruction, and it is now optional — an order
+  // for nobody is a counter sale, not an unfinished form.
+  if (mode === 'add') return 'Add items to this order';
   if (mode === 'edit') return 'Edit order';
   return 'Order details';
 }
@@ -111,9 +113,8 @@ export type ValidationErrors = Record<string, string>;
 export function validateOrder(form: OrderFormState): ValidationErrors {
   const errors: ValidationErrors = {};
 
-  // NOT NULL server-side, and the mockup marks it required. Without this the save 500s.
-  if (form.customerId == null) errors.customer = 'Pick a customer for this order.';
-
+  // No customer check. `customer_id` became nullable in V121 — a counter sale has nobody to record,
+  // and the payload sends null cleanly. An empty order is still an empty order, so that check stays.
   if (!form.lines.length) errors.items = 'Add at least one item.';
 
   form.lines.forEach((line, index) => {

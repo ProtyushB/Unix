@@ -8,6 +8,8 @@
  * finalized bill nobody has paid is a debt, a draft that is somehow paid is a mistake.
  */
 
+import { NO_CUSTOMER } from '../../../utils/formatters';
+
 export interface BillRow {
   id: number;
   billNumber: string;
@@ -82,8 +84,10 @@ export function toBillRow(raw: RawBill): BillRow {
   return {
     id: num(raw.id),
     billNumber: raw.billNumber ?? '',
-    // A walk-in with no linked Person has no name; the row still has to render something.
-    customerName: raw.customerName?.trim() || 'Walk-in',
+    // A counter sale has no linked Person and no name; the row still has to render something. An em
+    // dash rather than "Walk-in" so bills, orders and appointments say one thing — the app used to
+    // have three different answers for this one state.
+    customerName: raw.customerName?.trim() || NO_CUSTOMER,
     date: billDayKey(raw.billDate ?? raw.createdAt),
     amount: total,
     // The server defaults these on create, but a legacy row can carry null.

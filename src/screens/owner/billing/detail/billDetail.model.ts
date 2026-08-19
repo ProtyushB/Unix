@@ -164,9 +164,16 @@ export function buildBillPayload(form: BillFormState, businessId: number): Recor
   const settlement = settlementField(form.paymentStatus);
 
   return {
-    // @NotNull / @NotBlank — the only three the server refuses cleanly, with a 400.
-    customerId: form.customerId,
-    customerPhone: form.customerPhone.trim(),
+    // A counter sale has no customer and therefore no phone. Both keys are DROPPED rather than sent
+    // as `null` / `''`: the phone is the one that would otherwise land as an empty string where the
+    // web writes NULL for the same bill, leaving two clients disagreeing about what "nobody" looks
+    // like in the column. They travel together — a phone belongs to a customer or to no one.
+    //
+    // Safe on the update path too: the server reads an absent customerId as "leave it alone", so a
+    // customerless bill stays customerless and one with a customer keeps them.
+    ...(form.customerId == null
+      ? {}
+      : { customerId: form.customerId, customerPhone: form.customerPhone.trim() }),
     businessId,
 
     // Always sent. Omitting either RELEASES the linked records rather than leaving them be.

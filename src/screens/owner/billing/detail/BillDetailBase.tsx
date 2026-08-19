@@ -19,6 +19,8 @@ import {
   Wallet,
   X,
 } from 'lucide-react-native';
+import { useIsTabEnabled } from '../../../../backend/tab-config';
+import { customerPickable, showsCustomerCard } from '../../shared/detail/customerGate';
 import { useTheme } from '../../../../hooks/useTheme';
 import { useThemedStyles } from '../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../theme/theme.types';
@@ -131,6 +133,13 @@ export function BillDetailBase({
   const locked = customerLocked(attachedCount(form.lines));
   const balance = balanceOf(totals.grandTotal, form.paidAmount);
 
+  // Read unconditionally, never behind `&&` — a hook whose call depends on a flag changes hook
+  // order the moment the flag flips, which crashes React rather than merely hiding a card. Same
+  // reasoning as ProductDetailScreen's INVENTORY gate.
+  const customersEnabled = useIsTabEnabled('CUSTOMERS');
+  const showCustomerCard = showsCustomerCard(customersEnabled, form.customerId != null);
+  const customerEditable = customerPickable(editable, customersEnabled);
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <View style={styles.appBar}>
@@ -192,19 +201,27 @@ export function BillDetailBase({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Customer ───────────────────────────────────────────────────────── */}
-        <DetailCard title="Customer" icon={User} gap={editable ? 13 : 12}>
-          <CustomerRow
-            form={form}
-            editable={editable}
-            locked={locked}
-            error={errors.customer || errors.customerPhone}
-            onPress={onPickCustomer}
-            styles={styles}
-            theme={theme}
-          />
-          {editable && locked ? <Text style={styles.lockNote}>{CUSTOMER_LOCK_NOTE}</Text> : null}
-        </DetailCard>
+        {/* ── Customer ───────────────────────────────────────────────────────────
+            Absent entirely when the Customers module is off AND this bill has nobody on it: that
+            business has said it does not track customers, so every bill is anonymous and there is
+            no choice to offer. A bill that already CARRIES a customer still shows them, read-only —
+            hiding a fact is not the same as removing a choice. */}
+        {showCustomerCard ? (
+          <DetailCard title="Customer" icon={User} gap={customerEditable ? 13 : 12}>
+            <CustomerRow
+              form={form}
+              editable={customerEditable}
+              locked={locked}
+              error={errors.customer || errors.customerPhone}
+              onPress={onPickCustomer}
+              styles={styles}
+              theme={theme}
+            />
+            {customerEditable && locked ? (
+              <Text style={styles.lockNote}>{CUSTOMER_LOCK_NOTE}</Text>
+            ) : null}
+          </DetailCard>
+        ) : null}
 
         {/* ── Status (read only — edit puts both axes in Bill Details) ────────── */}
         {!editable ? (

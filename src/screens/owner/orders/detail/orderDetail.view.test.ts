@@ -92,7 +92,7 @@ describe('copy', () => {
   });
 
   it('subtitles each mode as drawn', () => {
-    expect(appBarSubtitle('add')).toBe('Add a customer and items');
+    expect(appBarSubtitle('add')).toBe('Add items to this order');
     expect(appBarSubtitle('edit')).toBe('Edit order');
   });
 
@@ -133,9 +133,10 @@ describe('validateOrder', () => {
     expect(hasErrors(validateOrder(form()))).toBe(false);
   });
 
-  it('requires a customer, because customer_id is NOT NULL and would 500', () => {
-    // The controller has no @Valid, so nothing server-side catches this before Postgres does.
-    expect(validateOrder(form({ customerId: null })).customer).toBeTruthy();
+  it('saves without a customer — a counter sale belongs to nobody', () => {
+    // customer_id became nullable in V121. This used to be required because the column was NOT NULL
+    // and the controller has no @Valid, so nothing server-side caught it before Postgres did.
+    expect(hasErrors(validateOrder(form({ customerId: null })))).toBe(false);
   });
 
   it('requires at least one line', () => {
@@ -155,7 +156,6 @@ describe('validateOrder', () => {
   });
 
   it('summarises to the most useful message rather than the first key', () => {
-    expect(errorSummary(validateOrder(form({ customerId: null })))).toContain('customer');
     expect(errorSummary(validateOrder(form({ lines: [] })))).toContain('item');
     expect(errorSummary(validateOrder(form({ lines: [line({ quantity: 0 })] })))).toBe(
       'Please fix the highlighted fields.',
