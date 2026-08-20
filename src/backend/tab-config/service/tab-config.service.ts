@@ -12,26 +12,16 @@
  * already attaches the JWT + handles the 401 refresh.
  */
 
-import { AxiosError } from 'axios';
 import businessApiClient from '../../business/config/axios.instance';
 import { TAB_CONFIG_API_CONFIG } from '../config/api.config';
 import type { TabMap } from '../config/api.config';
 import type { TabConfigPayload } from '../util/tab-config.normalize';
+import { extractErrorMessage } from '../../shared/http/axiosError';
 
 export interface TabConfigServiceResult {
   success: boolean;
   data: TabConfigPayload | null;
   error: string | null;
-}
-
-function toError(err: unknown, fallback: string): string {
-  const axiosErr = err as AxiosError<{ message?: string; error?: string }>;
-  return (
-    axiosErr.response?.data?.error ||
-    axiosErr.response?.data?.message ||
-    axiosErr.message ||
-    fallback
-  );
 }
 
 const tabConfigService = {
@@ -46,7 +36,7 @@ const tabConfigService = {
       return {
         success: false,
         data: null,
-        error: toError(err, 'Failed to fetch tab config'),
+        error: extractErrorMessage(err, 'Failed to fetch tab config'),
       };
     }
   },
@@ -69,7 +59,7 @@ const tabConfigService = {
       return {
         success: false,
         data: null,
-        error: toError(err, 'Failed to update tab config'),
+        error: extractErrorMessage(err, 'Failed to update tab config'),
       };
     }
   },

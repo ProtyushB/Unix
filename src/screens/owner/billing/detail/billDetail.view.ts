@@ -29,6 +29,29 @@ export function isEditable(mode: DetailMode): boolean {
   return mode !== 'view';
 }
 
+/**
+ * Whether the form may be (re)built from the bill the screen is currently holding.
+ *
+ * The screen hands the form hook a new `item` OBJECT far more often than it hands it a new bill:
+ * every mode change refetches, and a two-call save hands back what its first call committed while
+ * the save is still running. Rebuilding from those is right in view mode, where the form is nothing
+ * but a rendering of the bill, and destructive in edit mode, where it is the user's unsaved work.
+ *
+ * That second case is not hypothetical. The payment-then-status save handed back the committed
+ * payment mid-save, an unguarded rebuild ran while the edit form was still on screen, and it put
+ * `billStatus` back to the server's value — a moment before the toast told the user their status
+ * had not been saved. The status they had picked was already gone from the form by then.
+ *
+ * So the question is not "did the bill change" but "is this form the user's". `alreadySeeded` is
+ * what separates a rebuild from the first fill: a screen opened straight into edit mode has an
+ * empty form and nothing to lose, and must still be filled.
+ */
+export function acceptsFormSeed(mode: DetailMode, alreadySeeded: boolean): boolean {
+  // An add has no bill behind it. Its form starts blank and only the user ever writes to it.
+  if (mode === 'add') return false;
+  return mode !== 'edit' || !alreadySeeded;
+}
+
 export function showsDelete(mode: DetailMode): boolean {
   return mode === 'edit';
 }
@@ -108,6 +131,26 @@ export function appBarSubtitle(mode: DetailMode): string {
 export function saveLabel(mode: DetailMode): string {
   return mode === 'add' ? 'Save' : 'Save Changes';
 }
+
+/**
+ * What a refused save or delete says when the response carried no reason of its own.
+ *
+ * Here rather than as literals at the call sites so the hook and the screen cannot end up
+ * describing the same failure in two different sentences.
+ *
+ * At the screen it is a floor today's code never stands on. Every non-success return from
+ * `useBillDetailForm` already carries words — the hand-written early returns, `errorSummary` with
+ * its own non-empty fallback, and the ones derived from `failureMessage`, which never yields an
+ * empty string — and the screen is fed by `engine.save()` / `engine.remove()` and nothing else,
+ * so the fallback arm cannot be reached. It is passed anyway because `failureMessage` takes a
+ * fallback by contract, and so that the day a caller does reach the screen without the hook, the
+ * sentence waiting there is already the right one.
+ *
+ * The create path and the payment-then-status path keep their own wording: each says something
+ * these two cannot, and neither is ever the screen's fallback.
+ */
+export const SAVE_FAILED = 'Could not save this bill.';
+export const DELETE_FAILED = 'Could not delete this bill.';
 
 // ─── Customer lock ───────────────────────────────────────────────────────────
 

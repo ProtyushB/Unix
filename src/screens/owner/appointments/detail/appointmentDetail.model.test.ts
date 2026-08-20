@@ -24,6 +24,7 @@ import {
   passthroughItems,
   serviceMeta,
   setQuantity,
+  unitPrice,
   type ServiceLine,
 } from './appointmentLines';
 
@@ -153,6 +154,31 @@ describe('items', () => {
     expect(setQuantity(line, 3).totalPrice).toBe(7500);
     expect(setQuantity(line, 0).quantity).toBe(1);
     expect(setQuantity(line, -5).quantity).toBe(1);
+  });
+
+  it('derives the unit price for a portal-written line instead of pricing it at nothing', () => {
+    // The portal's appointment payload sends totalPrice per line and no unit price, so itemPrice
+    // comes back null. Reading it as 0 made "+" zero the service — and the appointment total with
+    // it, because the total is the sum of the lines.
+    const fromPortal = {
+      id: 'c2bda72f',
+      serviceId: 5,
+      quantity: 1,
+      itemPrice: null,
+      totalPrice: 50,
+      discount: 0,
+    };
+    expect(unitPrice(fromPortal)).toBe(50);
+    expect(setQuantity(fromPortal, 2)).toMatchObject({ quantity: 2, itemPrice: 50, totalPrice: 100 });
+  });
+
+  it('trusts a real itemPrice over the derived one, including a genuinely free service', () => {
+    expect(unitPrice({ serviceId: 5, quantity: 2, itemPrice: 40, totalPrice: 999, discount: 0 })).toBe(40);
+    expect(unitPrice({ serviceId: 5, quantity: 2, itemPrice: 0, totalPrice: 0, discount: 0 })).toBe(0);
+  });
+
+  it('does not divide by a missing quantity', () => {
+    expect(unitPrice({ serviceId: 5, quantity: 0, itemPrice: null, totalPrice: 50, discount: 0 })).toBe(0);
   });
 
   it('gates completion on PENDING and on having an id', () => {

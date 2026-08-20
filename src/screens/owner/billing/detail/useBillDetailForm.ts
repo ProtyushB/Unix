@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildBillPayload, toFormState, type BillDetailItem } from './billDetail.model';
 import type { BillFormState } from './billDetail.model';
 import {
+  acceptsFormSeed,
   alsoNeedsStatusPatch,
   contentKey,
+  DELETE_FAILED,
   errorSummary,
   hasErrors,
+  SAVE_FAILED,
   saveRoute,
   validateBill,
   type DetailMode,
   type SaveShape,
 } from './billDetail.view';
+import { failureMessage } from '../../shared/detail/actionOutcome';
 import { attachedLine, newBareLine, newQuickLine, type BillLine } from './billLines';
 import { settlementField, type DiscountType } from './billMoney';
 import type { QuickBillItem } from './quickItem';
@@ -75,6 +79,16 @@ interface UseBillDetailFormInput {
   moduleApi: ModuleApi;
   businessId: number | null;
   onSaved: (saved: BillDetailItem) => void;
+  /**
+   * The bill as the server now holds it, handed over MID-SAVE — after a half that committed, while
+   * the save as a whole may still be about to fail.
+   *
+   * Separate from `onSaved` because `onSaved` is the success path: it toasts "Bill updated" and
+   * drops the screen back to view mode, and its only caller here is a save that is about to raise
+   * an error toast instead. All this one asks for is that the screen's copy of the bill stop being
+   * older than the server's.
+   */
+  onServerState: (saved: BillDetailItem) => void;
   onDeleted: () => void;
 }
 
@@ -86,6 +100,16 @@ export interface QuickAddPick {
   /** Whether saving will spawn an order/appointment for it. See `quickAddRouting`. */
   needsRecord: boolean;
 }
+
+/**
+ * Opens every complaint about a two-call save whose payment half already committed.
+ *
+ * One constant rather than a sentence at each branch, because the two ways the status half can fail
+ * — the module never wiring the endpoint, and the server refusing the call — leave the same money on
+ * the same bill. Two different sentences for that would read as two different outcomes, and only one
+ * of them would tell the user their payment is safe.
+ */
+const PAYMENT_SAVED_STATUS_NOT = 'The payment was saved, but the status was not.';
 
 function shapeOf(form: BillFormState): SaveShape {
   return {
@@ -111,6 +135,7 @@ export function useBillDetailForm({
   moduleApi,
   businessId,
   onSaved,
+  onServerState,
   onDeleted,
 }: UseBillDetailFormInput) {
   const [form, setForm] = useState<BillFormState>(() => toFormState(null));
@@ -127,15 +152,59 @@ export function useBillDetailForm({
    */
   const [baseline, setBaseline] = useState<SaveShape | null>(null);
 
+  /**
+   * The id of the bill the form was last filled from.
+   *
+   * A ref and not state: nothing renders from it, and it has to be read and written INSIDE the
+   * effect below, which a piece of state cannot be without scheduling a render that changes nothing.
+   *
+   * It starts `undefined` rather than `null` so that the first arrival is always a first fill —
+   * `id` is optional on `BillDetailItem`, and a bill that somehow arrived without one would
+   * otherwise match a `null` initial value and be mistaken for a bill the form already holds.
+   */
+  const seededBillId = useRef<number | null | undefined>(undefined);
+
   const itemId = item?.id ?? null;
+
+  /**
+   * Fill form and baseline from the bill the screen holds.
+   *
+   * The `item` OBJECT is a dependency, not `item.id`, so a bill whose id never moved still reaches
+   * this. That is what lets the refetch the screen fires on every mode change actually land in the
+   * form: keyed on the id, the bill it brings back is thrown away, and a form left holding money
+   * older than the server's stays that way until the screen is opened again. The payment PATCH that
+   * answers with no body is exactly that case — `onServerState` has nothing to hand over, so the
+   * refetch after the user leaves edit mode is the only thing that can put the committed payment on
+   * screen.
+   *
+   * What makes an object dependency safe is `acceptsFormSeed`: while `mode` is 'edit' and the form
+   * is already filled from this bill, nothing below runs.
+   *
+   * ⚠️ That guard is the whole reason this can be keyed on the object, so it is worth naming what
+   * it prevents. `onServerState` hands the screen the bill the payment PATCH just committed, from
+   * INSIDE `save`, while the form is mounted, visible and in edit mode — `deriveDetailView` answers
+   * 'SAVING' there, and the screen renders the form for that answer exactly as it does for 'READY'.
+   * `setItem` gives this effect a fresh object off the JSON response, so its identity always moves.
+   * Ungated, it rewrote `form.billStatus` from the pick the user had just made back to the server's
+   * value — and threw away the `setBaseline` advance in `save` with it — a moment before the toast
+   * said the status had not been saved. It read as "your choice is still there, try again"; the
+   * choice was already gone.
+   *
+   * ⚠️ It cannot loop either, and the reason is the dependency's provenance, not its name. `item`
+   * is the screen's `useState` value: its identity moves only when `setItem` is called, which
+   * happens on a resolved fetch and on a save handing back what the server wrote. Nothing this
+   * effect writes can reach either — form, baseline and errors feed no fetch, and `fetchBill` is
+   * keyed on the bill id and the module callback alone. The order screen's 56-request storm came
+   * from an effect depending on a value REBUILT EVERY RENDER; a piece of state is not rebuilt.
+   */
   useEffect(() => {
-    if (mode === 'add' || !item) return;
+    if (!item || !acceptsFormSeed(mode, seededBillId.current === itemId)) return;
+    seededBillId.current = itemId;
     const next = toFormState(item);
     setForm(next);
     setBaseline(shapeOf(next));
     setErrors({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemId, mode]);
+  }, [item, itemId, mode]);
 
   const setField = useCallback(
     (field: 'billStatus' | 'paymentStatus' | 'billDate' | 'notes', value: string) => {
@@ -328,9 +397,14 @@ export function useBillDetailForm({
       if (isAdd) {
         if (businessId == null) return { success: false, error: 'No business is selected.' };
         const result = await moduleApi.createBill(buildBillPayload(form, businessId));
-        if (!result.success) {
-          setSaveError(result.error || 'Could not create this bill.');
-          return result;
+
+        // The derived line goes back to the caller rather than the raw result, because `saveError`
+        // is state no screen renders — a fallback that stopped here would be one nobody sees, and a
+        // create refused with an empty `error` used to reach the screen as nothing worth saying.
+        const createProblem = failureMessage(result, 'Could not create this bill.');
+        if (createProblem) {
+          setSaveError(createProblem);
+          return { ...result, success: false, error: createProblem };
         }
 
         // The bill exists now, so its DMS folder can finally be named. Photos land here, never
@@ -364,13 +438,55 @@ export function useBillDetailForm({
         // Both axes moved in one save. The payment went first because it is the one a PUT cannot
         // express; the status follows as its own call.
         if (result.success && baseline && alsoNeedsStatusPatch(baseline, next)) {
+          // The money is on the server now, whatever the status call is about to do, and the
+          // baseline has to say so before it can fail. Left at the fetched values, a retry re-sends
+          // a payment that already landed — and worse, a user who UNDID the payment change to get
+          // out of the failure would be back at the baseline, so the save would see no payment
+          // change at all and leave the server holding the payment they just took back.
+          setBaseline((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  paymentStatus: next.paymentStatus,
+                  paidAmount: next.paidAmount,
+                  refundedAmount: next.refundedAmount,
+                }
+              : prev,
+          );
+
+          // The baseline is not the only thing holding the pre-payment bill. The screen's `item`
+          // does too, and it outlives this save: the status half is about to fail, so `onSaved`
+          // never runs and never replaces it. Left stale, the fill that runs when the user taps
+          // back off the edit screen rebuilds BOTH form and baseline from a bill that predates the
+          // payment — the advance above is thrown away with it, and the guard against re-sending a
+          // payment that already landed goes with it.
+          //
+          // Handing it over from here is safe only because that fill is gated on the mode. This
+          // runs mid-save with the edit form still up and the user's status pick still in it;
+          // `acceptsFormSeed` refuses every fill until the screen leaves edit mode, so nothing the
+          // user typed is touched by it.
+          const committed = (result.data as BillDetailItem | null) ?? null;
+          if (committed) onServerState(committed);
+
           if (!moduleApi.updateBillStatus) {
-            return { success: false, error: 'The payment was saved, but the status was not.' };
+            return {
+              success: false,
+              error: failureMessage(undefined, 'This module cannot change a bill status.', {
+                prefix: PAYMENT_SAVED_STATUS_NOT,
+              }),
+            };
           }
           const second = await moduleApi.updateBillStatus(billId, form.billStatus);
-          if (!second.success) {
-            setSaveError(second.error || 'The payment was saved, but the status was not.');
-            return second;
+
+          // No fallback of its own. `updateBillStatus` guarantees a reason — a STATE_CONFLICT
+          // sentence, or its own 'Failed to update bill status' — and that reason belongs AFTER the
+          // news that the payment survived, never instead of it.
+          const statusProblem = failureMessage(second, 'The server did not say why.', {
+            prefix: PAYMENT_SAVED_STATUS_NOT,
+          });
+          if (statusProblem) {
+            setSaveError(statusProblem);
+            return { ...second, success: false, error: statusProblem };
           }
           result = second;
         }
@@ -389,10 +505,13 @@ export function useBillDetailForm({
         result = await moduleApi.updateBill(billId, buildBillPayload(form, businessId));
       }
 
-      if (!result.success) {
-        // STATE_CONFLICT (409) is the one worth reading: CANCELLED → DRAFT is refused.
-        setSaveError(result.error || 'Could not save this bill.');
-        return result;
+      // STATE_CONFLICT (409) is the one worth reading: CANCELLED → DRAFT is refused. It is also
+      // the refusal most likely to arrive as a 2xx body rather than a rejected request, which is
+      // how it used to reach the screen with an empty `error` and change nothing the user saw.
+      const problem = failureMessage(result, SAVE_FAILED);
+      if (problem) {
+        setSaveError(problem);
+        return { ...result, success: false, error: problem };
       }
 
       // Only the content route can have carried a new quick item or a newly staged photo — the two
@@ -406,7 +525,17 @@ export function useBillDetailForm({
     } finally {
       setSaving(false);
     }
-  }, [form, mode, item, businessId, moduleApi, onSaved, baseline, uploadQuickPhotos]);
+  }, [
+    form,
+    mode,
+    item,
+    businessId,
+    moduleApi,
+    onSaved,
+    onServerState,
+    baseline,
+    uploadQuickPhotos,
+  ]);
 
   const remove = useCallback(async (): Promise<SaveResult> => {
     if (item?.id == null) {
@@ -416,9 +545,10 @@ export function useBillDetailForm({
     setSaveError(null);
     try {
       const result = await moduleApi.deleteBill(item.id);
-      if (!result.success) {
-        setSaveError(result.error || 'Could not delete this bill.');
-        return result;
+      const problem = failureMessage(result, DELETE_FAILED);
+      if (problem) {
+        setSaveError(problem);
+        return { ...result, success: false, error: problem };
       }
       onDeleted();
       return result;

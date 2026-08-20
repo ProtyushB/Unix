@@ -26,12 +26,15 @@ import {
   type AppointmentDetailItem,
 } from './appointmentDetail.model';
 import {
+  DELETE_FAILED,
+  SAVE_FAILED,
   canEdit,
   deriveDetailView,
   lockedReason,
   showsCreateService,
   type DetailMode,
 } from './appointmentDetail.view';
+import { failureMessage } from '../../shared/detail/actionOutcome';
 import {
   shouldResumeCatalogPick,
   shouldStartCreateNav,
@@ -152,7 +155,7 @@ export function AppointmentDetailScreen({ route, navigation }: Props = {}) {
     setLoadError(null);
     const result = await loadAppointment(appointmentId);
     if (result.success) setItem(result.data as AppointmentDetailItem);
-    else setLoadError(result.error ?? 'Could not load this appointment.');
+    else setLoadError(result.error);
     setLoading(false);
   }, [appointmentId, loadAppointment]);
 
@@ -293,11 +296,14 @@ export function AppointmentDetailScreen({ route, navigation }: Props = {}) {
       const result = await activeModule.completeAppointmentItem?.(item.id, line.id);
       setCompleting(null);
 
-      if (!result?.success) {
-        showToast(result?.error ?? 'Could not mark that service completed.', 'error');
+      // `?? 'Could not mark…'` used to guard this, and '' is not nullish, so a blank reason showed an
+      // empty toast — the same silence the delete path suffered, in a box.
+      const problem = failureMessage(result, 'Could not mark that service completed.');
+      if (problem) {
+        showToast(problem, 'error');
         return;
       }
-      const dto = result.data as AppointmentDetailItem | null;
+      const dto = (result?.data ?? null) as AppointmentDetailItem | null;
       if (dto && Array.isArray(dto.appointmentItems) && dto.appointmentItems.length) {
         setItem(dto);
         engine.applyItems(displayServices(dto), passthroughItems(dto));
@@ -328,14 +334,22 @@ export function AppointmentDetailScreen({ route, navigation }: Props = {}) {
   }, [mode, appointmentId, navigation]);
 
   const onSave = useCallback(async () => {
-    const result = await engine.save();
-    if (!result.success && result.error) showToast(result.error, 'error');
+    const problem = failureMessage(await engine.save(), SAVE_FAILED);
+    if (problem) showToast(problem, 'error');
   }, [engine, showToast]);
 
+  /**
+   * Delete, once the confirm dialog is out of the way.
+   *
+   * The guard here was `if (!result.success && result.error)`, which made a refusal that arrived
+   * without an `error` field completely silent: the dialog closed, the appointment was still in the
+   * list, and the only evidence of the refusal was that nothing had happened. Deleting a COMPLETED
+   * appointment is exactly that case. `failureMessage` has no branch that returns nothing to say.
+   */
   const onConfirmDelete = useCallback(async () => {
     setConfirmDelete(false);
-    const result = await engine.remove();
-    if (!result.success && result.error) showToast(result.error, 'error');
+    const problem = failureMessage(await engine.remove(), DELETE_FAILED);
+    if (problem) showToast(problem, 'error');
   }, [engine, showToast]);
 
   if (view === 'LOADING') {

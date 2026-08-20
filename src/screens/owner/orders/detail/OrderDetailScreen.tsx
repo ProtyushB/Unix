@@ -156,7 +156,7 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
     setLoadError(null);
     const result = await loadOrder(orderId);
     if (result.success) setItem(result.data as OrderDetailItem);
-    else setLoadError(result.error ?? 'Could not load this order.');
+    else setLoadError(result.error);
     setLoading(false);
   }, [orderId, loadOrder]);
 
@@ -189,7 +189,7 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
         })),
       );
     } else {
-      setCatalogError(result.error ?? 'Could not load products.');
+      setCatalogError(result.error);
     }
     setCatalogLoading(false);
   }, [loadProductOptions]);

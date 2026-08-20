@@ -24,11 +24,14 @@ import { type BillDetailItem } from './billDetail.model';
 import {
   billStatusLabel,
   billStatusOptions,
+  DELETE_FAILED,
   deriveDetailView,
   paymentStatusLabel,
   PAYMENT_STATUSES,
+  SAVE_FAILED,
   type DetailMode,
 } from './billDetail.view';
+import { failureMessage } from '../../shared/detail/actionOutcome';
 import {
   AddItemsSheet,
   type AddItemKind,
@@ -182,7 +185,7 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
     setLoadError(null);
     const result = await loadBill(billId);
     if (result.success) setItem(result.data as BillDetailItem);
-    else setLoadError(result.error ?? 'Could not load this bill.');
+    else setLoadError(result.error);
     setLoading(false);
   }, [billId, loadBill]);
 
@@ -205,12 +208,41 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
     [mode, navigation, showToast],
   );
 
+  /**
+   * The server's copy of the bill, from a save that is not over yet.
+   *
+   * Bare on purpose — no toast, no mode change. `onSaved` cannot stand in for it: it says "Bill
+   * updated" and forces view mode, and the one caller of this is the two-call save whose payment
+   * committed and whose status was then refused, which is about to toast an error instead. All this
+   * asks is that `item` stop being the pre-payment bill.
+   *
+   * It does not touch the form, and cannot: this arrives from inside `save`, with the edit form
+   * still on screen and the user's status pick still in it, and `useBillDetailForm` refuses to
+   * fill the form from `item` for as long as the mode is 'edit'. The fill happens later, when the
+   * screen leaves edit mode — and it is only then that this matters, because that fill reads
+   * `item`. Leaving edit also refetches, so most of the time the fresh bill would arrive anyway;
+   * what this covers is the time it does not. A refetch that FAILS leaves `hasItem` true, so
+   * `deriveDetailView` still answers READY and the screen keeps showing whatever `item` was — the
+   * committed payment with this, the bill as it stood before the payment without it.
+   */
+  const onServerState = useCallback((saved: BillDetailItem) => {
+    setItem(saved);
+  }, []);
+
   const onDeleted = useCallback(() => {
     showToast('Bill deleted', 'success');
     navigation?.goBack();
   }, [navigation, showToast]);
 
-  const engine = useBillDetailForm({ mode, item, moduleApi, businessId, onSaved, onDeleted });
+  const engine = useBillDetailForm({
+    mode,
+    item,
+    moduleApi,
+    businessId,
+    onSaved,
+    onServerState,
+    onDeleted,
+  });
 
   const customerId = engine.form.customerId;
 
@@ -246,7 +278,7 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
           patchSource(kind, {
             loading: false,
             loaded: true,
-            error: result.error ?? `Could not load ${isOrder ? 'orders' : 'appointments'}.`,
+            error: result.error,
           });
           return;
         }
@@ -288,7 +320,7 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
           patchSource(kind, {
             loading: false,
             loaded: true,
-            error: result.error ?? 'Could not load products.',
+            error: result.error,
           });
           return;
         }
@@ -473,8 +505,13 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
 
   const onSave = useCallback(async () => {
     const result = await engine.save();
-    if (!result.success && result.error) {
-      showToast(result.error, 'error');
+
+    // `if (!result.success && result.error)` guarded this, and the second half is what made a
+    // refused save silent: a bill refused by a 2xx body arrives with `error` empty, so nothing
+    // was toasted and the screen sat there looking saved. `failureMessage` has no such branch.
+    const problem = failureMessage(result, SAVE_FAILED);
+    if (problem) {
+      showToast(problem, 'error');
       return;
     }
     // The bill saved; only a photo did not. A warning, never an error — telling the user to retry
@@ -484,8 +521,8 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
 
   const onConfirmDelete = useCallback(async () => {
     setConfirmDelete(false);
-    const result = await engine.remove();
-    if (!result.success && result.error) showToast(result.error, 'error');
+    const problem = failureMessage(await engine.remove(), DELETE_FAILED);
+    if (problem) showToast(problem, 'error');
   }, [engine, showToast]);
 
   if (view === 'LOADING') {

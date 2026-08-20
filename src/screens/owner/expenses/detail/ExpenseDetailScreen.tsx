@@ -113,7 +113,7 @@ export function ExpenseDetailScreen({ route, navigation }: Props) {
       .then((res) => {
         if (!alive) return;
         if (res?.success) setItem((res.data as ExpenseDto) ?? null);
-        else setLoadError(res?.error || 'Could not load this expense.');
+        else setLoadError(res?.error);
       })
       .finally(() => {
         if (alive) setLoading(false);

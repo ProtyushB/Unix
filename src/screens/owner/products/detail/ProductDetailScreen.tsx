@@ -80,6 +80,10 @@ export function ProductDetailScreen({ route, navigation }: ProductDetailScreenPr
     if (result.success && result.data) {
       setItem(result.data as ProductDetailItem);
     } else {
+      // The fallback survives here, unlike its siblings, because this branch is wider than a
+      // failure: a 2xx with an empty body arrives as `success: true, data: null` and lands here
+      // carrying `error: null`. Without a sentence of its own the screen would show its error
+      // state with nothing written under the heading.
       setLoadError(result.error || 'Could not load this product.');
     }
     setLoading(false);

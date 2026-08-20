@@ -7,7 +7,7 @@
 import { getFolderApi } from '../provider/folder.provider';
 import { FolderApiInterface, FolderDto, FolderFilterRequest } from '../api/folder.api.interface';
 import { DMS_APP_ROOT_FOLDER_ID } from '../config/api.config';
-import { AxiosError } from 'axios';
+import { extractErrorMessage } from '../../shared/http/axiosError';
 
 const DEFAULT_PARENT_FOLDER_ID = Number(DMS_APP_ROOT_FOLDER_ID);
 
@@ -117,13 +117,10 @@ export class FolderService {
   // ==================== ERROR HANDLING ====================
 
   private handleApiError(error: unknown): Error {
-    const axiosError = error as AxiosError<string | { error?: string; message?: string }>;
-    if (axiosError.response?.data) {
-      const data = axiosError.response.data;
-      const message = typeof data === 'string' ? data : data.error || data.message;
-      if (message) return new Error(message);
-    }
-    if ((error as Error).message) return new Error((error as Error).message);
-    return new Error('An unexpected DMS error occurred');
+    // DMS is the one backend that sometimes answers with a bare string instead of the wrapper
+    // ('File not found', 'Folder is not empty'). The shared extractor reads that shape too, so
+    // dropping the local `typeof data === 'string'` branch does not cost those refusals their words
+    // and leave axios's "Request failed with status code 404" in their place.
+    return new Error(extractErrorMessage(error, 'An unexpected DMS error occurred'));
   }
 }

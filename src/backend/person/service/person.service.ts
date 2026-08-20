@@ -15,7 +15,7 @@ import {
   EmploymentDto,
   CustomerLookupMatch,
 } from '../api/person.api.interface';
-import { AxiosError } from 'axios';
+import { extractErrorMessage } from '../../shared/http/axiosError';
 
 interface ServiceResult<T> {
   success: boolean;
@@ -75,7 +75,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to create person'),
+        error: extractErrorMessage(error, 'Failed to create person'),
       };
     }
   }
@@ -94,7 +94,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to update person'),
+        error: extractErrorMessage(error, 'Failed to update person'),
       };
     }
   }
@@ -110,7 +110,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to get person'),
+        error: extractErrorMessage(error, 'Failed to get person'),
       };
     }
   }
@@ -126,7 +126,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to get person by username'),
+        error: extractErrorMessage(error, 'Failed to get person by username'),
       };
     }
   }
@@ -166,7 +166,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to claim your account'),
+        error: extractErrorMessage(error, 'Failed to claim your account'),
       };
     }
   }
@@ -205,7 +205,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to load customers'),
+        error: extractErrorMessage(error, 'Failed to load customers'),
       };
     }
   }
@@ -239,7 +239,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to load employees'),
+        error: extractErrorMessage(error, 'Failed to load employees'),
       };
     }
   }
@@ -263,7 +263,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Search failed. Please try again.'),
+        error: extractErrorMessage(error, 'Search failed. Please try again.'),
       };
     }
   }
@@ -283,7 +283,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Could not create the customer.'),
+        error: extractErrorMessage(error, 'Could not create the customer.'),
       };
     }
   }
@@ -299,7 +299,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to get persons'),
+        error: extractErrorMessage(error, 'Failed to get persons'),
       };
     }
   }
@@ -315,7 +315,7 @@ export class PersonService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to delete person'),
+        error: extractErrorMessage(error, 'Failed to delete person'),
       };
     }
   }
@@ -328,15 +328,5 @@ export class PersonService {
       return businessRoles.split(',').map((role) => role.trim());
     }
     return [];
-  }
-
-  private extractErrorMessage(error: unknown, fallback: string): string {
-    const axiosError = error as AxiosError<{ error?: string; message?: string }>;
-    return (
-      axiosError.response?.data?.error ||
-      axiosError.response?.data?.message ||
-      (error as Error).message ||
-      fallback
-    );
   }
 }

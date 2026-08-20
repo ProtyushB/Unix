@@ -8,7 +8,7 @@
 import { getDmsApi } from '../provider/dms.provider';
 import { FileApiInterface, ResourceFileDto, NativeFile } from '../api/file.api.interface';
 import { DMS_API_CONFIG } from '../config/api.config';
-import { AxiosError } from 'axios';
+import { extractErrorMessage } from '../../shared/http/axiosError';
 
 export class DmsService {
   private api: FileApiInterface;
@@ -64,13 +64,10 @@ export class DmsService {
   // ==================== ERROR HANDLING ====================
 
   private handleApiError(error: unknown): Error {
-    const axiosError = error as AxiosError<string | { error?: string; message?: string }>;
-    if (axiosError.response?.data) {
-      const data = axiosError.response.data;
-      const message = typeof data === 'string' ? data : data.error || data.message;
-      if (message) return new Error(message);
-    }
-    if ((error as Error).message) return new Error((error as Error).message);
-    return new Error('An unexpected DMS error occurred');
+    // DMS is the one backend that sometimes answers with a bare string instead of the wrapper
+    // ('File not found', 'Folder is not empty'). The shared extractor reads that shape too, so
+    // dropping the local `typeof data === 'string'` branch does not cost those refusals their words
+    // and leave axios's "Request failed with status code 404" in their place.
+    return new Error(extractErrorMessage(error, 'An unexpected DMS error occurred'));
   }
 }

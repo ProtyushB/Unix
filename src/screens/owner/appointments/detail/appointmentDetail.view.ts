@@ -64,6 +64,23 @@ export function saveLabel(mode: DetailMode): string {
   return mode === 'add' ? 'Save' : 'Save Changes';
 }
 
+/**
+ * What a refused save or delete says when the response carried no reason of its own.
+ *
+ * Here rather than as literals at the four call sites so the hook and the screen cannot end up
+ * describing the same failure in two different sentences.
+ *
+ * At the screen it is a floor today's code never stands on. Every non-success return from
+ * `useAppointmentDetailForm` already carries words — `errorSummary` with its own non-empty
+ * fallback, the two hand-written early returns, and the ones derived from `failureMessage`, which
+ * never yields an empty string — and the screen is fed by `engine.save()` / `engine.remove()` and
+ * nothing else, so the fallback arm cannot be reached. It is passed anyway because
+ * `failureMessage` takes a fallback by contract, and so that the day a caller does reach the
+ * screen without the hook, the sentence waiting there is already the right one.
+ */
+export const SAVE_FAILED = 'Could not save this appointment.';
+export const DELETE_FAILED = 'Could not delete this appointment.';
+
 // ─── Locks ───────────────────────────────────────────────────────────────────
 
 /** Same rule as an order: a billed appointment is frozen, and the server answers 409 if pushed. */

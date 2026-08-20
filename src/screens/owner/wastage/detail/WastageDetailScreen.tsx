@@ -63,7 +63,13 @@ interface Props {
 }
 
 interface WastageModuleApi {
-  loadWastage: (id: number) => Promise<{ success: boolean; data?: unknown; error?: string | null }>;
+  /**
+   * `error` is required here alone of the three: this is the read whose message the screen renders
+   * as its load banner, and `loadWastage` always fills it. Declared optional, the banner needed a
+   * `?? 'Could not load this wastage.'` of its own to compile — copy the hook's own sentence had
+   * already made unreachable.
+   */
+  loadWastage: (id: number) => Promise<{ success: boolean; data?: unknown; error: string | null }>;
   createWastage: (
     data: WastagePayload,
   ) => Promise<{ success: boolean; data?: unknown; error?: string | null }>;
@@ -191,7 +197,7 @@ export function WastageDetailScreen({ route, navigation }: Props = {}) {
     setLoadError(null);
     const result = await recordApi.loadOne(wastageId);
     if (result?.success) setItem(result.data as WastageDto);
-    else setLoadError(result?.error ?? 'Could not load this wastage.');
+    else setLoadError(result?.error);
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wastageId, moduleKey]);

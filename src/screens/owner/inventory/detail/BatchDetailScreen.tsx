@@ -102,7 +102,7 @@ export function BatchDetailScreen({ route, navigation }: Props = {}) {
     setLoadError(null);
     const result = await activeModule.loadInventoryBatch(batchId);
     if (result?.success) setItem(result.data as BatchDto);
-    else setLoadError(result?.error ?? 'Could not load this batch.');
+    else setLoadError(result?.error);
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batchId, moduleKey]);

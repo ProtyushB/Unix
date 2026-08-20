@@ -8,6 +8,7 @@ import {
 } from './billLines';
 import type { QuickBillItem } from './quickItem';
 import {
+  acceptsFormSeed,
   alsoNeedsStatusPatch,
   appBarSubtitle,
   appBarTitle,
@@ -56,6 +57,38 @@ describe('deriveDetailView', () => {
       'READY',
     );
     expect(deriveDetailView({ ...READY, loading: true })).toBe('LOADING');
+  });
+});
+
+describe('acceptsFormSeed — when the bill may be poured back into the form', () => {
+  it('refuses while the user is editing a bill the form already holds', () => {
+    // The one that matters. The screen hands the form hook a new `item` object mid-save — the bill
+    // the payment PATCH just committed — with the edit form on screen and a status pick in it that
+    // has not been sent yet. Saying yes here rewrites that pick back to the server's value, and the
+    // toast that follows says the status was not saved, as though the pick were still there to
+    // retry with.
+    expect(acceptsFormSeed('edit', true)).toBe(false);
+  });
+
+  it('still fills an edit form that holds nothing yet', () => {
+    // Opening straight into edit mode from a deep link: the bill arrives after the form is mounted,
+    // and this is the arrival that fills it. Refusing here would leave the user editing a blank
+    // bill — there is no work to lose before the first fill, only work to be given.
+    expect(acceptsFormSeed('edit', false)).toBe(true);
+  });
+
+  it('takes every copy of the bill while the form is read-only', () => {
+    // In view mode the form IS the rendering of the bill — nothing on screen can write to it — so a
+    // fresher bill is only ever an improvement. This is what puts a committed payment back on
+    // screen when the user taps back out of a half-saved edit, and what lets the refetch that
+    // follows correct the form if `item` was behind.
+    expect(acceptsFormSeed('view', true)).toBe(true);
+    expect(acceptsFormSeed('view', false)).toBe(true);
+  });
+
+  it('never fills an add, which has no bill behind it', () => {
+    expect(acceptsFormSeed('add', false)).toBe(false);
+    expect(acceptsFormSeed('add', true)).toBe(false);
   });
 });
 
@@ -131,6 +164,29 @@ describe('saveRoute — which endpoint a save uses', () => {
     const after = shape({ billStatus: 'FINALIZED', paymentStatus: 'PAID' });
     expect(saveRoute(before, after)).toBe('PATCH_PAYMENT');
     expect(alsoNeedsStatusPatch(before, after)).toBe(true);
+  });
+
+  it('the committed half of that save reaches the screen without reaching the form', () => {
+    // The whole sequence, in the pieces that are decidable without React. A cancelled unpaid bill
+    // is edited to partially paid / ₹500 / finalized: the payment goes first as its own PATCH and
+    // commits, and the status PATCH after it is refused.
+    const fetched = shape({ billStatus: 'CANCELLED', paymentStatus: 'UNPAID' });
+    const edited = shape({
+      billStatus: 'FINALIZED',
+      paymentStatus: 'PARTIALLY_PAID',
+      paidAmount: 500,
+    });
+    expect(saveRoute(fetched, edited)).toBe('PATCH_PAYMENT');
+    expect(alsoNeedsStatusPatch(fetched, edited)).toBe(true);
+
+    // The committed bill is handed to the screen mid-save, so `item` stops being the pre-payment
+    // one — but the mode is still 'edit' and the form still holds FINALIZED, which the user has to
+    // be able to retry with. Nothing may be poured over it.
+    expect(acceptsFormSeed('edit', true)).toBe(false);
+
+    // Only when the user leaves the edit screen does the bill go back into the form, and by then it
+    // is the one carrying the payment that committed.
+    expect(acceptsFormSeed('view', true)).toBe(true);
   });
 
   it('does not ask for a second call when only one axis moved', () => {

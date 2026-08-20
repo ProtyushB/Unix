@@ -343,10 +343,14 @@ export function BillingScreen({ navigation }: BillingScreenProps = {}) {
       // draft-from-cancelled, whose items were already released. Worth saying why rather than
       // showing a generic failure.
       const conflict = (res as { code?: string } | undefined)?.code === 'STATE_CONFLICT';
+      // No fallback behind `res.error`. Both writes end their chain on a sentence of their own
+      // ('Failed to update bill status' / 'Failed to update bill payment'), so the generic "Something
+      // went wrong" that used to sit here could not run — and if it ever did it would say less than
+      // the title above it already does.
       showToast(
         conflict
           ? 'This bill was cancelled — its items were released and its stock returned, so it cannot go back to draft. Create a new bill instead.'
-          : (res?.error as string) || 'Something went wrong. Please try again.',
+          : (res?.error as string),
         'error',
         {
           title: action.axis === 'bill' ? "Couldn't update bill" : "Couldn't update payment",
