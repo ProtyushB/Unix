@@ -268,6 +268,12 @@ export function useOrderDetailForm({
           // Put the row back the way the server still has it.
           setForm((prev) => ({ ...prev, lines: previousLines }));
           // ORDER_LOCKED (409) is the common refusal: the order sits on a finalized bill.
+          //
+          // This sentence no longer reaches the user: a delivery is a PUT, so it comes back through
+          // `updateOrder`, which now ends its own chain on 'Could not save this order.' — one hook
+          // fallback serving two actions that need different words, and only this side knows which
+          // action it was. Left in place because a reasonless refusal here should say "delivered",
+          // not "save", the day the hook can be told which call it is answering.
           setSaveError(result.error || 'Could not mark that item delivered.');
           return result;
         }

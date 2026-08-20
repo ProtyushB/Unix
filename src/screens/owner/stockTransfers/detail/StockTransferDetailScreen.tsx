@@ -163,7 +163,7 @@ export function StockTransferDetailScreen({ route, navigation }: Props = {}) {
     setLoadError(null);
     const result = await loadStockTransfer(stockTransferId);
     if (result?.success) setItem(result.data as StockTransferDto);
-    else setLoadError(result?.error ?? 'Could not load this transfer.');
+    else setLoadError(result?.error);
     setLoading(false);
   }, [stockTransferId, loadStockTransfer]);
 

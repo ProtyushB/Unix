@@ -145,7 +145,7 @@ export function ConsumptionDetailScreen({ route, navigation }: Props = {}) {
     setLoadError(null);
     const result = await activeModule.loadConsumption(consumptionId);
     if (result?.success) setItem(result.data as ConsumptionDto);
-    else setLoadError(result?.error ?? 'Could not load this consumption.');
+    else setLoadError(result?.error);
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consumptionId, moduleKey]);

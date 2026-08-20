@@ -7,11 +7,14 @@ import {
   type AppointmentFormState,
 } from './appointmentDetail.model';
 import {
+  DELETE_FAILED,
+  SAVE_FAILED,
   errorSummary,
   hasErrors,
   validateAppointment,
   type DetailMode,
 } from './appointmentDetail.view';
+import { failureMessage } from '../../shared/detail/actionOutcome';
 import {
   newServiceLine,
   passthroughItems,
@@ -150,10 +153,14 @@ export function useAppointmentDetailForm({
             toUpdatePayload(item as AppointmentDetailItem, form, passthrough),
           );
 
-      if (!result.success) {
-        // APPOINTMENT_LOCKED (409) means it sits on a finalized bill. The server's message says so.
-        setSaveError(result.error || 'Could not save this appointment.');
-        return result;
+      // APPOINTMENT_LOCKED (409) means it sits on a finalized bill. The server's message says so —
+      // when it survives the trip. The derived line goes back to the caller rather than the raw
+      // result, because `saveError` is state no screen renders, so a fallback that stops here is a
+      // fallback nobody sees.
+      const problem = failureMessage(result, SAVE_FAILED);
+      if (problem) {
+        setSaveError(problem);
+        return { ...result, success: false, error: problem };
       }
 
       const saved = (result.data as AppointmentDetailItem) ?? (item as AppointmentDetailItem);
@@ -172,10 +179,12 @@ export function useAppointmentDetailForm({
     setSaveError(null);
     try {
       const result = await moduleApi.deleteAppointment(item.id);
-      if (!result.success) {
-        // Routinely refused: a COMPLETED appointment cannot be deleted, nor one on a finalized bill.
-        setSaveError(result.error || 'Could not delete this appointment.');
-        return result;
+      // Routinely refused: a COMPLETED appointment cannot be deleted, nor one on a finalized bill.
+      // Both refusals carry a reason, and neither reliably arrives in `error` — see `failureMessage`.
+      const problem = failureMessage(result, DELETE_FAILED);
+      if (problem) {
+        setSaveError(problem);
+        return { ...result, success: false, error: problem };
       }
       onDeleted();
       return result;

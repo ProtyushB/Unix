@@ -26,6 +26,7 @@ import type { StockTransferPayload, StockTransferQuery } from '../stockTransfer.
 import { DmsService } from '../../../dms/service/dms.service';
 import { createEntityFolder } from '../../../dms/util/EntityFolderUtils';
 import { NativeFile, ResourceFileDto } from '../../../dms/api/file.api.interface';
+import { extractErrorInfo, extractErrorMessage } from '../../../shared/http/axiosError';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -405,12 +406,21 @@ interface ModuleService {
 
 // ─── Detail-screen reads ─────────────────────────────────────────────────────
 
-/** What every `loadX(id)` hands back. `code` carries the backend's ErrorCode when there is one. */
+/**
+ * What every `loadX(id)` hands back. `code` carries the backend's ErrorCode when there is one.
+ *
+ * `error` is required, and on a failure it is always a sentence — `readOne` ends its chain on the
+ * caller's `fallbackMessage`, which every call site passes. That is what lets a detail screen hand
+ * it straight to `setLoadError`. While it was optional each screen had to add a
+ * `?? 'Could not load this X.'` to satisfy the compiler, and because the hook already had a
+ * sentence of its own that arm never ran: the copy someone would go and edit was the one the user
+ * never saw, and the developer literal was the one on screen.
+ */
 interface ReadOneResult {
   success: boolean;
   data?: unknown;
   code?: string;
-  error?: string | null;
+  error: string | null;
 }
 
 /**
@@ -427,6 +437,10 @@ interface ReadOneResult {
  * The error is dug out of the axios body rather than taken from `err.message`, for the same reason
  * the delete paths do it: a bare "Request failed with status code 404" tells the user nothing.
  *
+ * `fallbackMessage` is the screen's own sentence, not a developer label, because it is the one the
+ * user reads whenever the server sends no reason. It ends up on screen either way; the only choice
+ * is whether it was written for a person.
+ *
  * (An earlier version of this note claimed the list and detail screens share one hook instance.
  * They do not — `createModuleHook` returns a plain hook with its own `useState` cells and there is
  * no provider anywhere. Only the service singleton behind it is shared.)
@@ -437,16 +451,11 @@ async function readOne(
 ): Promise<ReadOneResult> {
   try {
     const response = await fetchOne();
-    if (response.success) return { success: true, data: response.data };
-    return { success: false, error: response.error || response.message || null };
+    if (response.success) return { success: true, data: response.data, error: null };
+    return { success: false, error: response.error || response.message || fallbackMessage };
   } catch (err) {
-    const e = err as {
-      response?: { data?: { code?: string; error?: string; message?: string } };
-      message?: string;
-    };
-    const body = e.response?.data;
-    const message = body?.error || body?.message || (err as Error).message || fallbackMessage;
-    return { success: false, code: body?.code, error: message };
+    const { message, code } = extractErrorInfo(err, fallbackMessage);
+    return { success: false, code, error: message };
   }
 }
 
@@ -577,12 +586,16 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             // every page-2 fetch would make it flicker.
             if (response.meta) setProductMeta(response.meta);
           } else {
-            setError(response.error || response.message || null);
+            // A server that reports its failure in a 2xx body may fill in neither field, and the
+            // `|| null` this replaces cleared the banner while the list below it was emptied. A
+            // failed query then rendered as a confirmed empty catalog — the user reads "nothing
+            // here" and stops looking. The six list loaders below carry the same fallback.
+            setError(response.error || response.message || 'Failed to load products');
             setProducts([]);
             setProductsTotalPages(1);
           }
         } catch (err) {
-          setError((err as Error).message || 'Failed to load products');
+          setError(extractErrorMessage(err, 'Failed to load products'));
           setProducts([]);
         } finally {
           setLoading(false);
@@ -601,16 +614,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           return await service.updateProductTracking(id, trackInventory);
         } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          return {
-            success: false,
-            code: body?.code,
-            error: body?.error || body?.message || e.message || 'Failed to update tracking',
-          };
+          const { message, code } = extractErrorInfo(err, "Couldn't update tracking");
+          return { success: false, code, error: message };
         }
       },
       [service],
@@ -632,14 +637,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           const response = await service.createProduct(productData);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to create product');
+          throw new Error(response.error || response.message || 'Could not save this product.');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
             try {
               await dmsService.deleteFile(f.id!);
             } catch (_) {}
           }
-          const message = (err as Error).message || 'Failed to create product';
+          const message = extractErrorMessage(err, 'Could not save this product.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -656,10 +661,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateProduct(productData);
           if (response.success) return { success: true, data: response.data };
-          setError(response.error || response.message || null);
-          return { success: false, error: response.error };
+          const message = response.error || response.message || 'Could not save this product.';
+          setError(message);
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to update product';
+          const message = extractErrorMessage(err, 'Could not save this product.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -676,21 +682,16 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteProduct(id);
           if (response.success) return { success: true, data: response.data };
-          setError(response.error || response.message || null);
-          return { success: false, error: response.error };
+          const message = response.error || response.message || 'Could not delete this product.';
+          setError(message);
+          return { success: false, error: message };
         } catch (err) {
           // Same treatment as deleteService: dig the server's reason out of the axios body rather
           // than reporting "Request failed with status code 409". A product delete is refused when
           // orders or inventory still reference it, and that reason is the whole message.
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to delete product';
+          const { message, code } = extractErrorInfo(err, 'Could not delete this product.');
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -700,7 +701,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
     /** Fetch ONE product for the detail screen. Contract and reasoning: see `readOne`. */
     const loadProduct = useCallback(
-      (id: number) => readOne(() => service.getProductById(id), 'Failed to load product'),
+      (id: number) => readOne(() => service.getProductById(id), 'Could not load this product.'),
       [service],
     );
 
@@ -728,9 +729,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.ensureEntityFolder({ ...params, type });
           if (response.success) return { success: true, data: response.data };
-          return { success: false, error: response.error || response.message || null };
+          return {
+            success: false,
+            error: response.error || response.message || 'Failed to prepare the image folder',
+          };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to prepare the image folder';
+          const message = extractErrorMessage(err, 'Failed to prepare the image folder');
           return { success: false, error: message };
         }
       },
@@ -771,6 +775,10 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
      * One page, deliberately: the list endpoint runs the batched stock enrich, which makes it the
      * expensive call in the catalog, and the picker only needs names. The caller reports the cap
      * to the user rather than paging silently.
+     *
+     * `error` is on the success return too, and is what lets the four pickers assign it straight
+     * into their error state instead of each bolting on a `?? 'Could not load products.'` that the
+     * hook's own non-empty message already made unreachable.
      */
     const loadProductOptions = useCallback(
       async (limit = 500) => {
@@ -783,14 +791,15 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
               success: true,
               data: Array.isArray(response.data) ? response.data : [],
               totalPages: response.totalPages ?? 1,
+              error: null,
             };
           }
-          return { success: false, error: response.error || response.message || null };
+          return {
+            success: false,
+            error: response.error || response.message || 'Could not load products.',
+          };
         } catch (err) {
-          const e = err as { response?: { data?: { error?: string; message?: string } } };
-          const body = e.response?.data;
-          const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to load products';
+          const message = extractErrorMessage(err, 'Could not load products.');
           return { success: false, error: message };
         }
       },
@@ -809,7 +818,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
      * entirely. Not done, because a stale row raises a refresh-ordering question this does not.
      */
     const loadService = useCallback(
-      (id: number) => readOne(() => service.getServiceById(id), 'Failed to load service'),
+      (id: number) => readOne(() => service.getServiceById(id), 'Could not load this service.'),
       [service],
     );
 
@@ -834,12 +843,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             // blanking the count on every page-2 fetch would make the header flicker.
             if (response.totalElements != null) setServicesTotalElements(response.totalElements);
           } else {
-            setError(response.error || response.message || null);
+            setError(response.error || response.message || 'Failed to load services');
             setServices([]);
             setServicesTotalPages(1);
           }
         } catch (err) {
-          setError((err as Error).message || 'Failed to load services');
+          setError(extractErrorMessage(err, 'Failed to load services'));
           setServices([]);
         } finally {
           setLoading(false);
@@ -864,14 +873,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           const response = await service.createService(serviceData);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to create service');
+          throw new Error(response.error || response.message || 'Could not save this service.');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
             try {
               await dmsService.deleteFile(f.id!);
             } catch (_) {}
           }
-          const message = (err as Error).message || 'Failed to create service';
+          const message = extractErrorMessage(err, 'Could not save this service.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -888,10 +897,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateService(serviceData);
           if (response.success) return { success: true, data: response.data };
-          setError(response.error || response.message || null);
-          return { success: false, error: response.error };
+          const message = response.error || response.message || 'Could not save this service.';
+          setError(message);
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to update service';
+          const message = extractErrorMessage(err, 'Could not save this service.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -911,16 +921,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           return await service.updateServiceAvailability(id, availability);
         } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          return {
-            success: false,
-            code: body?.code,
-            error: body?.error || body?.message || e.message || 'Failed to update availability',
-          };
+          const { message, code } = extractErrorInfo(err, "Couldn't update availability");
+          return { success: false, code, error: message };
         }
       },
       [service],
@@ -933,21 +935,16 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteService(id);
           if (response.success) return { success: true, data: response.data };
-          setError(response.error || response.message || null);
-          return { success: false, error: response.error };
+          const message = response.error || response.message || 'Could not delete this service.';
+          setError(message);
+          return { success: false, error: message };
         } catch (err) {
           // Dig the server's reason out of the axios body rather than reporting "Request failed
           // with status code 409". A service delete is routinely refused because appointments,
           // packages or bills still reference it, and that reason is the whole message.
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to delete service';
+          const { message, code } = extractErrorInfo(err, 'Could not delete this service.');
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -975,7 +972,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
     /** Fetch ONE order for the detail screen. Contract and reasoning: see `readOne`. */
     const loadOrder = useCallback(
-      (id: number) => readOne(() => service.getOrderById(id), 'Failed to load order'),
+      (id: number) => readOne(() => service.getOrderById(id), 'Could not load this order.'),
       [service],
     );
 
@@ -996,7 +993,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         if (businessId == null) return { success: false, error: 'No business is selected.' };
         return readOne(
           () => service.getBillableOrders(customerId, { ...options, businessId }),
-          'Failed to load billable orders',
+          'Could not load orders.',
         );
       },
       [service],
@@ -1020,12 +1017,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             setOrders(Array.isArray(data) ? data : []);
             setOrdersTotalPages(response.totalPages ?? 1);
           } else {
-            setError(response.error || response.message || null);
+            setError(response.error || response.message || 'Failed to load orders');
             setOrders([]);
             setOrdersTotalPages(1);
           }
         } catch (err) {
-          setError((err as Error).message || 'Failed to load orders');
+          setError(extractErrorMessage(err, 'Failed to load orders'));
           setOrders([]);
         } finally {
           setLoading(false);
@@ -1082,14 +1079,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           return { success: false, error: message };
         } catch (err) {
           // Axios error → pull the wrapper out of the 409/400 body so callers can branch on `code`.
+          // `data` is still read off the body by hand: it carries the ORDER_LOCKED dialog's payload,
+          // which the shared extractor deliberately does not return.
           const body = (err as any)?.response?.data;
-          const message =
-            body?.error ||
-            body?.message ||
-            (err as Error).message ||
-            'Failed to update order status';
+          const { message, code } = extractErrorInfo(err, 'Failed to update order status');
           setError(message);
-          return { success: false, error: message, code: body?.code, data: body?.data };
+          return { success: false, error: message, code, data: body?.data };
         } finally {
           setLoading(false);
         }
@@ -1121,14 +1116,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           const response = await service.createOrder(orderData);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to create order');
+          throw new Error(response.error || response.message || 'Could not save this order.');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
             try {
               await dmsService.deleteFile(f.id!);
             } catch (_) {}
           }
-          const message = (err as Error).message || 'Failed to create order';
+          const message = extractErrorMessage(err, 'Could not save this order.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -1145,10 +1140,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateOrder(orderData);
           if (response.success) return { success: true, data: response.data };
-          setError(response.error || response.message || null);
-          return { success: false, error: response.error };
+          const message = response.error || response.message || 'Could not save this order.';
+          setError(message);
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to update order';
+          const message = extractErrorMessage(err, 'Could not save this order.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -1165,10 +1161,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteOrder(id);
           if (response.success) return { success: true, data: response.data };
-          setError(response.error || response.message || null);
-          return { success: false, error: response.error };
+          const message = response.error || response.message || 'Could not delete this order.';
+          setError(message);
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to delete order';
+          const message = extractErrorMessage(err, 'Could not delete this order.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -1194,11 +1191,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             const data = response.data;
             setOrders(Array.isArray(data) ? data : []);
           } else {
-            setError(response.error || response.message || null);
+            setError(response.error || response.message || 'Failed to load orders for customer');
             setOrders([]);
           }
         } catch (err) {
-          setError((err as Error).message || 'Failed to load orders for customer');
+          setError(extractErrorMessage(err, 'Failed to load orders for customer'));
           setOrders([]);
         } finally {
           setLoading(false);
@@ -1213,7 +1210,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
     /** Fetch ONE appointment for the detail screen. Contract and reasoning: see `readOne`. */
     const loadAppointment = useCallback(
-      (id: number) => readOne(() => service.getAppointmentById(id), 'Failed to load appointment'),
+      (id: number) =>
+        readOne(() => service.getAppointmentById(id), 'Could not load this appointment.'),
       [service],
     );
 
@@ -1231,7 +1229,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       (appointmentId: number, itemId: string) =>
         readOne(
           () => service.completeAppointmentItem(appointmentId, itemId),
-          'Could not mark that service completed',
+          'Could not mark that service completed.',
         ),
       [service],
     );
@@ -1243,7 +1241,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         if (businessId == null) return { success: false, error: 'No business is selected.' };
         return readOne(
           () => service.getBillableAppointments(customerId, { ...options, businessId }),
-          'Failed to load billable appointments',
+          'Could not load appointments.',
         );
       },
       [service],
@@ -1269,11 +1267,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             // whatever the first request returned.
             setAppointmentsTotalPages(response.totalPages ?? 1);
           } else {
-            setError(response.error || response.message || null);
+            setError(response.error || response.message || 'Failed to load appointments');
             setAppointments([]);
           }
         } catch (err) {
-          setError((err as Error).message || 'Failed to load appointments');
+          setError(extractErrorMessage(err, 'Failed to load appointments'));
           setAppointments([]);
         } finally {
           setLoading(false);
@@ -1352,13 +1350,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           return { success: false, error: message };
         } catch (err) {
           const body = (err as any)?.response?.data;
-          const message =
-            body?.error ||
-            body?.message ||
-            (err as Error).message ||
-            'Failed to update appointment status';
+          const { message, code } = extractErrorInfo(err, 'Failed to update appointment status');
           setError(message);
-          return { success: false, error: message, code: body?.code, data: body?.data };
+          return { success: false, error: message, code, data: body?.data };
         } finally {
           setLoading(false);
         }
@@ -1389,13 +1383,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           return { success: false, error: message };
         } catch (err) {
           const body = (err as any)?.response?.data;
-          const message =
-            body?.error ||
-            body?.message ||
-            (err as Error).message ||
-            'Failed to reschedule appointment';
+          const { message, code } = extractErrorInfo(err, 'Failed to reschedule appointment');
           setError(message);
-          return { success: false, error: message, code: body?.code, data: body?.data };
+          return { success: false, error: message, code, data: body?.data };
         } finally {
           setLoading(false);
         }
@@ -1419,14 +1409,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           const response = await service.createAppointment(appointmentData);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to create appointment');
+          throw new Error(response.error || response.message || 'Could not save this appointment.');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
             try {
               await dmsService.deleteFile(f.id!);
             } catch (_) {}
           }
-          const message = (err as Error).message || 'Failed to create appointment';
+          const message = extractErrorMessage(err, 'Could not save this appointment.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -1443,10 +1433,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateAppointment(appointmentData);
           if (response.success) return { success: true, data: response.data };
-          setError(response.error || response.message || null);
-          return { success: false, error: response.error };
+          const message = response.error || response.message || 'Could not save this appointment.';
+          setError(message);
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to update appointment';
+          const message = extractErrorMessage(err, 'Could not save this appointment.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -1463,10 +1454,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteAppointment(id);
           if (response.success) return { success: true, data: response.data };
-          setError(response.error || response.message || null);
-          return { success: false, error: response.error };
+          const message =
+            response.error || response.message || 'Could not delete this appointment.';
+          setError(message);
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to delete appointment';
+          const message = extractErrorMessage(err, 'Could not delete this appointment.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -1492,11 +1485,13 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             const data = response.data;
             setAppointments(Array.isArray(data) ? data : []);
           } else {
-            setError(response.error || response.message || null);
+            setError(
+              response.error || response.message || 'Failed to load appointments for customer',
+            );
             setAppointments([]);
           }
         } catch (err) {
-          setError((err as Error).message || 'Failed to load appointments for customer');
+          setError(extractErrorMessage(err, 'Failed to load appointments for customer'));
           setAppointments([]);
         } finally {
           setLoading(false);
@@ -1518,7 +1513,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
      * from a tapped row.
      */
     const loadBill = useCallback(
-      (id: number) => readOne(() => service.getBillById(id), 'Failed to load bill'),
+      (id: number) => readOne(() => service.getBillById(id), 'Could not load this bill.'),
       [service],
     );
 
@@ -1542,11 +1537,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             // list had no way to know whether another page existed.
             setBillsTotalPages((response as { totalPages?: number }).totalPages || 1);
           } else {
-            setError(response.error || response.message || null);
+            setError(response.error || response.message || 'Failed to load bills');
             setBills([]);
           }
         } catch (err) {
-          setError((err as Error).message || 'Failed to load bills');
+          setError(extractErrorMessage(err, 'Failed to load bills'));
           setBills([]);
         } finally {
           setLoading(false);
@@ -1583,20 +1578,26 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (!service.updateBillStatus) {
             return { success: false, error: 'Not supported for this module' };
           }
-          return await service.updateBillStatus(id, billStatus);
+          // A refusal does not always arrive as a rejected request — the server also answers
+          // 2xx with a body reporting the failure, and that body often fills `message` and
+          // leaves `error` empty. As a bare passthrough this handed BillDetailScreen
+          // `error: undefined`, where the `if (!result.success && result.error)` guard says
+          // nothing at all: a refused bill save or delete looked exactly like one that worked.
+          // The other four bill writes below carry the same fallback for the same reason.
+          //
+          // Spread rather than rebuilt, so the server's `code` survives — BillingScreen reads
+          // STATE_CONFLICT off it to explain why a cancelled bill cannot go back to draft.
+          const response = await service.updateBillStatus(id, billStatus);
+          if (response.success) return response;
+          return {
+            ...response,
+            error: response.error || response.message || 'Failed to update bill status',
+          };
         } catch (err) {
           // Dig the server's `code` out of the axios error — the screen branches on it to tell a
           // state conflict (409) apart from a generic failure.
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          return {
-            success: false,
-            code: body?.code,
-            error: body?.error || body?.message || e.message || 'Failed to update bill status',
-          };
+          const { message, code } = extractErrorInfo(err, 'Failed to update bill status');
+          return { success: false, code, error: message };
         }
       },
       [service],
@@ -1612,18 +1613,15 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (!service.updateBillPayment) {
             return { success: false, error: 'Not supported for this module' };
           }
-          return await service.updateBillPayment(id, paymentStatus, options);
-        } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
+          const response = await service.updateBillPayment(id, paymentStatus, options);
+          if (response.success) return response;
           return {
-            success: false,
-            code: body?.code,
-            error: body?.error || body?.message || e.message || 'Failed to update bill payment',
+            ...response,
+            error: response.error || response.message || 'Failed to update bill payment',
           };
+        } catch (err) {
+          const { message, code } = extractErrorInfo(err, 'Failed to update bill payment');
+          return { success: false, code, error: message };
         }
       },
       [service],
@@ -1632,18 +1630,15 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     const createBill = useCallback(
       async (data: Record<string, unknown>) => {
         try {
-          return await service.createBill(data);
-        } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
+          const response = await service.createBill(data);
+          if (response.success) return response;
           return {
-            success: false,
-            code: body?.code,
-            error: body?.error || body?.message || e.message || 'Failed to create bill',
+            ...response,
+            error: response.error || response.message || 'Could not create this bill.',
           };
+        } catch (err) {
+          const { message, code } = extractErrorInfo(err, 'Could not create this bill.');
+          return { success: false, code, error: message };
         }
       },
       [service],
@@ -1665,18 +1660,15 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     const updateBill = useCallback(
       async (billId: number, data: Record<string, unknown>) => {
         try {
-          return await service.updateBill(billId, data);
-        } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
+          const response = await service.updateBill(billId, data);
+          if (response.success) return response;
           return {
-            success: false,
-            code: body?.code,
-            error: body?.error || body?.message || e.message || 'Failed to update bill',
+            ...response,
+            error: response.error || response.message || 'Could not save this bill.',
           };
+        } catch (err) {
+          const { message, code } = extractErrorInfo(err, 'Could not save this bill.');
+          return { success: false, code, error: message };
         }
       },
       [service],
@@ -1690,18 +1682,15 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
     const deleteBill = useCallback(
       async (id: number) => {
         try {
-          return await service.deleteBill(id);
-        } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
+          const response = await service.deleteBill(id);
+          if (response.success) return response;
           return {
-            success: false,
-            code: body?.code,
-            error: body?.error || body?.message || e.message || 'Failed to delete bill',
+            ...response,
+            error: response.error || response.message || 'Could not delete this bill.',
           };
+        } catch (err) {
+          const { message, code } = extractErrorInfo(err, 'Could not delete this bill.');
+          return { success: false, code, error: message };
         }
       },
       [service],
@@ -1728,9 +1717,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.ensureBillItemFolder(params);
           if (response.success) return { success: true, data: response.data };
-          return { success: false, error: response.error || response.message || null };
+          return {
+            success: false,
+            error: response.error || response.message || 'Failed to prepare the photo folder',
+          };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to prepare the photo folder';
+          const message = extractErrorMessage(err, 'Failed to prepare the photo folder');
           return { success: false, error: message };
         }
       },
@@ -1755,16 +1747,8 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           return await service.attachQuickItemPhotos(billId, links);
         } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          return {
-            success: false,
-            code: body?.code,
-            error: body?.error || body?.message || e.message || 'Failed to attach the photos',
-          };
+          const { message, code } = extractErrorInfo(err, 'Failed to attach the photos');
+          return { success: false, code, error: message };
         }
       },
       [service],
@@ -1812,11 +1796,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             );
             return { success: true, data: rows };
           }
-          setError(response.error || response.message || null);
+          const message = response.error || response.message || 'Failed to load inventory';
+          setError(message);
           if (!append) setInventory([]);
-          return { success: false, error: response.error };
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to load inventory';
+          const message = extractErrorMessage(err, 'Failed to load inventory');
           setError(message);
           if (!append) setInventory([]);
           return { success: false, error: message };
@@ -1840,9 +1825,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) {
             return { success: true, data: response.data, totalElements: response.totalElements };
           }
-          return { success: false, error: response.error };
+          return {
+            success: false,
+            error: response.error || response.message || 'Failed to load counts',
+          };
         } catch (err) {
-          return { success: false, error: (err as Error).message || 'Failed to load counts' };
+          return { success: false, error: extractErrorMessage(err, 'Failed to load counts') };
         }
       },
       [service],
@@ -1859,10 +1847,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             inventoryType,
           );
           if (response.success) return { success: true, data: response.data };
-          setError(response.error || response.message || null);
-          return { success: false, error: response.error };
+          const message =
+            response.error || response.message || 'Failed to load inventory by product';
+          setError(message);
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to load inventory by product';
+          const message = extractErrorMessage(err, 'Failed to load inventory by product');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -1872,16 +1862,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
       [service],
     );
 
+    /** Fetch ONE batch for the detail screen. Contract and reasoning: see `readOne`. */
     const loadInventoryBatch = useCallback(
-      async (id: number) => {
-        try {
-          const response = await service.getInventoryBatch(id);
-          if (response.success) return { success: true, data: response.data };
-          return { success: false, error: response.error || response.message };
-        } catch (err) {
-          return { success: false, error: (err as Error).message || 'Failed to load batch' };
-        }
-      },
+      (id: number) => readOne(() => service.getInventoryBatch(id), 'Could not load this batch.'),
       [service],
     );
 
@@ -1900,9 +1883,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) {
             return { success: true, data: Array.isArray(response.data) ? response.data : [] };
           }
-          return { success: false, error: response.error || response.message };
+          return {
+            success: false,
+            error: response.error || response.message || 'Failed to load transitions',
+          };
         } catch (err) {
-          return { success: false, error: (err as Error).message || 'Failed to load transitions' };
+          return { success: false, error: extractErrorMessage(err, 'Failed to load transitions') };
         }
       },
       [service],
@@ -1913,9 +1899,15 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.disposeBatch(batchId);
           if (response.success) return { success: true, data: response.data };
-          return { success: false, error: response.error || response.message };
+          return {
+            success: false,
+            error: response.error || response.message || 'Could not dispose this batch',
+          };
         } catch (err) {
-          return { success: false, error: (err as Error).message || 'Failed to dispose batch' };
+          return {
+            success: false,
+            error: extractErrorMessage(err, 'Could not dispose this batch'),
+          };
         }
       },
       [service],
@@ -1928,9 +1920,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.addInventoryBatch(batchData);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to add inventory batch');
+          throw new Error(response.error || response.message || 'Could not save this batch.');
         } catch (err) {
-          const message = (err as Error).message || 'Failed to add inventory batch';
+          const message = extractErrorMessage(err, 'Could not save this batch.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -1950,9 +1942,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteInventoryBatch(id);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to delete inventory batch');
+          throw new Error(response.error || response.message || 'Could not delete this batch.');
         } catch (err) {
-          const message = (err as Error).message || 'Failed to delete inventory batch';
+          const message = extractErrorMessage(err, 'Could not delete this batch.');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -1976,9 +1968,9 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateBatchStatus(id, status, options);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to update batch status');
+          throw new Error(response.error || response.message || 'Could not change the status');
         } catch (err) {
-          const message = (err as Error).message || 'Failed to update batch status';
+          const message = extractErrorMessage(err, 'Could not change the status');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -1997,7 +1989,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return { success: true, data: response.data };
           throw new Error(response.error || response.message || 'Failed to fetch expiring batches');
         } catch (err) {
-          const message = (err as Error).message || 'Failed to fetch expiring batches';
+          const message = extractErrorMessage(err, 'Failed to fetch expiring batches');
           setError(message);
           return { success: false, error: message };
         } finally {
@@ -2012,9 +2004,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.getTotalStock(itemId, businessId, inventoryType);
           if (response.success) return { success: true, data: response.data };
-          return { success: false, error: response.error };
+          return {
+            success: false,
+            error: response.error || response.message || 'Failed to load stock',
+          };
         } catch (err) {
-          return { success: false, error: (err as Error).message };
+          // The one catch here that carried no fallback at all: anything thrown with a blank
+          // `message` came back as `error: undefined`, and the stock line showed nothing at all.
+          return { success: false, error: extractErrorMessage(err, 'Failed to load stock') };
         }
       },
       [service],
@@ -2066,11 +2063,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             setConsumptionsTotalPages(response.totalPages ?? 1);
             return { success: true, data: rows };
           }
-          setError(response.error || response.message || null);
+          const message = response.error || response.message || 'Failed to load consumptions';
+          setError(message);
           if (!append) setConsumptions([]);
-          return { success: false, error: response.error };
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to load consumptions';
+          const message = extractErrorMessage(err, 'Failed to load consumptions');
           setError(message);
           if (!append) setConsumptions([]);
           return { success: false, error: message };
@@ -2083,7 +2081,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
     /** Fetch ONE consumption for the detail screen. Contract and reasoning: see `readOne`. */
     const loadConsumption = useCallback(
-      (id: number) => readOne(() => service.getConsumption(id), 'Failed to load consumption'),
+      (id: number) => readOne(() => service.getConsumption(id), 'Could not load this consumption.'),
       [service],
     );
 
@@ -2102,23 +2100,16 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.createConsumption(data);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to record consumption');
+          throw new Error(
+            response.error || response.message || 'Could not record this consumption.',
+          );
         } catch (err) {
           // Dig the server's reason out of the axios body rather than reporting "Request failed
           // with status code 400": the refusals here name a field (not enough stock in the batch,
           // quantity below zero) and that reason is the whole message.
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error ||
-            body?.message ||
-            (err as Error).message ||
-            'Failed to record consumption';
+          const { message, code } = extractErrorInfo(err, 'Could not record this consumption.');
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -2134,20 +2125,13 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteConsumption(id);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to delete consumption');
+          throw new Error(
+            response.error || response.message || 'Could not delete this consumption.',
+          );
         } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error ||
-            body?.message ||
-            (err as Error).message ||
-            'Failed to delete consumption';
+          const { message, code } = extractErrorInfo(err, 'Could not delete this consumption.');
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -2189,11 +2173,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             setWastageTotalPages(response.totalPages ?? 1);
             return { success: true, data: rows };
           }
-          setError(response.error || response.message || null);
+          const message = response.error || response.message || 'Failed to load wastage';
+          setError(message);
           if (!append) setWastage([]);
-          return { success: false, error: response.error };
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to load wastage';
+          const message = extractErrorMessage(err, 'Failed to load wastage');
           setError(message);
           if (!append) setWastage([]);
           return { success: false, error: message };
@@ -2206,7 +2191,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
     /** Fetch ONE wastage for the detail screen. Contract and reasoning: see `readOne`. */
     const loadWastage = useCallback(
-      (id: number) => readOne(() => service.getWastage(id), 'Failed to load wastage'),
+      (id: number) => readOne(() => service.getWastage(id), 'Could not load this wastage.'),
       [service],
     );
 
@@ -2224,20 +2209,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.createWastage(data);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to record wastage');
+          throw new Error(response.error || response.message || 'Could not record this wastage.');
         } catch (err) {
           // Dig the server's reason out of the axios body rather than reporting "Request failed
           // with status code 400": the refusals here name the shortfall (not enough stock left in
           // the batches) and that reason is the whole message.
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to record wastage';
+          const { message, code } = extractErrorInfo(err, 'Could not record this wastage.');
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -2259,17 +2238,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteWastage(id);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to delete wastage');
+          throw new Error(response.error || response.message || 'Could not delete this wastage.');
         } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to delete wastage';
+          const { message, code } = extractErrorInfo(err, 'Could not delete this wastage.');
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -2315,11 +2288,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             setStockTransfersTotalPages(response.totalPages ?? 1);
             return { success: true, data: rows };
           }
-          setError(response.error || response.message || null);
+          const message = response.error || response.message || 'Failed to load stock transfers';
+          setError(message);
           if (!append) setStockTransfers([]);
-          return { success: false, error: response.error };
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to load stock transfers';
+          const message = extractErrorMessage(err, 'Failed to load stock transfers');
           setError(message);
           if (!append) setStockTransfers([]);
           return { success: false, error: message };
@@ -2332,7 +2306,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
     /** Fetch ONE transfer for the detail screen. Contract and reasoning: see `readOne`. */
     const loadStockTransfer = useCallback(
-      (id: number) => readOne(() => service.getStockTransfer(id), 'Failed to load stock transfer'),
+      (id: number) => readOne(() => service.getStockTransfer(id), 'Could not load this transfer.'),
       [service],
     );
 
@@ -2351,22 +2325,13 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.createStockTransfer(data);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to record this transfer');
+          throw new Error(response.error || response.message || 'Could not record this transfer.');
         } catch (err) {
           // Dig the server's reason out of the axios body: an over-draw refusal names the shortfall,
           // and that reason is the whole message.
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error ||
-            body?.message ||
-            (err as Error).message ||
-            'Failed to record this transfer';
+          const { message, code } = extractErrorInfo(err, 'Could not record this transfer.');
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -2394,20 +2359,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteStockTransfer(id);
           if (response.success) return { success: true, data: response.data };
-          return { success: false, error: response.error || response.message || null };
-        } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
+          return {
+            success: false,
+            error: response.error || response.message || 'Could not delete this transfer',
           };
-          const body = e.response?.data;
-          const message =
-            body?.error ||
-            body?.message ||
-            (err as Error).message ||
-            'Failed to delete this transfer';
+        } catch (err) {
+          const { message, code } = extractErrorInfo(err, 'Could not delete this transfer');
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -2441,11 +2400,12 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             setExpensesTotalPages(response.totalPages ?? 1);
             return { success: true, data: rows };
           }
-          setError(response.error || response.message || null);
+          const message = response.error || response.message || 'Failed to load expenses';
+          setError(message);
           if (!append) setExpenses([]);
-          return { success: false, error: response.error };
+          return { success: false, error: message };
         } catch (err) {
-          const message = (err as Error).message || 'Failed to load expenses';
+          const message = extractErrorMessage(err, 'Failed to load expenses');
           setError(message);
           if (!append) setExpenses([]);
           return { success: false, error: message };
@@ -2458,7 +2418,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
     /** Fetch ONE expense for the detail screen. Contract and reasoning: see `readOne`. */
     const loadExpense = useCallback(
-      (id: number) => readOne(() => service.getExpense(id), 'Failed to load expense'),
+      (id: number) => readOne(() => service.getExpense(id), 'Could not load this expense.'),
       [service],
     );
 
@@ -2469,20 +2429,14 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.createExpense(data);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to record expense');
+          throw new Error(response.error || response.message || 'Could not save this expense.');
         } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to record expense';
+          const { message, code } = extractErrorInfo(err, 'Could not save this expense.');
           setError(message);
           // `code` carries TAB_DISABLED and FEATURE_DISABLED, both 403s the screen words for itself:
           // the EXPENSES tab being off, and the reimbursement feature being off while an employee
           // is attached.
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -2505,17 +2459,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateExpense(id, data);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to save this expense');
+          throw new Error(response.error || response.message || 'Could not save this expense.');
         } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error || body?.message || (err as Error).message || 'Failed to save this expense';
+          const { message, code } = extractErrorInfo(err, 'Could not save this expense.');
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -2530,20 +2478,11 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteExpense(id);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to delete this expense');
+          throw new Error(response.error || response.message || 'Could not delete this expense.');
         } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
-          };
-          const body = e.response?.data;
-          const message =
-            body?.error ||
-            body?.message ||
-            (err as Error).message ||
-            'Failed to delete this expense';
+          const { message, code } = extractErrorInfo(err, 'Could not delete this expense.');
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }
@@ -2559,6 +2498,10 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
      * reimbursable or was already settled — reachable by two taps on the same row, or by two
      * devices — and "Could not mark reimbursed" is the wrong thing to say about a row that already
      * is. There is no un-reimburse endpoint, so this is one-way.
+     *
+     * Which is why the fallback below reads that way and is still correct: `reimburseRefusalMessage`
+     * on the screen replaces it outright once it sees `STATE_CONFLICT`. The fallback only ever
+     * speaks for a refusal that arrived with no code and no reason at all.
      */
     const markExpenseReimbursed = useCallback(
       async (id: number, reimbursedBy?: number | null) => {
@@ -2567,20 +2510,17 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.markExpenseReimbursed(id, reimbursedBy);
           if (response.success) return { success: true, data: response.data };
-          return { success: false, error: response.error || response.message || null };
-        } catch (err) {
-          const e = err as {
-            response?: { data?: { code?: string; error?: string; message?: string } };
-            message?: string;
+          return {
+            success: false,
+            error: response.error || response.message || 'Could not mark this expense reimbursed.',
           };
-          const body = e.response?.data;
-          const message =
-            body?.error ||
-            body?.message ||
-            (err as Error).message ||
-            'Failed to mark this expense reimbursed';
+        } catch (err) {
+          const { message, code } = extractErrorInfo(
+            err,
+            'Could not mark this expense reimbursed.',
+          );
           setError(message);
-          return { success: false, code: body?.code, error: message };
+          return { success: false, code, error: message };
         } finally {
           setLoading(false);
         }

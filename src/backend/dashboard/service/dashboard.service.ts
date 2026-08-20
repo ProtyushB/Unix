@@ -11,6 +11,7 @@ import type {
   RevenuePeriod,
   RevenueSeries,
 } from '../api/dashboard.api.interface';
+import { extractErrorMessage } from '../../shared/http/axiosError';
 
 interface ServiceResult<T> {
   success: boolean;
@@ -21,18 +22,19 @@ interface ServiceResult<T> {
 }
 
 function toResult<T>(err: unknown): ServiceResult<T> {
-  const axiosErr = err as AxiosError<{ message?: string; error?: string }>;
+  // Deliberately the message-only extractor: this `code` is the transport's own story — axios's
+  // `err.code` plus the HTTP status, shown on the dashboard error card as "ERR_BAD_RESPONSE · 503"
+  // — and not the wrapper's `code` field, which is what the extractor weighs when it picks between
+  // `error` and `message`. Taking the code out of `extractErrorInfo` instead would put
+  // 'INVALID_ARGUMENT' on a card whose whole job is to say which hop failed.
+  const axiosErr = err as AxiosError;
   const status = axiosErr.response?.status;
   const kind = status ? 'ERR_BAD_RESPONSE' : axiosErr.code || 'ERR_NETWORK';
 
   return {
     success: false,
     data: null,
-    error:
-      axiosErr.response?.data?.error ||
-      axiosErr.response?.data?.message ||
-      axiosErr.message ||
-      'Failed to load dashboard',
+    error: extractErrorMessage(err, 'Failed to load dashboard'),
     code: status ? `${kind} · ${status}` : kind,
   };
 }

@@ -6,7 +6,7 @@
 import { getBusinessApi } from '../provider/business.provider';
 import { BusinessApiInterface } from '../api/business.api.interface';
 import { BusinessDto, UpdateBusinessFlags } from '../../person/api/person.api.interface';
-import { AxiosError } from 'axios';
+import { extractErrorMessage } from '../../shared/http/axiosError';
 
 interface ServiceResult<T> {
   success: boolean;
@@ -51,7 +51,7 @@ export class BusinessService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to create business'),
+        error: extractErrorMessage(error, 'Failed to create business'),
       };
     }
   }
@@ -70,7 +70,7 @@ export class BusinessService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to update business'),
+        error: extractErrorMessage(error, 'Failed to update business'),
       };
     }
   }
@@ -86,7 +86,7 @@ export class BusinessService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to get business'),
+        error: extractErrorMessage(error, 'Failed to get business'),
       };
     }
   }
@@ -102,7 +102,7 @@ export class BusinessService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to get businesses'),
+        error: extractErrorMessage(error, 'Failed to get businesses'),
       };
     }
   }
@@ -118,18 +118,8 @@ export class BusinessService {
       return {
         success: false,
         data: null,
-        error: this.extractErrorMessage(error, 'Failed to delete business'),
+        error: extractErrorMessage(error, 'Failed to delete business'),
       };
     }
-  }
-
-  private extractErrorMessage(error: unknown, fallback: string): string {
-    const axiosError = error as AxiosError<{ error?: string; message?: string }>;
-    return (
-      axiosError.response?.data?.error ||
-      axiosError.response?.data?.message ||
-      (error as Error).message ||
-      fallback
-    );
   }
 }

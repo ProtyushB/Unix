@@ -15,6 +15,7 @@ import {
 import { setLoggedInUser } from '../storage/auth.storage';
 import type { ClaimContext } from '../context/SignupDraftContext';
 import { v4 as uuidv4 } from 'uuid';
+import { extractErrorMessage } from '../backend/shared/http/axiosError';
 
 /**
  * The one place an account is actually created.
@@ -221,11 +222,13 @@ export async function completeSignup(input: CompleteSignupInput): Promise<Comple
   } catch (err: any) {
     if (!personCreated) await rollback();
 
-    const message =
-      err?.response?.data?.error ||
-      err?.response?.data?.message ||
-      err?.message ||
-      'Something went wrong. Please try again.';
+    // `isVerificationError` reads this same string, so losing the OTP wording here would strand the
+    // user on a dead-end error instead of bouncing them back to re-verify. It cannot be lost:
+    // everything that throws inside this function — authService, folderService — has already
+    // normalised its failure into a plain `Error`, which carries no `response` for the extractor to
+    // prefer, so `err.message` comes back unchanged. The person calls do not throw at all; a refused
+    // create or claim arrives as a result and is answered above.
+    const message = extractErrorMessage(err, 'Something went wrong. Please try again.');
 
     return { ok: false, error: message, verificationExpired: isVerificationError(message) };
   }
