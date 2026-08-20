@@ -22,6 +22,8 @@ import type { QuickBillItem } from './quickItem';
 import { configFor, type BillModuleKey } from './billDetail.modules';
 import { type BillDetailItem } from './billDetail.model';
 import {
+  billDateBounds,
+  billDatePickerDay,
   billStatusLabel,
   billStatusOptions,
   DELETE_FAILED,
@@ -551,6 +553,16 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
     );
   }
 
+  /**
+   * The days the date dialog may offer, resolved on the render that opens it.
+   *
+   * Not memoised, and that is the point: `useMemo(…, [])` would freeze the window at mount, and a
+   * phone left on this screen overnight would open a calendar whose maximum is yesterday — the one
+   * day the seller most wants to date a bill, refused by a bound that went stale while the screen
+   * sat there. The whole cost is one `Intl` format, paid only while the dialog is up.
+   */
+  const billDateWindow = pickingDate ? billDateBounds() : null;
+
   return (
     <>
       <BillDetailBase
@@ -560,6 +572,7 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
         errors={engine.errors}
         slots={{ moduleLabel: config.moduleLabel }}
         saving={engine.saving}
+        dirty={engine.dirty}
         onFieldChange={engine.setField}
         onAmountChange={engine.setAmount}
         onDiscountType={engine.setDiscountType}
@@ -578,12 +591,33 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
         onDelete={() => setConfirmDelete(true)}
       />
 
-      {/* The OS date dialog, not one of ours — `toYmd` reads the Date's parts rather than slicing
-          an ISO string, which would give the UTC day (the previous one before 05:30 IST). */}
-      {pickingDate ? (
+      {/*
+        The OS date dialog, not one of ours — the bill card draws its date as a read row that opens
+        this, the way the appointment screen does. `DateField` is the shared bounded control, and it
+        stays where it is: it renders a bordered input, which is the geometry of the screens that use
+        it (batch, expense, consumption) and not this card's, where the date sits in a row with the
+        two status pickers. Adopting it here would redraw the card, not just move the bounds. What is
+        reused is the part that matters — the same `{ min, max }` shape, the same `parseYmd` on the
+        way in and `toYmd` on the way out, derived by a pure function beside the validation.
+
+        Bounded to the window the server accepts, so the two agree about which days exist. Without
+        the bounds the seller could pick tomorrow, fill in the rest of the bill, press Save and only
+        then be told the date was impossible — several minutes and several fields after choosing it.
+
+        Everything crossing this boundary is a `YYYY-MM-DD` day, and `parseYmd`/`toYmd` are exact
+        inverses over local midnight, so a day handed in comes back out as itself. Converting the
+        picked instant to its IST day instead would look more correct and be worse: east of IST,
+        local midnight IS the previous IST day, so confirming without touching the calendar would
+        walk the bill back a day. The zone lives in the bounds and the seed, which are the only
+        parts that ask what day it is — `billDateBounds` reads IST, as does `toFormState`, and the
+        dialog only ever moves between days those two named.
+      */}
+      {billDateWindow ? (
         <DateTimePicker
-          value={engine.form.billDate ? parseYmd(engine.form.billDate) : new Date()}
+          value={parseYmd(billDatePickerDay(engine.form.billDate, billDateWindow))}
           mode="date"
+          minimumDate={parseYmd(billDateWindow.min)}
+          maximumDate={parseYmd(billDateWindow.max)}
           onChange={(_event: unknown, picked?: Date) => {
             setPickingDate(false);
             if (picked) engine.setField('billDate', toYmd(picked));

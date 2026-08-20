@@ -6,6 +6,7 @@
  * reasons the other two do not have.
  */
 
+import { istToday } from '../bill.model';
 import { settlementField } from './billMoney';
 import type { BillFormState } from './billDetail.model';
 
@@ -169,6 +170,62 @@ export function customerLocked(attachedCount: number): boolean {
 export const CUSTOMER_LOCK_NOTE =
   'Locked — customer comes from the selected orders & appointments.';
 
+// ─── The window a bill may be dated in ───────────────────────────────────────
+
+/** An inclusive `YYYY-MM-DD` range. Both ends are days, never instants. */
+export interface BillDateWindow {
+  min: string;
+  max: string;
+}
+
+/**
+ * The range of days the server will accept a bill in, ready to hand to a date dialog.
+ *
+ * Mirrors `GenericBillService#validateBillDate`: no later than today, no earlier than 1 January of
+ * the previous calendar year. The derivation is deliberately the same two lines the web half runs
+ * in `BillSummarySection` — a max read straight off the IST clock and a floor built from its year —
+ * so the two clients cannot drift into offering different days.
+ *
+ * The floor is a garbage-date guard (a wrong decade, an epoch default, a mistyped year), not a
+ * period-close policy, which is why it is a year and a bit rather than a month.
+ *
+ * `today` is read in **Asia/Kolkata**, not on the device, and through the same `istToday` the create
+ * seed uses. The zone is the whole point: the server compares against the IST day, so a max taken
+ * from a device sitting in another zone would be a day out — offering a day the save then refuses
+ * west of IST, and refusing the freshly seeded default east of it, where the form opens on an IST
+ * "today" the device has not reached yet.
+ *
+ * Injectable so tests can pin a day; a caller should let it default, and should call it at the
+ * moment the dialog opens rather than caching the result. See the note at its one call site.
+ */
+export function billDateBounds(today: string = istToday()): BillDateWindow {
+  const max = today;
+  const min = `${Number(max.slice(0, 4)) - 1}-01-01`;
+  return { min, max };
+}
+
+/**
+ * The day a dialog bounded by `bounds` should open on, given what the form currently holds.
+ *
+ * Exists because the form's date and the window are not guaranteed to agree. A bill written before
+ * the floor — any bill older than about 19 months, which every business of that age has — is still
+ * openable and still editable, and its own stored date is a day the picker is now forbidden to
+ * offer. Handing a dialog a value outside the range it is told to enforce asks it to render a
+ * contradiction; opening on the nearest day it IS allowed to show keeps the two consistent.
+ *
+ * This changes nothing about the form: it decides where the calendar lands, and the stored date
+ * moves only if the user actually picks a different day.
+ *
+ * Empty falls back to the max — IST today, the same day a new bill is seeded with — rather than to
+ * the device's today, which east of IST can be a day the window already excludes.
+ */
+export function billDatePickerDay(billDate: string, bounds: BillDateWindow): string {
+  if (!billDate) return bounds.max;
+  if (billDate < bounds.min) return bounds.min;
+  if (billDate > bounds.max) return bounds.max;
+  return billDate;
+}
+
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 export type ValidationErrors = Record<string, string>;
@@ -180,8 +237,10 @@ export type ValidationErrors = Record<string, string>;
  * Unlike the order and appointment endpoints, the bill controller DOES carry `@Valid`, so the three
  * required fields fail cleanly at 400 rather than 500. These checks exist to say so before the
  * round trip, and to catch the two the server would take at face value.
+ *
+ * `today` is IST and injectable for the tests, for the reasons on `billDateBounds`.
  */
-export function validateBill(form: BillFormState): ValidationErrors {
+export function validateBill(form: BillFormState, today: string = istToday()): ValidationErrors {
   const errors: ValidationErrors = {};
 
   // No customer check, and none on the phone either. Both annotations came off CreateBillRequest
@@ -190,7 +249,30 @@ export function validateBill(form: BillFormState): ValidationErrors {
   // customer check went — with a message about a customer that isn't there.
 
   if (!form.lines.length) errors.items = 'Add at least one item.';
+
+  /*
+    The date is checked at ONE end only, and the asymmetry is deliberate.
+
+    A future date is refused because the server refuses it (`validateBillDate`) and because nothing
+    can put one in the form honestly: the picker is now bounded at today IST, and a stored bill
+    cannot be dated after today either, since the server would not have taken it. So this rejects a
+    value only a path around the picker can produce — the same value the server would 400 on, named
+    against the field instead of arriving as a bare server message. It reads the device's clock to
+    decide what "today" is, which is the one way it can be wrong; a phone whose clock lags the
+    server across midnight would refuse a bill the server would take.
+
+    The floor is NOT mirrored here, though the picker enforces it. `validateBill` runs before the
+    save picks its route, and only the PUT carries a date at all — a payment or status PATCH sends
+    none, so the server never looks at it. A bill written before 1 January of last year is an
+    ordinary bill on any business older than about 19 months; refusing the form because of a date
+    the user did not choose and is not sending would block marking a 2024 bill PAID, which the
+    server does without complaint. That leaves a real gap — a CONTENT edit of a pre-floor bill does
+    send the old date and the server does 400 on it — but it is a gap that closes by not re-sending
+    an unchanged date, not by making the whole bill unsavable.
+  */
   if (!form.billDate) errors.billDate = 'Pick a bill date.';
+  else if (form.billDate > today) errors.billDate = 'A bill cannot be dated after today.';
+
   if (!form.billStatus) errors.billStatus = 'Pick a bill status.';
   if (!form.paymentStatus) errors.paymentStatus = 'Pick a payment status.';
 
@@ -229,7 +311,12 @@ export function errorSummary(errors: ValidationErrors): string {
 
 // ─── Which endpoint a save should use ────────────────────────────────────────
 
-export type SaveRoute = 'PUT' | 'PATCH_STATUS' | 'PATCH_PAYMENT';
+/**
+ * `NO_CHANGE` is a route in the sense that matters: it is what the save does, and what it does is
+ * send nothing. It is not an error and not a refusal — the bill is already exactly what the user
+ * asked for.
+ */
+export type SaveRoute = 'PUT' | 'PATCH_STATUS' | 'PATCH_PAYMENT' | 'NO_CHANGE';
 
 /** The fields that decide the route. A subset of the form, so this stays testable. */
 export interface SaveShape {
@@ -300,7 +387,8 @@ export function contentKey(form: BillFormState): string {
  *     and order-backed content re-deducts. PATCH has a no-op fast path; PUT does not.
  *
  * So: if nothing but the payment moved, PATCH the payment. If nothing but the bill status moved,
- * PATCH the status. Only a genuine content edit earns the PUT.
+ * PATCH the status. Only a genuine content edit earns the PUT, and a save with nothing behind it
+ * earns no request at all.
  */
 export function saveRoute(original: SaveShape, next: SaveShape): SaveRoute {
   const contentChanged = original.content !== next.content;
@@ -317,9 +405,14 @@ export function saveRoute(original: SaveShape, next: SaveShape): SaveRoute {
   if (paymentChanged) return 'PATCH_PAYMENT';
   if (statusChanged) return 'PATCH_STATUS';
 
-  // Nothing changed. Still a PUT rather than a no-op, because the user pressed Save and expects
-  // something to happen — and with no content change there is nothing for it to damage.
-  return 'PUT';
+  // Nothing moved on any axis, so there is nothing to write. This used to answer 'PUT' on the
+  // grounds that the user pressed Save and expects something to happen, with "there is nothing for
+  // it to damage" as the justification — which is point 3 above, stated backwards. An identical
+  // body is not an identical bill: the server drops every bare line, restocks its batch ledger,
+  // rebuilds the line from the LIVE catalog row and deducts again, so a bill issued at last
+  // month's price silently re-totals at today's, and the FEFO round trip need not hand back the
+  // batches it took. It answers 200 and the app says "Bill updated".
+  return 'NO_CHANGE';
 }
 
 /** Whether a status PATCH is also needed after a payment PATCH. Both can move in one save. */
@@ -331,4 +424,20 @@ export function alsoNeedsStatusPatch(original: SaveShape, next: SaveShape): bool
       original.paidAmount !== next.paidAmount ||
       original.refundedAmount !== next.refundedAmount)
   );
+}
+
+/**
+ * Whether this form has anything worth saving — what the Save control's enabled state reads.
+ *
+ * Asked THROUGH `saveRoute` rather than by comparing the same five fields a second time. Two
+ * copies of "has anything changed" is how the button and the routing decision come to disagree,
+ * and the disagreement that matters is a live Save button on a bill the route has already decided
+ * to write nothing for — an invitation to a save that does nothing, which is what greying the
+ * button exists to withdraw. A field added to the shape now reaches both answers or neither.
+ *
+ * A null `original` means no saved bill stands behind this form — a create, or an edit whose fetch
+ * has not landed. There is nothing to be unchanged from, so it counts as changed.
+ */
+export function hasUnsavedChanges(original: SaveShape | null, next: SaveShape): boolean {
+  return original === null || saveRoute(original, next) !== 'NO_CHANGE';
 }
