@@ -12,6 +12,8 @@ import {
   alsoNeedsStatusPatch,
   appBarSubtitle,
   appBarTitle,
+  billDateBounds,
+  billDatePickerDay,
   billStatusLabel,
   billStatusOptions,
   contentKey,
@@ -19,6 +21,7 @@ import {
   deriveDetailView,
   errorSummary,
   hasErrors,
+  hasUnsavedChanges,
   isEditable,
   paymentStatusLabel,
   saveLabel,
@@ -199,6 +202,79 @@ describe('saveRoute — which endpoint a save uses', () => {
   it('a content edit wins, because the statuses ride along in the same body', () => {
     expect(saveRoute(shape(), shape({ content: 'B', billStatus: 'FINALIZED' }))).toBe('PUT');
   });
+
+  it('sends NOTHING when nothing moved, rather than a PUT with an identical body', () => {
+    // This answered 'PUT' — "the user pressed Save and expects something to happen, and with no
+    // content change there is nothing for it to damage". There is: the server drops every bare
+    // line, restocks its batch ledger, rebuilds the line from the LIVE catalog row and deducts
+    // again. An issued bill re-totals at today's prices, the FEFO round trip need not return the
+    // batches it took, and the app reports success.
+    expect(saveRoute(shape(), shape())).toBe('NO_CHANGE');
+    expect(alsoNeedsStatusPatch(shape(), shape())).toBe(false);
+  });
+});
+
+describe('hasUnsavedChanges — the predicate the Save control reads', () => {
+  const asShape = (f: BillFormState): SaveShape => ({
+    billStatus: f.billStatus,
+    paymentStatus: f.paymentStatus,
+    paidAmount: f.paidAmount,
+    refundedAmount: f.refundedAmount,
+    content: contentKey(f),
+  });
+
+  it('is false for a bill nobody has touched, which is what greys out Save', () => {
+    expect(hasUnsavedChanges(asShape(base()), asShape(base()))).toBe(false);
+  });
+
+  it('is true when only the bill date moved — a back-date is a real edit, not a no-op', () => {
+    // The half of this that would break the feature: gate the button on this predicate, have it
+    // miss the date, and the picker becomes unusable.
+    expect(hasUnsavedChanges(asShape(base()), asShape(base({ billDate: '2026-07-15' })))).toBe(
+      true,
+    );
+  });
+
+  it('is true for every other axis the form can move', () => {
+    expect(hasUnsavedChanges(asShape(base()), asShape(base({ billStatus: 'FINALIZED' })))).toBe(
+      true,
+    );
+    expect(hasUnsavedChanges(asShape(base()), asShape(base({ paymentStatus: 'PAID' })))).toBe(true);
+    expect(hasUnsavedChanges(asShape(base()), asShape(base({ notes: 'called ahead' })))).toBe(true);
+    expect(hasUnsavedChanges(asShape(base()), asShape(base({ lines: [] })))).toBe(true);
+  });
+
+  it('is true with no baseline, so a create is never gated shut', () => {
+    // A form with no saved bill behind it — an add, or an edit whose fetch has not landed. There
+    // is nothing to be unchanged from.
+    expect(hasUnsavedChanges(null, asShape(base()))).toBe(true);
+  });
+});
+
+describe('a date-only edit — where the two fixes have to agree', () => {
+  const asShape = (f: BillFormState): SaveShape => ({
+    billStatus: f.billStatus,
+    paymentStatus: f.paymentStatus,
+    paidAmount: f.paidAmount,
+    refundedAmount: f.refundedAmount,
+    content: contentKey(f),
+  });
+
+  it('still reaches the server, and now says which day', () => {
+    // Blocking the no-change save and sending the date landed together, and this is the case where
+    // getting it wrong makes the date unsavable. `contentKey` hashes `billDate`, so a re-date is a
+    // content change and earns the PUT — the same route it took before.
+    const fetched = base();
+    const backDated = base({ billDate: '2026-07-15' });
+    expect(saveRoute(asShape(fetched), asShape(backDated))).toBe('PUT');
+
+    const body = buildBillPayload(backDated, 3);
+    expect(body.billDate).toBe('2026-07-15');
+
+    // What used to happen instead: the re-date produced a body byte-identical to the untouched
+    // bill's, so the app called its most destructive endpoint to carry nothing at all.
+    expect(JSON.stringify(body)).not.toBe(JSON.stringify(buildBillPayload(fetched, 3)));
+  });
 });
 
 describe('contentKey', () => {
@@ -258,8 +334,114 @@ describe('validateBill', () => {
     ).toBeTruthy();
   });
 
+  it('refuses a date after today, and takes today itself', () => {
+    // The picker cannot offer one any more, so this is the floor under any path around it.
+    expect(validateBill(base({ billDate: '2026-08-07' }), '2026-08-06').billDate).toBeTruthy();
+    expect(validateBill(base({ billDate: '2026-08-06' }), '2026-08-06').billDate).toBeUndefined();
+  });
+
+  it('still saves a bill older than the picker floor', () => {
+    // Deliberately not symmetrical with the picker. `validateBill` runs before the save picks a
+    // route, and a payment or status PATCH sends no date at all — so refusing here would block
+    // marking a 2024 bill PAID over a date the user never chose and is not sending.
+    expect(validateBill(base({ billDate: '2024-06-01' }), '2026-08-06').billDate).toBeUndefined();
+  });
+
   it('summarises to the most useful message', () => {
     expect(errorSummary(validateBill(base({ lines: [] })))).toContain('item');
+  });
+});
+
+describe('billDateBounds — the days the picker may offer', () => {
+  // 02:00 IST on the 6th. Chosen because its UTC day and its IST day are different days, so a
+  // device-zone reading of "today" answers '2026-08-05' here and an IST one answers '2026-08-06'.
+  const IST_SMALL_HOURS = new Date('2026-08-05T20:30:00Z');
+
+  /** Pins the clock the default arguments read, so "today" is a fact of the test, not the machine. */
+  const atInstant = <T>(instant: Date, fn: () => T): T => {
+    jest.useFakeTimers({ now: instant });
+    try {
+      return fn();
+    } finally {
+      jest.useRealTimers();
+    }
+  };
+
+  /**
+   * `GenericBillService#validateBillDate`, transcribed — refuse anything after today, refuse
+   * anything before 1 January of last year. Written out in date arithmetic rather than by calling
+   * `billDateBounds`, so "the picker and the server agree" is a claim about two independent
+   * derivations rather than a tautology.
+   */
+  const serverAccepts = (ymd: string, today: string): boolean => {
+    const day = (s: string) => {
+      const [y, m, d] = s.split('-').map(Number);
+      return Date.UTC(y, m - 1, d);
+    };
+    const floor = Date.UTC(Number(today.slice(0, 4)) - 1, 0, 1);
+    return day(ymd) <= day(today) && day(ymd) >= floor;
+  };
+
+  const dayAfter = (ymd: string) => {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+  };
+  const dayBefore = (ymd: string) => {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
+  };
+
+  it('maxes out at today in IST, and floors at 1 January of last year', () => {
+    expect(atInstant(IST_SMALL_HOURS, () => billDateBounds())).toEqual({
+      min: '2025-01-01',
+      max: '2026-08-06',
+    });
+  });
+
+  it('names the same day the create seed does', () => {
+    // The bound and the default date are the same question asked twice. If they answer differently
+    // the form opens on a day its own picker refuses to show.
+    const [max, seeded] = atInstant(IST_SMALL_HOURS, () => [
+      billDateBounds().max,
+      toFormState(null).billDate,
+    ]);
+    expect(max).toBe(seeded);
+  });
+
+  it('draws its edges exactly where the server draws them', () => {
+    for (const today of ['2026-08-06', '2027-01-01', '2026-12-31']) {
+      const { min, max } = billDateBounds(today);
+      expect(serverAccepts(max, today)).toBe(true);
+      expect(serverAccepts(dayAfter(max), today)).toBe(false);
+      expect(serverAccepts(min, today)).toBe(true);
+      expect(serverAccepts(dayBefore(min), today)).toBe(false);
+    }
+  });
+
+  it('follows the calendar year over into January', () => {
+    // The floor is the YEAR's, not a rolling window: on 1 January it steps back a whole year, which
+    // is what keeps back-dating to 31 December possible on the 1st.
+    expect(billDateBounds('2026-12-31').min).toBe('2025-01-01');
+    expect(billDateBounds('2027-01-01').min).toBe('2026-01-01');
+  });
+});
+
+describe('billDatePickerDay — where the dialog opens', () => {
+  const bounds = billDateBounds('2026-08-06');
+
+  it("opens on the bill's own date when the window allows it", () => {
+    expect(billDatePickerDay('2026-07-15', bounds)).toBe('2026-07-15');
+    expect(billDatePickerDay('2026-08-06', bounds)).toBe('2026-08-06');
+  });
+
+  it('opens on the nearest offerable day for a bill older than the floor', () => {
+    // A 2024 bill is still editable, and its own date is a day the picker may no longer show.
+    expect(billDatePickerDay('2024-06-01', bounds)).toBe('2025-01-01');
+    expect(billDatePickerDay('2026-09-01', bounds)).toBe('2026-08-06');
+  });
+
+  it('falls back to today IST, not to the device day, when the form has no date', () => {
+    expect(billDatePickerDay('', bounds)).toBe('2026-08-06');
   });
 });
 

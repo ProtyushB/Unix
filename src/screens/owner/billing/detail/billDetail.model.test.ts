@@ -229,6 +229,43 @@ describe('buildBillPayload — what must NOT be sent', () => {
   });
 });
 
+describe('buildBillPayload — the bill date', () => {
+  it('sends the day the user picked, or the sale is reported on the day it was typed', () => {
+    // `billDate` is the column the revenue queries bucket on. Collected, validated and then
+    // dropped, a bill entered on Monday for Saturday's sale grew Monday's takings and left
+    // Saturday's short — while the bill on screen still said Saturday, so nothing explained the
+    // gap.
+    expect(buildBillPayload(form(), 3).billDate).toBe('2026-08-05');
+  });
+
+  it('sends a plain date, because the server binds this one as a LocalDate', () => {
+    const sent = String(buildBillPayload(form(), 3).billDate);
+    expect(sent).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // `joinIstInstant` — right for `expenseDate`, which really is an Instant — would send
+    // '2026-08-05T00:00:00+05:30' here. Wrong field, wrong type.
+    expect(sent).not.toContain('T');
+    expect(sent).not.toContain('+05:30');
+  });
+
+  it('drops the key rather than sending a blank the server would have to interpret', () => {
+    // Absent is the one value that means "decide for me": stamp now on create, leave the stored
+    // date alone on update. An empty string is not that, and reaching the server it would depend
+    // on Jackson's empty-string handling to avoid re-dating the bill.
+    expect(buildBillPayload(form({ billDate: '' }), 3)).not.toHaveProperty('billDate');
+    // And the same builder does send one when the form has it — so the absence above is the empty
+    // form, not the field being ignored again.
+    expect(buildBillPayload(form(), 3).billDate).toBe('2026-08-05');
+  });
+
+  it('re-sends a fetched bill IST day, so an unrelated edit cannot move it back a day', () => {
+    // 20:30 UTC is already the 6th in IST. Every save now restates the date, which makes the
+    // read conversion load-bearing: slicing the ISO string would send the 5th and quietly shift
+    // the bill — and its money — into the previous day's report.
+    const late = { ...serverBill(), billDate: '2026-08-05T20:30:00Z' };
+    expect(buildBillPayload(toFormState(late), 3).billDate).toBe('2026-08-06');
+  });
+});
+
 describe('buildBillPayload — clamping', () => {
   it('never sends a negative tip or an out-of-range tax rate', () => {
     expect(buildBillPayload(form({ tips: -50 }), 3).tips).toBe(0);

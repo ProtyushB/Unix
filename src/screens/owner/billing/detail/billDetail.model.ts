@@ -202,6 +202,26 @@ export function buildBillPayload(form: BillFormState, businessId: number): Recor
     // Copied unguarded server-side, so an omission erases the stored note.
     notes: form.notes.trim(),
 
+    /**
+     * The day the sale happened, exactly as the user picked it: a plain `YYYY-MM-DD` with no time
+     * and no offset, because the server binds this one as a `LocalDate` and reads it as an IST
+     * wall-clock day. NOT an instant — `joinIstInstant` is the right helper for `expenseDate`,
+     * which really is bound as an `Instant`, and the wrong one here.
+     *
+     * This is the field that decides which day's revenue the bill lands in: the server turns a
+     * back-date into start-of-day IST, which is the inclusive lower edge of that day's reporting
+     * window. Until it was sent, the picker on this screen was required, validated, and discarded —
+     * a bill entered on Monday for Saturday's sale was reported on Monday, and nothing on screen
+     * said so.
+     *
+     * Dropped rather than sent blank when the form has no date. Absent is the one thing the server
+     * reads as "decide for me": stamp now on create, leave the stored date alone on update. Sending
+     * `''` instead would lean on Jackson's empty-string handling to mean the same thing.
+     * `validateBill` refuses a blank date long before a save reaches here; this guard is what keeps
+     * that from being the only thing standing between a blank field and a re-dated bill.
+     */
+    ...(form.billDate ? { billDate: form.billDate } : {}),
+
     billStatus: form.billStatus,
     paymentStatus: form.paymentStatus,
     // No mobile EMI UI; echoed so an EMI bill is not quietly converted to NORMAL.

@@ -8,6 +8,7 @@ import {
   DELETE_FAILED,
   errorSummary,
   hasErrors,
+  hasUnsavedChanges,
   SAVE_FAILED,
   saveRoute,
   validateBill,
@@ -297,18 +298,18 @@ export function useBillDetailForm({
     setForm((prev) => ({ ...prev, lines: prev.lines.filter((_, i) => i !== index) }));
   }, []);
 
-  /** Whether anything at all has changed. Drives nothing on screen; used by the save path. */
-  const dirty = useMemo(() => {
-    if (!baseline) return true;
-    const next = shapeOf(form);
-    return (
-      baseline.content !== next.content ||
-      baseline.billStatus !== next.billStatus ||
-      baseline.paymentStatus !== next.paymentStatus ||
-      baseline.paidAmount !== next.paidAmount ||
-      baseline.refundedAmount !== next.refundedAmount
-    );
-  }, [baseline, form]);
+  /**
+   * Whether anything at all has changed. Gates the Save control, and is the same question the save
+   * path asks — `hasUnsavedChanges` is a reading of `saveRoute`, so a button that is live and a
+   * route that is `NO_CHANGE` cannot happen.
+   *
+   * It used to be a second hand-written comparison of the same five fields, returned from this hook
+   * and read by nothing, above a comment saying it was "used by the save path". It was not: the
+   * save path routed on `saveRoute`, which answered 'PUT' for an untouched bill, and the Save
+   * button was gated on nothing but the in-flight flag. A user could open an issued bill, touch
+   * nothing, press Save, and have every bare line repriced from today's catalog.
+   */
+  const dirty = useMemo(() => hasUnsavedChanges(baseline, shapeOf(form)), [baseline, form]);
 
   /**
    * Upload any staged quick-item photos, once the bill has an id.
@@ -421,6 +422,24 @@ export function useBillDetailForm({
       const billId = item.id as number;
       const next = shapeOf(form);
       const route = baseline ? saveRoute(baseline, next) : 'PUT';
+
+      if (route === 'NO_CHANGE') {
+        /**
+         * Nothing moved, so nothing is sent. The full PUT that used to run here rebuilt the bill
+         * from a byte-identical body — restocking and re-deducting every bare line, and repricing
+         * each one from the live catalog row — and reported success for it.
+         *
+         * The Save button is disabled while `dirty` is false, so this is the floor beneath that
+         * gate rather than a path a user can walk: `save` is reachable from anywhere holding the
+         * engine, and the guarantee "a bill is never rewritten with its own contents" belongs where
+         * the request is made, not only where the button is drawn.
+         *
+         * It still ends the edit the way a save does. The user pressed Save; leaving them in edit
+         * mode with no toast would read as a save that silently failed.
+         */
+        onSaved(item);
+        return { success: true, data: item };
+      }
 
       let result: SaveResult;
       if (route === 'PATCH_PAYMENT') {

@@ -88,6 +88,11 @@ interface Props {
   onSave?: () => void;
   onDelete?: () => void;
   saving?: boolean;
+  /**
+   * Whether there is anything to save. Defaults to true, so a caller that does not track it gets
+   * the old always-live button rather than a Save that can never be pressed.
+   */
+  dirty?: boolean;
 }
 
 /**
@@ -121,6 +126,7 @@ export function BillDetailBase({
   onSave,
   onDelete,
   saving = false,
+  dirty = true,
 }: Props) {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -177,13 +183,20 @@ export function BillDetailBase({
           )}
         </View>
 
+        {/* Gated on `dirty` as well as `saving`, which none of the sibling detail screens do. The
+            asymmetry is real: their PUT replaces a row with the same row, while a bill's PUT
+            restocks and re-deducts every bare line and reprices each one from the live catalog, so
+            a user who opens an issued bill to check it and presses Save gets it back re-totalled
+            at today's prices. `saveRoute` now sends nothing in that case; greying the button is
+            how the screen says so before the press, instead of taking one and writing nothing. */}
         {editable && onSave ? (
           <Pressable
             onPress={onSave}
-            disabled={saving}
+            disabled={saving || !dirty}
             accessibilityRole="button"
             accessibilityLabel={saveLabel(mode)}
-            style={[styles.saveButton, saving && styles.saveButtonBusy]}
+            accessibilityState={{ disabled: saving || !dirty }}
+            style={[styles.saveButton, (saving || !dirty) && styles.saveButtonBusy]}
           >
             <Check size={15} color={theme.colors.onAccent ?? '#FFFFFF'} />
             <Text style={styles.saveLabelText}>{saveLabel(mode)}</Text>
