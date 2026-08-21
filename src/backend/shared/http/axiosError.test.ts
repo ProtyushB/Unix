@@ -1,4 +1,10 @@
-import { extractErrorInfo, extractErrorMessage } from './axiosError';
+import {
+  ApiError,
+  apiError,
+  apiMessage,
+  extractErrorInfo,
+  extractErrorMessage,
+} from './axiosError';
 
 /**
  * A rejected axios error, cut down to the properties this module actually reads.
@@ -717,9 +723,14 @@ describe('a body with no code, which no gate used to cover', () => {
     expect(shown).not.toContain('com.modulex');
   });
 
-  // The gate must not cost the codeless bodies their fall-through. Their `message` is a specific
-  // literal, not the catch-all's constant label, so it is the best thing left when `error` is
-  // refused — and better than the caller's fallback, which is why it is still reached.
+  // The gate must not cost the codeless bodies their fall-through. Being codeless is NOT what earns
+  // the label its place — the comment that used to say so ("their message is a specific literal,
+  // not the catch-all's constant label") is the same claim the module retracts under
+  // `CONTENTLESS_LABELS`, and the DMS block below has the counter-example: every DMS body is
+  // codeless and every DMS label is a constant, three of them the catch-all's own. The shipped gate
+  // keys on the label STRING, so what actually decides this case is that 'Invalid date format'
+  // names a cause and is not one of the three that restate the failure. Swap it for 'An error
+  // occurred' and the same body falls past it to the caller's fallback instead.
   it('falls to the controller label before the axios line and the caller fallback', () => {
     const err = rejected(codeless(NGINX_502, 'Invalid date format'), 'Request failed', 400);
     expect(extractErrorMessage(err, 'Failed to load orders')).toBe('Invalid date format');
@@ -1190,5 +1201,652 @@ describe('extractErrorInfo', () => {
   it('agrees with extractErrorMessage', () => {
     const err = rejected(wrapper());
     expect(extractErrorInfo(err, 'fb').message).toBe(extractErrorMessage(err, 'fb'));
+  });
+});
+
+/**
+ * `LocalStorageService`'s path leak in the shape a whole FILE failure produces, rather than the
+ * folder-only spelling above: `Files.move` interpolates the storage path down to the leaf name, so
+ * the string publishes the directory layout AND what is stored in it.
+ */
+const LEAKED_FILE_PATH = 'Source folder does not exist: /var/dms/storage/folders/12/photo.png';
+
+/**
+ * ModuleX's `NoResourceFoundException` handler, which — unlike DMS's, whose handler builds its own
+ * sentence and prepends a slash by hand — writes Spring's raw `ex.getMessage()` into `error`.
+ * Spring 6.2 formats that as `"No static resource " + resourcePath + "."`, and `resourcePath` is
+ * `PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE`, which `PathPattern.extractPathWithinPattern` returns with
+ * the leading separator already skipped. So the path arrives UNSLASHED, and the POSIX rule used to
+ * miss it — catching the storage service while missing the backend every screen actually talks to.
+ */
+const NO_STATIC_RESOURCE = 'No static resource api/parlour/orders/999.';
+
+/**
+ * The route the module was blind to: a call site that read the wrapper and re-threw the field.
+ *
+ * ModuleX refuses a write with HTTP 200 and `success: false`, so axios resolves and the wrapper
+ * arrives as an ordinary result. `useModuleService` turned it back into a throw with
+ * `new Error(response.error || response.message || '<fallback>')` — which kept the sentence and
+ * dropped the envelope, leaving the extractor nothing to inspect and every marker list skipped.
+ * Identical text was demoted on a rejection and handed over verbatim on a refusal.
+ */
+describe('a call site that throws the wrapper instead of flattening it', () => {
+  /** How the 14 converted sites now throw, and how their catch block then reads it. */
+  function thrownAndShown(body: unknown, fallback: string) {
+    const err = apiError(body, fallback);
+    return { err, shown: extractErrorMessage(err, fallback) };
+  }
+
+  /**
+   * The four strings confirmed reaching a toast verbatim through the flattened throw. Each
+   * `secrets` list is what the user must not end up holding a phone full of, not a paraphrase.
+   */
+  const leaks = [
+    {
+      name: 'a foreign-key dump naming a table and a live key',
+      raw: RAW_POSTGRES,
+      secrets: ['ERROR:', 'parlour_order', 'fk_bill_order_id', 'Key (id)=(42)'],
+    },
+    {
+      name: 'a helpful NPE naming the entity class',
+      raw: HELPFUL_NPE,
+      secrets: ['com.modulex', 'getCustomer', 'Cannot invoke'],
+    },
+    {
+      name: 'an absolute path on the storage server',
+      raw: LEAKED_FILE_PATH,
+      secrets: ['/var', 'dms/storage', 'folders/12', 'photo.png'],
+    },
+    {
+      name: 'an internal host and the port it listens on',
+      raw: CONNECTION_REFUSED,
+      secrets: ['10.0.0.7', '8081', 'http://', 'I/O error'],
+    },
+  ];
+
+  it.each(leaks)('refuses $name on a coded wrapper', ({ raw, secrets }) => {
+    const { shown } = thrownAndShown(wrapper({ error: raw }), 'Could not save this product.');
+    for (const secret of secrets) {
+      expect(shown).not.toContain(secret);
+    }
+    expect(shown).toBe('Invalid request data');
+  });
+
+  // The same four on the codeless shape, which is what a ModuleX controller builds by hand and what
+  // every DMS body is. The gate has to reach them on both shapes or it has only moved the hole.
+  it.each(leaks)('refuses $name on a codeless body', ({ raw, secrets }) => {
+    const { shown } = thrownAndShown(codeless(raw), 'Could not save this product.');
+    for (const secret of secrets) {
+      expect(shown).not.toContain(secret);
+    }
+    expect(shown).toBe('Entity folder request failed');
+  });
+
+  // The regression half. A refused write and a rejected request carry the same body and must end in
+  // the same sentence — the whole defect was that they did not.
+  it.each(leaks)('demotes $name identically on both routes', ({ raw }) => {
+    const fallback = 'Could not save this order.';
+    const thrown = extractErrorMessage(apiError(wrapper({ error: raw }), fallback), fallback);
+    const rejectedRoute = extractErrorMessage(rejected(wrapper({ error: raw })), fallback);
+    expect(thrown).toBe(rejectedRoute);
+  });
+
+  // What makes the ungated `statusLine` term safe: the raw text really is on `.message`, and the
+  // body attached beside it is what stops the chain ever reaching for it.
+  it('leaves the raw text on the thrown message and still refuses to show it', () => {
+    const { err, shown } = thrownAndShown(
+      wrapper({ error: RAW_POSTGRES }),
+      'Could not save this product.',
+    );
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.message).toBe(RAW_POSTGRES);
+    expect(shown).not.toBe(RAW_POSTGRES);
+  });
+
+  // A refusal the user is meant to read must survive the conversion, on both routes, or the fix has
+  // simply turned every failed save into "Could not save this product." and said nothing.
+  it('still shows the curated refusals on both routes', () => {
+    const curated = [
+      'Batch already consumed',
+      "A record with name 'Gold Facial' already exists",
+      'Order 42 is billed on bill 7',
+      'Inventory batch does not belong to this business',
+      'Batch 42 cannot be deleted because it has been used or is system-generated. Record a' +
+        ' wastage/transfer or change its status instead.',
+      'Source batch 7 is not ACTIVE (status=ON_HOLD) - use reason=CORRECTION to move an ON_HOLD /' +
+        ' QUARANTINED batch',
+    ];
+    for (const reason of curated) {
+      const fallback = 'Could not record this transfer.';
+      expect(extractErrorMessage(apiError(wrapper({ error: reason }), fallback), fallback)).toBe(
+        reason,
+      );
+      expect(extractErrorMessage(rejected(wrapper({ error: reason })), fallback)).toBe(reason);
+    }
+  });
+
+  // `error` is preferred, `message` is next, and the caller's literal is last — the exact order the
+  // hand-written `||` chain used, reproduced in one place so 14 sites cannot drift from each other.
+  it('picks the same field the hand-written chain picked', () => {
+    expect(apiError(wrapper(), 'fb').message).toBe('Batch already consumed');
+    expect(apiError(wrapper({ error: undefined }), 'fb').message).toBe('Invalid request data');
+    expect(
+      apiError(wrapper({ error: null, message: '' }), 'Could not save this batch.').message,
+    ).toBe('Could not save this batch.');
+    expect(apiError(undefined, 'Could not delete this batch.').message).toBe(
+      'Could not delete this batch.',
+    );
+  });
+
+  // A body that said nothing leaves the caller's own literal as the message, and that literal is
+  // what the user sees — the one case where `statusLine` reads a thrown message, and it is ours.
+  it('falls to the caller literal when the body said nothing', () => {
+    const { err, shown } = thrownAndShown(
+      { success: false, data: null },
+      'Failed to fetch expiring batches',
+    );
+    expect(err.message).toBe('Failed to fetch expiring batches');
+    expect(shown).toBe('Failed to fetch expiring batches');
+  });
+
+  // A flattened throw could not carry a code at all, so every refused write reached the screen as an
+  // untyped failure. Attaching the body restores it for free.
+  it('carries the wrapper code a flattened throw had no way to keep', () => {
+    const err = apiError(
+      wrapper({ code: 'ORDER_LOCKED', error: 'Order 42 is billed on bill 7' }),
+      'Could not save this order.',
+    );
+    expect(extractErrorInfo(err, 'Could not save this order.')).toEqual({
+      code: 'ORDER_LOCKED',
+      message: 'Order 42 is billed on bill 7',
+    });
+  });
+
+  // axios's own strings are all that is left when the server said nothing at all, and they reach the
+  // user through the one term this fix deliberately did not gate. Nothing above may cost them that.
+  it('still shows axios own line when there is no body behind it', () => {
+    for (const line of [
+      'Request failed with status code 500',
+      'Network Error',
+      'timeout of 4000ms exceeded',
+    ]) {
+      expect(extractErrorMessage(new Error(line), 'Could not save this order.')).toBe(line);
+      expect(
+        extractErrorMessage(rejected(undefined, line, 500), 'Could not save this order.'),
+      ).toBe(line);
+    }
+  });
+});
+
+describe('a request path that arrives with no leading slash', () => {
+  it('refuses the ModuleX NoResourceFoundException text, which Spring writes unslashed', () => {
+    const body = {
+      success: false,
+      code: 'NOT_FOUND',
+      message: 'Not found',
+      data: null,
+      error: NO_STATIC_RESOURCE,
+    };
+    const shown = extractErrorMessage(
+      rejected(body, 'Request failed with status code 404', 404),
+      'Failed to load orders',
+    );
+    expect(shown).toBe('Not found');
+    expect(shown).not.toContain('api/parlour');
+    expect(shown).not.toContain('999');
+  });
+
+  // DMS's spelling of the identical 404 prepends the slash by hand. Both must be refused, or the
+  // rule is still keyed on which service happened to format the path.
+  it('refuses the DMS hand-slashed spelling of the same 404', () => {
+    const shown = extractErrorMessage(
+      rejected(codeless('No endpoint for GET /folder/view', 'Not found'), 'axios', 404),
+      'Failed to load the folder',
+    );
+    expect(shown).toBe('Not found');
+    expect(shown).not.toContain('/folder/view');
+  });
+
+  // The knowing cost of dropping the anchor, checked against the real corpus rather than assumed.
+  // Every curated THROW string in either backend that contains a slash contains exactly one — these
+  // are the whole set — and one is not enough to fire. That is a narrower claim than the one that
+  // used to sit here, which said it of every curated string in either backend; ModuleX's
+  // `@Operation` descriptions disprove that, and the case below is where they are dealt with.
+  it('does not start eating the curated sentences that merely contain a slash', () => {
+    const curated = [
+      'New appointment date/time cannot be null',
+      'Invalid appointment date/time format',
+      'Batch 42 cannot be deleted because it has been used or is system-generated. Record a' +
+        ' wastage/transfer or change its status instead.',
+      'Source batch 7 is not ACTIVE (status=ON_HOLD) - use reason=CORRECTION to move an ON_HOLD /' +
+        ' QUARANTINED batch',
+    ];
+    for (const reason of curated) {
+      expect(extractErrorMessage(rejected(wrapper({ error: reason })), 'fb')).toBe(reason);
+      expect(extractErrorMessage(rejected(codeless(reason)), 'fb')).toBe(reason);
+    }
+  });
+});
+
+/**
+ * auth-service's `buildErrorResponse` writes the SAME sentence into `message` and `error` and stamps
+ * no code, so the gate decides for both halves at once and there is no second field to fall to.
+ */
+function authBody(reason: string) {
+  return { success: false, message: reason, data: null, error: reason };
+}
+
+/** What `AuthService.handleApiError` throws now that the body rides alongside the message. */
+function authThrow(reason: string) {
+  return new ApiError(reason, authBody(reason));
+}
+
+/**
+ * The auth strings that are control flow rather than display copy.
+ *
+ * Two screens and one service branch on this text. `LoginScreen` lower-cases `err.message` and
+ * matches 'invalid credentials', 'not found with username' and a network pattern to choose which
+ * sentence to show — the message itself is never displayed. `isVerificationError` in
+ * `completeSignup` regex-matches what `signup` threw and flips `verificationExpired`, which bounces
+ * the user back to re-verify. They read DIFFERENT properties — `LoginScreen` reads `.message`,
+ * `completeSignup` reads the extractor's output — which is exactly why attaching the body could
+ * have re-routed one of them while the other kept working, with nothing failing.
+ */
+describe('the auth strings that are routing, not copy', () => {
+  const routingKeys = [
+    'Invalid credentials',
+    'User not Found with Username: jane_doe',
+    'Email not verified via OTP',
+    'Email verification has expired. Please verify your email again.',
+    'Password-reset verification has expired. Please verify your email again.',
+    'OTP not verified for reset',
+  ];
+
+  it.each(routingKeys)('leaves %p identical on both properties', (reason) => {
+    const err = authThrow(reason);
+    expect(err.message).toBe(reason);
+    expect(extractErrorMessage(err, 'Something went wrong. Please try again.')).toBe(reason);
+  });
+
+  // LoginScreen's branch, transcribed, so the pin is on the routing DECISION and not on a substring
+  // that could quietly stop matching. That has already happened once in this family: the
+  // ForgotPasswordNewScreen key 'same password' does not appear in auth-service's "New password
+  // cannot be the same as the old password", so that branch never fires.
+  function loginCopy(err: { message?: string }): string {
+    const raw = (err?.message || '').toLowerCase();
+    if (raw.includes('invalid credentials')) return 'Incorrect password. Please try again.';
+    if (raw.includes('not found with username')) return 'No account found with that username.';
+    if (
+      raw.includes('network') ||
+      raw.includes('econnrefused') ||
+      raw.includes('timeout') ||
+      raw.includes('enotfound')
+    ) {
+      return 'Unable to connect. Please check your internet connection.';
+    }
+    return 'Login failed. Please try again.';
+  }
+
+  it('still routes the sign-in failures to the same three sentences', () => {
+    expect(loginCopy(authThrow('Invalid credentials'))).toBe(
+      'Incorrect password. Please try again.',
+    );
+    expect(loginCopy(authThrow('User not Found with Username: jane_doe'))).toBe(
+      'No account found with that username.',
+    );
+    for (const transport of ['Network Error', 'timeout of 4000ms exceeded']) {
+      expect(loginCopy(new Error(transport))).toBe(
+        'Unable to connect. Please check your internet connection.',
+      );
+    }
+  });
+
+  it('still bounces the user back to re-verify', () => {
+    const isVerificationError = (message: string) =>
+      /not verified|verification (has )?expired|verify your email/i.test(message);
+    const otpFailures = routingKeys.filter((key) => isVerificationError(key));
+    expect(otpFailures).toHaveLength(4);
+    for (const reason of otpFailures) {
+      const shown = extractErrorMessage(
+        authThrow(reason),
+        'Something went wrong. Please try again.',
+      );
+      expect(isVerificationError(shown)).toBe(true);
+    }
+  });
+
+  // The leak that sits in the handler beside them, and the reason the body had to be attached at
+  // all: auth-service's `RuntimeException` handler answers with "Internal server error: " and the
+  // raw cause, into both fields.
+  it('demotes the catch-all that shares those fields', () => {
+    const err = authThrow(`Internal server error: ${HELPFUL_NPE}`);
+    expect(err.message).toContain('com.modulex');
+    const shown = extractErrorMessage(err, 'Something went wrong. Please try again.');
+    expect(shown).toBe('Something went wrong. Please try again.');
+    expect(shown).not.toContain('com.modulex');
+  });
+});
+
+/**
+ * The larger half of the same defect: the refusals that never became a throw.
+ *
+ * `useModuleService` has 55 branches that read a `success: false` wrapper off an HTTP 200. Sixteen
+ * turned it back into an exception and were fixed by `apiError`. The other 39 do not throw at all —
+ * they sit in the `else` of `if (response.success) return …` and lift the server's text straight
+ * into `setError(...)` and the returned `{ error }`. No throw means no catch, no catch means
+ * `extractErrorMessage` never runs, and those 39 were outside the gate completely: on one wrapper
+ * whose `error` was a foreign-key dump, `createProduct` said "Could not save this product." and
+ * `deleteProduct` beside it put the dump in a toast, verbatim, through ProductsScreen's
+ * `showToast(res?.error || …)`.
+ *
+ * `apiMessage` is the door for those: the same gate, entered with a parsed body instead of an error
+ * to unwrap.
+ */
+describe('a refusal that arrives on a 200 and is never thrown', () => {
+  /**
+   * The five strings measured reaching a toast through the non-throwing branch. Each `secrets` list
+   * is what the user must not end up holding a phone full of, not a paraphrase of it.
+   */
+  const leaks = [
+    {
+      name: 'a foreign-key dump naming two tables and a column',
+      raw: RAW_POSTGRES,
+      secrets: ['ERROR:', 'parlour_order', 'fk_bill_order_id', 'Key (id)=(42)'],
+    },
+    {
+      name: 'a helpful NPE naming the entity class and the getter',
+      raw: HELPFUL_NPE,
+      secrets: ['com.modulex', 'getCustomer', 'Cannot invoke'],
+    },
+    {
+      name: 'an absolute POSIX path on the storage server',
+      raw: LEAKED_FILE_PATH,
+      secrets: ['/var', 'dms/storage', 'folders/12', 'photo.png'],
+    },
+    {
+      name: 'an absolute Windows path from a developer client',
+      raw: WINDOWS_PATH_REASON,
+      secrets: ['C:\\dms', 'storage', 'folders'],
+    },
+    {
+      name: 'an internal host and the port it listens on',
+      raw: CONNECTION_REFUSED,
+      secrets: ['10.0.0.7', '8081', 'http://', 'I/O error'],
+    },
+  ];
+
+  /**
+   * The four classes named in the review, asserted against EVERY output rather than only against
+   * the string that motivated each. A rule that stops its own example and lets a neighbour's
+   * through has moved the hole, not closed it.
+   */
+  function leaksNothing(shown: string) {
+    expect(shown).not.toContain('ERROR:');
+    expect(shown).not.toContain('com.modulex');
+    expect(shown).not.toContain('/var/dms');
+    expect(shown).not.toContain('C:\\dms');
+    expect(shown).not.toContain('10.0.0.7');
+  }
+
+  it.each(leaks)('refuses $name on a coded wrapper', ({ raw, secrets }) => {
+    const shown = apiMessage(wrapper({ error: raw }), 'Could not delete this product.');
+    for (const secret of secrets) {
+      expect(shown).not.toContain(secret);
+    }
+    leaksNothing(shown);
+    expect(shown).toBe('Invalid request data');
+  });
+
+  // The codeless shape is what a ModuleX controller builds by hand and what every DMS body is. The
+  // gate has to reach both or it has only moved the hole.
+  it.each(leaks)('refuses $name on a codeless body', ({ raw, secrets }) => {
+    const shown = apiMessage(codeless(raw), 'Could not delete this product.');
+    for (const secret of secrets) {
+      expect(shown).not.toContain(secret);
+    }
+    leaksNothing(shown);
+    expect(shown).toBe('Entity folder request failed');
+  });
+
+  // The regression half, and the whole point of routing both doors through one chain: the same
+  // wrapper must end in the same sentence whether the site threw it, whether it returned it, or
+  // whether the request rejected outright. Two of those three used to disagree.
+  it.each(leaks)('demotes $name identically on all three routes', ({ raw }) => {
+    const fallback = 'Could not save this order.';
+    const body = wrapper({ error: raw });
+    const returned = apiMessage(body, fallback);
+    const thrown = extractErrorMessage(apiError(body, fallback), fallback);
+    const rejectedRoute = extractErrorMessage(rejected(body), fallback);
+    expect(returned).toBe(thrown);
+    expect(returned).toBe(rejectedRoute);
+    leaksNothing(returned);
+  });
+
+  // The other direction. A refusal the user is meant to READ has to survive, or the change has
+  // turned every failed delete into "Could not delete this product." and told them nothing.
+  it('still shows the curated refusals a screen depends on', () => {
+    const curated = [
+      'Batch already consumed',
+      "A record with name 'Gold Facial' already exists",
+      'Order 42 is billed on bill 7',
+      'Inventory batch does not belong to this business',
+      'New appointment date/time cannot be null',
+      'Batch 42 cannot be deleted because it has been used or is system-generated. Record a' +
+        ' wastage/transfer or change its status instead.',
+      'Source batch 7 is not ACTIVE (status=ON_HOLD) - use reason=CORRECTION to move an ON_HOLD /' +
+        ' QUARANTINED batch',
+    ];
+    for (const reason of curated) {
+      expect(apiMessage(wrapper({ error: reason }), 'Could not delete this transfer')).toBe(reason);
+      expect(apiMessage(codeless(reason), 'Could not delete this transfer')).toBe(reason);
+    }
+  });
+
+  // The inverted codes have to keep inverting on this route too. `CONSTRAINT_VIOLATION` is where
+  // the raw driver text lives in `error` and the sentence written for a person lives in `message`,
+  // and it is the single most likely body to reach a delete button's else-branch.
+  it('still prefers the curated half of an inverted wrapper', () => {
+    const body = wrapper({
+      code: 'CONSTRAINT_VIOLATION',
+      message: 'Related record missing or in use',
+      error: RAW_POSTGRES,
+    });
+    const shown = apiMessage(body, 'Could not delete this product.');
+    expect(shown).toBe('Related record missing or in use');
+    leaksNothing(shown);
+  });
+
+  // The caller's own literal is passed through untouched — it is the last arm of the `||` chain
+  // these sites used to spell out, and every one of the 39 kept its own wording.
+  it('keeps the caller fallback when the wrapper said nothing usable', () => {
+    expect(apiMessage({ success: false, data: null }, 'Failed to load orders')).toBe(
+      'Failed to load orders',
+    );
+    // The catch-all label says only "the request failed", which the fallback already implies while
+    // also naming the operation — so the fallback wins over it, exactly as on the throwing route.
+    const catchAll = wrapper({
+      code: 'INTERNAL_ERROR',
+      message: 'An error occurred',
+      error: RAW_POSTGRES,
+    });
+    expect(apiMessage(catchAll, 'Could not delete this product.')).toBe(
+      'Could not delete this product.',
+    );
+  });
+
+  // There is no axios error behind a 200, so there is no status line to consult — and a caller that
+  // passes a blank fallback still must not produce an empty toast, which is the worst outcome
+  // available: a delete that failed with nothing on screen is a delete the user believes worked.
+  it('is never blank, whatever the body and the fallback held', () => {
+    for (const body of [undefined, null, {}, '', '   ', wrapper({ error: RAW_POSTGRES })]) {
+      for (const fallback of ['', '   ', 'Could not delete this product.']) {
+        expect(apiMessage(body, fallback).trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  // What `apiMessage` deliberately does NOT do: mint a second copy of the code. The five bill writes
+  // spread the server's own wrapper and overwrite only `error`, which is how BillingScreen still
+  // reads STATE_CONFLICT off a refused status change. Replacing the `||` chain in the middle of that
+  // spread has to leave the rest of the wrapper exactly where it was.
+  it('leaves the code the bill writes spread into their result', () => {
+    const body = wrapper({ code: 'STATE_CONFLICT', error: RAW_POSTGRES });
+    const result = { ...body, error: apiMessage(body, 'Failed to update bill status') };
+    expect(result.code).toBe('STATE_CONFLICT');
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Invalid request data');
+    leaksNothing(result.error);
+  });
+
+  it('leaves a curated refusal and its code both intact through the same spread', () => {
+    const body = wrapper({ code: 'STATE_CONFLICT', error: 'Bill 7 is already cancelled' });
+    const result = { ...body, error: apiMessage(body, 'Failed to update bill status') };
+    expect(result).toMatchObject({
+      code: 'STATE_CONFLICT',
+      error: 'Bill 7 is already cancelled',
+    });
+  });
+
+  // The two consumption sites DID throw, into their own catch, and were missed by the previous pass
+  // — the review counted them among the 41 non-throwing ones. They went to `apiError` with the other
+  // fourteen, which also wins them the `code` a flattened `new Error` could never carry.
+  it('carries the code on the two consumption writes that throw into their own catch', () => {
+    const body = wrapper({ code: 'STATE_CONFLICT', error: RAW_POSTGRES });
+    const info = extractErrorInfo(
+      apiError(body, 'Could not record this consumption.'),
+      'Could not record this consumption.',
+    );
+    expect(info).toEqual({ code: 'STATE_CONFLICT', message: 'Invalid request data' });
+    leaksNothing(info.message);
+  });
+});
+
+/**
+ * The four sentences the widened POSIX rule costs, pinned as an accepted cost rather than left to
+ * be rediscovered.
+ *
+ * `LOCATOR_MARKERS` refuses any token with two separators, because a relative request path and a
+ * slash-run in English are the same shape: `api/parlour/orders` and `orders/appointments/bills`
+ * differ in meaning and in nothing a regex can read. Requiring a leading slash is the anchor that
+ * missed Spring's unslashed "No static resource api/parlour/orders/999."; requiring a digit in one
+ * segment misses the same handler's output for a path carrying no numeric id. So the enumerations
+ * are refused along with the paths.
+ *
+ * None of these is a backend string today — three were written by reviewers, and the fourth is a
+ * ModuleX `@Operation` description, which is OpenAPI metadata and never thrown. The cost is latent.
+ * This case exists so that if one of them is ever ADDED as a refusal message, a test says so on the
+ * day it is written rather than a user reporting a wrong toast months later.
+ */
+describe('the sentences the two-separator rule knowingly costs', () => {
+  const demoted = [
+    'This batch is used by orders/appointments/bills and cannot be deleted.',
+    'Customers are the people orders/appointments/bills were created for.',
+    'Search by name/username/email is unavailable right now.',
+    'Expires on 31/12/2026 and cannot be extended.',
+  ];
+
+  it.each(demoted)('demotes %p to the label beside it on every route', (reason) => {
+    const fallback = 'Could not delete this batch.';
+    const body = codeless(reason, 'Not found');
+    expect(apiMessage(body, fallback)).toBe('Not found');
+    expect(extractErrorMessage(apiError(body, fallback), fallback)).toBe('Not found');
+    expect(extractErrorMessage(rejected(body), fallback)).toBe('Not found');
+  });
+
+  // Spacing the separators is the escape hatch that already exists and needed no rule of its own:
+  // the shape requires a segment immediately after the slash. ModuleX's own
+  // "filters by name / username / email / phone" is the live example.
+  it('leaves the spaced spelling of the same enumeration alone', () => {
+    const spaced = 'filters by name / username / email / phone. Read-only.';
+    expect(apiMessage(wrapper({ error: spaced }), 'fb')).toBe(spaced);
+    expect(apiMessage(codeless(spaced), 'fb')).toBe(spaced);
+  });
+
+  // And the paths the rule is actually for, on the non-throwing route this time.
+  it('still refuses the request paths the rule was widened to reach', () => {
+    expect(apiMessage(codeless(NO_STATIC_RESOURCE, 'Not found'), 'Failed to load orders')).toBe(
+      'Not found',
+    );
+    expect(
+      apiMessage(codeless('No endpoint for GET /folder/view', 'Not found'), 'Failed to load'),
+    ).toBe('Not found');
+  });
+});
+
+/**
+ * The DMS api layer's `unwrap`, converted before it can go live.
+ *
+ * `file.api.impl` and `folder.api.impl` each carried a copy of
+ * `throw new Error(wrapper.error || wrapper.message || 'DMS request failed')`. Their consumers —
+ * `DmsService`, `FileService`, `FolderService` — then ran `extractErrorMessage` over that plain
+ * `Error`, which is precisely the arrangement `ApiError` exists to remove: no `response.data`, so no
+ * marker list runs, so `statusLine` hands the field straight back.
+ *
+ * It is latent, not live: DMS-Backend's controllers all build `success(true)` and only its
+ * `GlobalExceptionHandler` builds failures, which travel on a non-2xx and therefore reject rather
+ * than reaching `unwrap`. The previous round's report claimed no flatteners remained, which was
+ * false about exactly these two lines.
+ */
+describe('the DMS unwrap, whose leak is one backend change away', () => {
+  /** DMS stamps no code on anything, so its wrapper is the codeless shape. */
+  function dmsBody(error: unknown, message = 'File operation failed') {
+    return { success: false, message, data: null, error };
+  }
+
+  /**
+   * The real chain, all three hops. `unwrap` throws; the service gates it and flattens the RESULT
+   * back onto a plain `Error`; the hook's catch reads that a second time. The middle hop is the one
+   * category of ungated `statusLine` input that is safe by history rather than by construction, so
+   * it is worth holding under test rather than only describing in a comment.
+   */
+  function throughDmsService(body: unknown, hookFallback: string) {
+    const thrown = apiError(body, 'DMS request failed');
+    const serviceError = new Error(extractErrorMessage(thrown, 'An unexpected DMS error occurred'));
+    return extractErrorMessage(serviceError, hookFallback);
+  }
+
+  it('refuses the absolute storage path LocalStorageService interpolates', () => {
+    const shown = throughDmsService(
+      dmsBody('Failed to delete file: /var/dms/storage/folders/12/photo.png'),
+      'Failed to prepare the image folder',
+    );
+    expect(shown).not.toContain('/var');
+    expect(shown).not.toContain('photo.png');
+    expect(shown).toBe('An unexpected DMS error occurred');
+  });
+
+  it('refuses a unique-constraint dump on the same route', () => {
+    const shown = throughDmsService(dmsBody(CONSTRAINT_DUMP), 'Failed to prepare the image folder');
+    expect(shown).not.toContain('ERROR:');
+    expect(shown).not.toContain('uk_folder_name');
+  });
+
+  it('refuses a refused-connection string naming an internal host and port', () => {
+    const shown = throughDmsService(dmsBody(CONNECTION_REFUSED), 'Failed to attach the photos');
+    expect(shown).not.toContain('10.0.0.7');
+    expect(shown).not.toContain('8081');
+  });
+
+  // The conversion must not cost DMS its genuine refusals, which are short and readable and are the
+  // whole reason these services dig a message out at all.
+  it('still carries a genuine DMS reason through all three hops', () => {
+    for (const reason of ['File not found', 'Folder is not empty', 'Folder already exists']) {
+      expect(
+        throughDmsService(dmsBody(reason, 'Request failed'), 'Failed to load the folder'),
+      ).toBe(reason);
+    }
+  });
+
+  // `unwrap`'s own fallback literal is unchanged by the conversion — `apiError` reproduces the
+  // `error || message || fallback` order with `||`, so the thrown `.message` is byte for byte what
+  // the hand-written throw produced.
+  it('picks the same field the hand-written unwrap picked', () => {
+    expect(apiError(dmsBody('File not found'), 'DMS request failed').message).toBe(
+      'File not found',
+    );
+    expect(apiError(dmsBody('', 'Validation failed'), 'DMS request failed').message).toBe(
+      'Validation failed',
+    );
+    expect(apiError(dmsBody(null, ''), 'DMS request failed').message).toBe('DMS request failed');
   });
 });

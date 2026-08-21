@@ -223,11 +223,19 @@ export async function completeSignup(input: CompleteSignupInput): Promise<Comple
     if (!personCreated) await rollback();
 
     // `isVerificationError` reads this same string, so losing the OTP wording here would strand the
-    // user on a dead-end error instead of bouncing them back to re-verify. It cannot be lost:
-    // everything that throws inside this function — authService, folderService — has already
-    // normalised its failure into a plain `Error`, which carries no `response` for the extractor to
-    // prefer, so `err.message` comes back unchanged. The person calls do not throw at all; a refused
-    // create or claim arrives as a result and is answered above.
+    // user on a dead-end error instead of bouncing them back to re-verify.
+    //
+    // It used to be safe for the wrong reason — "authService has normalised its failure into a
+    // plain `Error`, which carries no `response` for the extractor to prefer, so `err.message`
+    // comes back unchanged". That was true, and it was the bug: with no body to read, the extractor
+    // skipped every marker list and handed back whatever auth-service had put in the field,
+    // including its `RuntimeException` handler's `"Internal server error: " + ex.getMessage()`.
+    // `handleApiError` now throws an `ApiError` carrying the body, so this line is gated like every
+    // other. The OTP wording survives it because auth-service writes the same sentence into both
+    // wrapper fields and those sentences carry no marker; the extractor returns them verbatim.
+    //
+    // The person calls do not throw at all; a refused create or claim arrives as a result and is
+    // answered above.
     const message = extractErrorMessage(err, 'Something went wrong. Please try again.');
 
     return { ok: false, error: message, verificationExpired: isVerificationError(message) };
