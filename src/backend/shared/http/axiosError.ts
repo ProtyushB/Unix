@@ -58,9 +58,17 @@
  * `useModuleService`'s 39 go through it. Eighteen more do not, and naming them is worth more here
  * than a sentence that sounds finished: `person.service` (11 sites), `business.service` (5) and
  * `dashboard.service` (2) each end a refusal with `response.error || response.message`, ungated.
- * `CustomersScreen` and `useCustomerPicker` put that field on screen directly, so a constraint
- * violation on the person routes still reaches a user. They are deliberately left for a separate
- * change, because sixteen of them pass no fallback at
+ *
+ * They are ungated but not currently reachable, and the distinction is worth writing down because
+ * the first draft of this paragraph got it wrong. Each sits in the `else` of a RESOLVED response,
+ * so reaching it needs a 2xx that carries `success: false`. ModuleX does not produce one: its
+ * `PersonController` has no `ResponseEntity.ok` holding `success(false)`, and repo-wide all 51 of
+ * its `.success(false)` builders sit under a non-2xx status. So every real refusal rejects and
+ * lands in the `catch` beside it, which already calls `extractErrorMessage`. Treat these as
+ * defensive code to tidy, not a live leak — and re-check that premise before relying on it, since
+ * one new `ok()` on a failure path in any of those controllers makes all eighteen live at once.
+ *
+ * They are left for a separate change because sixteen of them pass no fallback at
  * all — the field is `undefined` whenever the wrapper is empty, and `actionOutcome` documents the
  * screens whose `if (!result.success && result.error)` guard turns on exactly that. Sending them
  * through here would make the field always non-empty and flip those guards, which is a decision
