@@ -81,21 +81,18 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
       // nothing. Reading `err?.message` directly is both the correct input and the shape
       // `LoginScreen` already uses.
       //
-      // 'same as the old password' is the key that actually fires: auth-service throws "New
-      // password cannot be the same as the old password" (AuthServiceImpl.resetPassword), which
-      // contains none of the three keys this branch shipped with, so the tailored sentence never
-      // rendered and every reuse attempt fell to the else. The three are kept beside it because
-      // they cost nothing: no string in auth-service, ModuleX or DMS-Backend contains any of them,
-      // so removing them would change matching behaviour for no gain, while adding the real one is
-      // what makes the branch live. That measurement is what would falsify keeping them — a backend
-      // that starts emitting one is a backend whose wording this branch should be re-read against.
+      // One key, because one key fires. auth-service throws "New password cannot be the same as the
+      // old password" (AuthServiceImpl.resetPassword) and nothing else for a reuse.
+      //
+      // This branch shipped with three others — 'same password', 'previously used', 'must be
+      // different' — and matched on none of them, because "same AS THE OLD password" breaks the
+      // first and no backend emits the rest. So every reuse attempt fell to the else and the user
+      // was told only that the reset failed. They are deleted rather than kept as a hedge: three
+      // conditions that match nothing still read as coverage, and a branch that LOOKED covered is
+      // the whole reason this went unnoticed. The test named 'would not have matched on the keys
+      // the screen originally shipped with' holds that history, so deleting them costs no memory.
       const raw = (err?.message || '').toLowerCase();
-      if (
-        raw.includes('same as the old password') ||
-        raw.includes('same password') ||
-        raw.includes('previously used') ||
-        raw.includes('must be different')
-      ) {
+      if (raw.includes('same as the old password')) {
         setError('New password must be different from your current password.');
       } else {
         setError(extractErrorMessage(err, 'Failed to reset password.'));

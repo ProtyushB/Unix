@@ -1531,12 +1531,7 @@ describe('the auth strings that are routing, not copy', () => {
   // `||` the fallback into one variable and then both match on it and render it.
   function resetCopy(err: { message?: string }): string {
     const raw = (err?.message || '').toLowerCase();
-    if (
-      raw.includes('same as the old password') ||
-      raw.includes('same password') ||
-      raw.includes('previously used') ||
-      raw.includes('must be different')
-    ) {
+    if (raw.includes('same as the old password')) {
       return 'New password must be different from your current password.';
     }
     return extractErrorMessage(err, 'Failed to reset password.');
