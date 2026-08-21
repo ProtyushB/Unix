@@ -17,6 +17,7 @@ import AuthHeader from '../../components/auth/AuthHeader';
 import AuthTopBack from '../../components/auth/AuthTopBack';
 import AuthBackLink from '../../components/auth/AuthBackLink';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
+import { extractErrorMessage } from '../../backend/shared/http/axiosError';
 import { validateEmail } from '../../utils/validators';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
@@ -56,7 +57,13 @@ const ForgotPasswordEmailScreen: React.FC<Props> = ({ navigation }) => {
       await authService.requestResetPasswordOtp('email', trimmedEmail);
       navigation.navigate('ForgotPasswordOtp', { email: trimmedEmail });
     } catch (err: any) {
-      setError(err?.message || 'Failed to send OTP. Please try again.');
+      // This screen is reachable without an account, and `auth-service`'s catch-all answers a 500
+      // with `"Internal server error: " + ex.getMessage()` in both wrapper fields — which is how a
+      // stranger came to read `relation "auth_user" does not exist` off a forgot-password form.
+      // `handleApiError` keeps that body on the thrown `ApiError`, so the gate can refuse it and
+      // hand back this screen's own sentence instead; nothing here branches on the text, so there
+      // is no routing to preserve alongside the display.
+      setError(extractErrorMessage(err, 'Failed to send OTP. Please try again.'));
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'fs';
+import { join } from 'path';
 import {
   ApiError,
   apiError,
@@ -1446,11 +1448,17 @@ function authThrow(reason: string) {
  *
  * Two screens and one service branch on this text. `LoginScreen` lower-cases `err.message` and
  * matches 'invalid credentials', 'not found with username' and a network pattern to choose which
- * sentence to show — the message itself is never displayed. `isVerificationError` in
+ * sentence to show — the message itself is never displayed. `ForgotPasswordNewScreen` lower-cases
+ * the same property and matches the password-reuse refusal. `isVerificationError` in
  * `completeSignup` regex-matches what `signup` threw and flips `verificationExpired`, which bounces
- * the user back to re-verify. They read DIFFERENT properties — `LoginScreen` reads `.message`,
+ * the user back to re-verify. They read DIFFERENT properties — the two screens read `.message`,
  * `completeSignup` reads the extractor's output — which is exactly why attaching the body could
  * have re-routed one of them while the other kept working, with nothing failing.
+ *
+ * Now that all four pre-login screens DISPLAY through the extractor, both properties matter at
+ * once on the same throw: `.message` decides which branch runs, the extractor's return decides what
+ * the user reads. Pinning the keys here is what makes a future narrowing of the gate fail loudly
+ * instead of silently rerouting sign-in or stranding someone mid-signup.
  */
 describe('the auth strings that are routing, not copy', () => {
   const routingKeys = [
@@ -1460,6 +1468,7 @@ describe('the auth strings that are routing, not copy', () => {
     'Email verification has expired. Please verify your email again.',
     'Password-reset verification has expired. Please verify your email again.',
     'OTP not verified for reset',
+    'New password cannot be the same as the old password',
   ];
 
   it.each(routingKeys)('leaves %p identical on both properties', (reason) => {
@@ -1469,9 +1478,10 @@ describe('the auth strings that are routing, not copy', () => {
   });
 
   // LoginScreen's branch, transcribed, so the pin is on the routing DECISION and not on a substring
-  // that could quietly stop matching. That has already happened once in this family: the
+  // that could quietly stop matching. That had already happened once in this family: the
   // ForgotPasswordNewScreen key 'same password' does not appear in auth-service's "New password
-  // cannot be the same as the old password", so that branch never fires.
+  // cannot be the same as the old password", so that branch never fired. `resetCopy` below pins the
+  // corrected key against the literal the server really sends.
   function loginCopy(err: { message?: string }): string {
     const raw = (err?.message || '').toLowerCase();
     if (raw.includes('invalid credentials')) return 'Incorrect password. Please try again.';
@@ -1515,6 +1525,48 @@ describe('the auth strings that are routing, not copy', () => {
     }
   });
 
+  // ForgotPasswordNewScreen's branch, transcribed the way `loginCopy` transcribes LoginScreen's.
+  // Both jobs are here on purpose: `raw` is the routing input and stays the untouched thrown text,
+  // while the else arm shows the gated value. Splitting them is the fix — the screen used to
+  // `||` the fallback into one variable and then both match on it and render it.
+  function resetCopy(err: { message?: string }): string {
+    const raw = (err?.message || '').toLowerCase();
+    if (
+      raw.includes('same as the old password') ||
+      raw.includes('same password') ||
+      raw.includes('previously used') ||
+      raw.includes('must be different')
+    ) {
+      return 'New password must be different from your current password.';
+    }
+    return extractErrorMessage(err, 'Failed to reset password.');
+  }
+
+  const PASSWORD_REUSE = 'New password cannot be the same as the old password';
+
+  it('routes the password-reuse refusal to its tailored sentence', () => {
+    expect(resetCopy(authThrow(PASSWORD_REUSE))).toBe(
+      'New password must be different from your current password.',
+    );
+  });
+
+  // The regression this fixes, pinned as a fact about the server's wording rather than as a memory
+  // of the bug: the three keys the screen shipped with match nothing in the literal auth-service
+  // actually throws, so before the fourth key was added every reuse attempt fell to the else arm
+  // and the user was told only "Failed to reset password." Re-deleting the working key would turn
+  // this red instead of quietly costing the sentence again.
+  it('would not have matched on the keys the screen originally shipped with', () => {
+    const shipped = ['same password', 'previously used', 'must be different'];
+    const lower = PASSWORD_REUSE.toLowerCase();
+    expect(shipped.some((key) => lower.includes(key))).toBe(false);
+    expect(lower).toContain('same as the old password');
+  });
+
+  it("shows the screen's own fallback rather than the raw text of a 500", () => {
+    const err = authThrow(`Internal server error: ${BAD_SQL_GRAMMAR}`);
+    expect(resetCopy(err)).toBe('Failed to reset password.');
+  });
+
   // The leak that sits in the handler beside them, and the reason the body had to be attached at
   // all: auth-service's `RuntimeException` handler answers with "Internal server error: " and the
   // raw cause, into both fields.
@@ -1524,6 +1576,127 @@ describe('the auth strings that are routing, not copy', () => {
     const shown = extractErrorMessage(err, 'Something went wrong. Please try again.');
     expect(shown).toBe('Something went wrong. Please try again.');
     expect(shown).not.toContain('com.modulex');
+  });
+
+  /**
+   * The same handler, swept across the causes it can actually carry, because the four screens that
+   * now read through the gate are the ones anyone can reach with no account at all. The prefix is
+   * always sentence-shaped and always short enough to clear the length bound, so every one of these
+   * is refused by a MARKER — remove the marker that catches it and the whole raw cause is on a
+   * forgot-password form again.
+   *
+   * `AUTH_500_CAUSES` is what `ex.getMessage()` returns for the failures this service really has:
+   * a missing table from the Postgres driver, Spring's wrapped statement, the JDK's helpful NPE, a
+   * path off the DMS hop, and a refused connection naming an internal host and port.
+   */
+  const AUTH_500_CAUSES = [
+    'ERROR: relation "auth_user" does not exist\n  Position: 15',
+    BAD_SQL_GRAMMAR,
+    HELPFUL_NPE,
+    POSIX_PATH_REASON,
+    CONNECTION_REFUSED,
+    CONSTRAINT_DUMP,
+    // The six above all trip a marker on their own, which is what made this list a blind spot: the
+    // assertion below passed on every one of them while failing on the likeliest cause there is.
+    // These six trip nothing — they are refused only because the catch-all's prefix is now a marker
+    // in its own right. `null` is a bare NPE; the last two describe infrastructure to a visitor who
+    // has not signed in.
+    'null',
+    '/ by zero',
+    'No value present',
+    'Read timed out',
+    'Unable to acquire JDBC Connection',
+    'JWT signature does not match locally computed signature',
+  ];
+
+  it.each(AUTH_500_CAUSES)('publishes nothing internal out of a 500 carrying %p', (cause) => {
+    const fallback = 'Failed to send OTP. Please try again.';
+    const shown = extractErrorMessage(authThrow(`Internal server error: ${cause}`), fallback);
+
+    expect(shown).toBe(fallback);
+    // Spelled out rather than left to the equality above, so the assertion still says what it is
+    // protecting if the fallback ever changes: no driver prefix, no table or constraint name, no
+    // qualified class, no absolute path, no host or port.
+    expect(shown).not.toContain('ERROR:');
+    expect(shown).not.toContain('auth_user');
+    expect(shown).not.toContain('parlour_bill');
+    expect(shown).not.toContain('uk_folder_name');
+    expect(shown).not.toContain('com.modulex');
+    expect(shown).not.toMatch(/\/var\/|[A-Za-z]:[\\/]/);
+    expect(shown).not.toMatch(/10\.0\.0\.7|:8081|http:\/\//);
+    expect(shown).not.toContain('Internal server error');
+  });
+});
+
+/**
+ * The one guarantee about the SCREENS themselves that this environment can hold.
+ *
+ * jest here is plain node with no renderer, on purpose (see jest.config.js), so nothing can mount
+ * `ForgotPasswordEmailScreen` and read what it puts on the error label. Every test above pins the
+ * GATE, or a branch transcribed out of a screen — and none of that can see whether the screen
+ * beside it still renders `err.message` raw. That gap is not hypothetical: it is exactly the defect
+ * this change closed. The extractor was already correct, `ApiError` was already carrying the body
+ * for it to read, and four pre-login screens simply never called it, so auth-service's
+ * `"Internal server error: " + ex.getMessage()` reached a forgot-password form whole while the
+ * identical text on every other screen was being refused.
+ *
+ * So this reads the source text. Its limit, stated plainly because a test that overclaims is worse
+ * than no test: it proves no auth screen READS a thrown message except to route on it, and it
+ * proves the screens that display a failure import the gate. It does NOT prove that what reaches
+ * the label came from the gate — a screen that got raw text by some other route would pass. What it
+ * does catch is the reappearance of `setError(err?.message || …)` on a pre-login screen, which is
+ * the line this change deleted eight times.
+ *
+ * The single permitted form is LoginScreen's, which `ForgotPasswordNewScreen` now matches: the
+ * thrown text lower-cased into a local that only branches. The whole line is matched rather than a
+ * fragment, because `const message = err?.message || fallback` — one value doing both jobs — is the
+ * shape that hid the leak on the reset screen, and it would slip past any looser test.
+ */
+describe('the auth screens read a thrown message only to route on it', () => {
+  const AUTH_SCREENS = join(__dirname, '..', '..', '..', 'screens', 'auth');
+  const ROUTING_LINE = "const raw = (err?.message || '').toLowerCase();";
+  const GATE_IMPORT = "from '../../backend/shared/http/axiosError'";
+
+  /** The screens whose catch blocks put a server-described failure in front of the user. */
+  const GATED_SCREENS = [
+    'ForgotPasswordEmailScreen.tsx',
+    'ForgotPasswordNewScreen.tsx',
+    'ForgotPasswordOtpScreen.tsx',
+    'SignupScreen.tsx',
+  ];
+
+  const screens = readdirSync(AUTH_SCREENS).filter((name) => name.endsWith('.tsx'));
+  const read = (name: string) => readFileSync(join(AUTH_SCREENS, name), 'utf8');
+
+  // The prose in these files quotes the very lines under test, so it has to come out before the
+  // scan runs or the comments explaining the fix would fail it.
+  const isComment = (line: string) => /^(\/\/|\/\*|\*)/.test(line.trim());
+
+  it('is looking at the screens it names', () => {
+    expect(screens).toEqual(expect.arrayContaining([...GATED_SCREENS, 'LoginScreen.tsx']));
+  });
+
+  it.each(screens)('reads a thrown message only for routing in %s', (name) => {
+    const reads = read(name)
+      .split('\n')
+      .filter((line) => !isComment(line) && /\berr\??\.message\b/.test(line));
+
+    for (const line of reads) {
+      expect(line.trim()).toBe(ROUTING_LINE);
+    }
+  });
+
+  it.each(GATED_SCREENS)('shows its failures through the gate in %s', (name) => {
+    expect(read(name)).toContain(GATE_IMPORT);
+  });
+
+  // `resetCopy` above is only worth as much as its likeness to the screen, and the key it turns on
+  // is the one that was missing for the whole life of that branch. Pinning it against the file is
+  // what stops the transcription from passing alone while the screen quietly loses it again.
+  it('matches the password-reuse key the transcribed reset branch turns on', () => {
+    expect(read('ForgotPasswordNewScreen.tsx')).toContain(
+      "raw.includes('same as the old password')",
+    );
   });
 });
 

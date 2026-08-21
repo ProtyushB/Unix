@@ -24,6 +24,7 @@ import PasswordRuleDots from '../../components/auth/PasswordRuleDots';
 import SignupStepper from '../../components/auth/SignupStepper';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
 import { getPersonService } from '../../backend/person/provider/person.provider';
+import { extractErrorMessage } from '../../backend/shared/http/axiosError';
 import { useSignupDraft } from '../../context/SignupDraftContext';
 import { CLAIM_ACCOUNT_ENABLED } from '../../config/features';
 import { validateEmail, validateUsername, validatePassword } from '../../utils/validators';
@@ -109,7 +110,18 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
       setOtpError('');
       setOtpVisible(true);
     } catch (err: any) {
-      setErrors((prev) => ({ ...prev, email: err?.message || 'Failed to send the code.' }));
+      // Every failure on this screen is shown to someone with no account, so all four catches read
+      // through the gate. `auth-service`'s catch-all answers a 500 with
+      // `"Internal server error: " + ex.getMessage()` in both wrapper fields, which is a raw
+      // Postgres or JVM line under a sentence-shaped prefix; `handleApiError` attaches that body to
+      // the throw, and the extractor is the thing that refuses it and substitutes the fallback
+      // below. Nothing on this screen branches on the thrown text — the OTP wording that IS routing
+      // is read later, by `isVerificationError` over `completeSignup`'s own gated string — so here
+      // display is the only job.
+      setErrors((prev) => ({
+        ...prev,
+        email: extractErrorMessage(err, 'Failed to send the code.'),
+      }));
     } finally {
       if (mountedRef.current) setSendingOtp(false);
     }
@@ -179,7 +191,7 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
         clearClaim();
         setEmailVerified(true);
       } catch (err: any) {
-        setOtpError(err?.message || 'Could not verify that code.');
+        setOtpError(extractErrorMessage(err, 'Could not verify that code.'));
       } finally {
         if (mountedRef.current) setVerifyingOtp(false);
       }
@@ -192,7 +204,7 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
       await authService.resendOtp('email', email.trim());
       showToast('A new code is on its way.', 'info');
     } catch (err: any) {
-      setOtpError(err?.message || 'Failed to resend the code.');
+      setOtpError(extractErrorMessage(err, 'Failed to resend the code.'));
     }
   }, [email, authService, showToast]);
 
@@ -224,7 +236,7 @@ const SignupScreen: React.FC<Props> = ({ navigation, route }) => {
       setUsernameAvailable(null);
       setErrors((prev) => ({
         ...prev,
-        username: err?.message || 'Could not check that username.',
+        username: extractErrorMessage(err, 'Could not check that username.'),
       }));
     } finally {
       if (mountedRef.current) setCheckingUsername(false);

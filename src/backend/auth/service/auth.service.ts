@@ -365,13 +365,17 @@ export class AuthService {
    * The message text here is control flow, not display copy, which is why the four branches below
    * are untouched: `LoginScreen` lower-cases `err.message` and matches 'invalid credentials',
    * 'not found with username' and a network/econnrefused/timeout/enotfound pattern to pick which
-   * sentence to show; `ForgotPasswordNewScreen` matches 'same password' / 'previously used' /
-   * 'must be different'; and `isVerificationError` in `completeSignup` regex-matches what `signup`
-   * throws to decide whether to bounce the user back to re-verify. Any of those turning into a
-   * fallback would re-route a screen silently, with nothing failing.
+   * sentence to show; `ForgotPasswordNewScreen` matches 'same as the old password', which is the
+   * substring of THIS service's "New password cannot be the same as the old password" — it also
+   * still carries the three keys it shipped with ('same password', 'previously used', 'must be
+   * different'), none of which appears in that literal or anywhere else in this service; and
+   * `isVerificationError` in `completeSignup` regex-matches what `signup` throws to decide whether
+   * to bounce the user back to re-verify. Any of those turning into a fallback would re-route a
+   * screen silently, with nothing failing.
    *
    * What changed is only that the body rides along. `completeSignup` runs this error through the
-   * shared extractor, and until now that extractor found a bare `Error` — no `response`, nothing to
+   * shared extractor — as do all four pre-login screens now, for the text they DISPLAY — and until
+   * the body was attached that extractor found a bare `Error` — no `response`, nothing to
    * inspect — so `auth-service`'s `RuntimeException` handler, which answers with
    * `"Internal server error: " + ex.getMessage()`, went to the user as-is. With the body attached
    * the gate sees it. The re-verify bounce is unaffected because auth-service's `buildErrorResponse`

@@ -442,6 +442,17 @@ const LOCATOR_MARKERS: readonly RegExp[] = [
  */
 const MACHINE_TEXT_MARKERS: readonly RegExp[] = [
   /\bERROR:/,
+  // auth-service's catch-all prefix, and the only discriminator it gives us. ModuleX stamps
+  // INTERNAL_ERROR on its wrapper so the code says "nobody curated this"; auth-service has no code
+  // field at all and instead writes "Internal server error: " + ex.getMessage() into both fields.
+  // Matching on the prefix rather than on what follows is the whole point: the tail is arbitrary,
+  // and the markers only catch the tails that happen to look mechanical. `Internal server error:
+  // null` from a bare NPE — the commonest unhandled cause there is — tripped nothing at all and
+  // rendered whole on a public forgot-password form, as did `Unable to acquire JDBC Connection`
+  // and `JWT signature does not match locally computed signature`, which tell an unauthenticated
+  // visitor about infrastructure they cannot otherwise see. Nothing curated starts this way; the
+  // prefix exists precisely because nobody wrote the sentence.
+  /^Internal server error\b/,
   /\[\s*(?:select|insert|update|delete)\b/i,
   /\b(?:com|org|net|io|java|javax|jakarta)\.[a-z0-9_]+\./,
   /[\r\n]/,
@@ -653,12 +664,32 @@ export function extractErrorMessage(err: unknown, fallback: string): string {
  * re-verify. Replacing the message with the fallback would have re-routed both silently. The body
  * is attached ALONGSIDE it, so the property those branches read is byte for byte what it was.
  *
- * That buys gating only where something actually consults the body. `completeSignup` does. The auth
- * SCREENS do not: `ForgotPasswordEmailScreen`, `ForgotPasswordOtpScreen` and `SignupScreen` each
- * render `err?.message` directly, so on those paths the attached body is carried and never read,
- * and auth-service's `"Internal server error: " + ex.getMessage()` still reaches the user whole.
- * That is unchanged from before this class existed rather than caused by it — but it is not closed,
- * and a comment claiming otherwise is how this module has repeatedly hidden its own leaks.
+ * That buys gating only where something consults the body, and every auth path now does.
+ * `completeSignup` reads the body through `extractErrorMessage` and runs `isVerificationError` over
+ * the RESULT. `LoginScreen` never displayed the raw text at all — it lower-cases `.message` into a
+ * local, branches, and assigns curated copy in every arm including the else. The four screens that
+ * did display it are the change this paragraph used to describe as open:
+ * `ForgotPasswordEmailScreen`, `ForgotPasswordOtpScreen`, `ForgotPasswordNewScreen` and
+ * `SignupScreen`, eight sites between them, each now pass the error to `extractErrorMessage` with
+ * the fallback literal it already had. So auth-service's `"Internal server error: " +
+ * ex.getMessage()` is refused on the pre-login pages the way it has been everywhere else.
+ *
+ * That last sentence was false when it was first written, and the correction is the point: routing
+ * the screens through the gate only refused the causes that trip a marker. `Internal server error:
+ * null` from a bare NPE tripped nothing and rendered whole, as did `Unable to acquire JDBC
+ * Connection`. The prefix is a marker in its own right now, which is what makes the claim true —
+ * see MACHINE_TEXT_MARKERS. The six causes the tests originally swept all carried a marker already,
+ * so they passed either way and proved nothing; six marker-free ones sit beside them now.
+ * `ForgotPasswordNewScreen` is the one doing both jobs at once — it branches on the raw `.message`
+ * and displays the gated value — which is the shape this class exists to make possible.
+ *
+ * The limit, stated because a paragraph in this file has now hidden a leak five times by claiming
+ * more than the code did: nothing here GATES anything. `message` is raw by construction, any caller
+ * can still render it, and no type stops them. The screens cannot be rendered by this repo's
+ * node-only jest, so what stands behind the claim above is a source scan in `axiosError.test.ts`
+ * asserting that no screen under `src/screens/auth` reads `err.message` for anything but routing.
+ * That scan reads text, not behaviour: a screen that obtained the raw sentence another way — off
+ * `response.data.error` itself, say — would pass it and leak.
  */
 export class ApiError extends Error {
   /**
