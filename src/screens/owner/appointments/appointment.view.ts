@@ -15,16 +15,64 @@ export type AppointmentView =
   | 'CALENDAR'
   | 'CALENDAR_EMPTY'
   | 'CALENDAR_LOADING'
+  | 'ALL'
+  | 'ALL_EMPTY'
+  | 'ALL_LOADING'
   | 'SEARCH_IDLE'
   | 'SEARCHING'
   | 'SEARCH_RESULTS'
   | 'NO_RESULTS';
 
-export interface ViewInput {
-  /** 'DAY' | 'CALENDAR' — the header's calendar toggle. */
-  surface: 'DAY' | 'CALENDAR';
+/**
+ * Which list the screen is actually fetching and rendering.
+ *
+ *  - `search` — one global query across every date.
+ *  - `day`    — one IST day, `fromDate === toDate`.
+ *  - `all`    — no day selected: every appointment, grouped by date, newest first.
+ *
+ * Three modes, ONE derivation. `deriveView`, the fetch key and the fetch itself all call this
+ * rather than each testing `mode` and `selectedDate` for themselves, because that is the shape a
+ * contradiction takes: a screen fetching the all-dates buckets while the view state machine still
+ * believes it is on a single day renders one mode's chrome over the other mode's rows.
+ */
+export type ListMode = 'search' | 'day' | 'all';
+
+export interface ListModeInput {
   /** 'browse' | 'search' — whether the search field is active. */
   mode: 'browse' | 'search';
+  /** The selected IST day, or null once the user taps the selected day again. */
+  selectedDate: string | null;
+}
+
+export function listModeFor({ mode, selectedDate }: ListModeInput): ListMode {
+  // Search outranks the selection: it is global across all dates either way, and a query typed
+  // while a day was selected must not narrow itself to that day.
+  if (mode === 'search') return 'search';
+  return selectedDate ? 'day' : 'all';
+}
+
+/**
+ * The string the list's refetch effect is keyed on.
+ *
+ * Every mode has to key into the SAME string, with a prefix that cannot collide, or a mode change
+ * that happens to leave the key unchanged silently skips its fetch. `a:` carries today's date
+ * because that is the seam the two all-dates buckets are cut at, so a session left open across
+ * midnight refetches instead of paging a window that no longer contains today.
+ */
+export function listKeyFor(input: ListModeInput & { query: string; today: string }): string {
+  switch (listModeFor(input)) {
+    case 'search':
+      return `s:${input.query}`;
+    case 'all':
+      return `a:${input.today}`;
+    default:
+      return `d:${input.selectedDate}`;
+  }
+}
+
+export interface ViewInput extends ListModeInput {
+  /** 'DAY' | 'CALENDAR' — the header's calendar toggle. */
+  surface: 'DAY' | 'CALENDAR';
   /** The debounced query. Empty while the user has focused the box but typed nothing. */
   query: string;
   /** Rows currently held for the active fetch. */
@@ -36,21 +84,29 @@ export interface ViewInput {
 }
 
 /**
- * Precedence, top-down: ERROR → search branch → not-yet-loaded → surface branch.
+ * Precedence, top-down: ERROR → search branch → all-dates branch → not-yet-loaded → surface branch.
  *
  * `hasError` only wins when there is nothing to show. A failed page-2 fetch behind a populated
  * list should leave the list on screen, not replace it with a full-screen error.
  */
 export function deriveView(input: ViewInput): AppointmentView {
-  const { surface, mode, query, rowCount, loadedOnce, hasError } = input;
+  const { surface, query, rowCount, loadedOnce, hasError } = input;
+  const listMode = listModeFor(input);
 
   if (hasError && rowCount === 0 && loadedOnce) return 'ERROR';
 
-  if (mode === 'search') {
+  if (listMode === 'search') {
     // Focused but empty: show nothing rather than a count for a search that never happened.
     if (!query) return 'SEARCH_IDLE';
     if (!loadedOnce) return 'SEARCHING';
     return rowCount > 0 ? 'SEARCH_RESULTS' : 'NO_RESULTS';
+  }
+
+  // All-dates outranks the surface: with no day selected there is no day for the month grid to
+  // list, so the calendar stays on screen as navigation while the body shows every date.
+  if (listMode === 'all') {
+    if (!loadedOnce) return 'ALL_LOADING';
+    return rowCount > 0 ? 'ALL' : 'ALL_EMPTY';
   }
 
   // `loadedOnce` must be driven by the loading true→false transition, not by `!loading`. On the
@@ -79,7 +135,10 @@ export function showsFab(view: AppointmentView): boolean {
     view === 'CALENDAR' ||
     view === 'CALENDAR_EMPTY' ||
     view === 'LOADING' ||
-    view === 'CALENDAR_LOADING'
+    view === 'CALENDAR_LOADING' ||
+    view === 'ALL' ||
+    view === 'ALL_EMPTY' ||
+    view === 'ALL_LOADING'
   );
 }
 
@@ -100,13 +159,13 @@ export function isSearchView(view: AppointmentView): boolean {
 /**
  * Whether the header may auto-hide on scroll.
  *
- * Only the two browse surfaces. Search pins its own field so the query stays editable without
+ * Only the populated browse lists. Search pins its own field so the query stays editable without
  * scrolling back to the top, and the hero states have nothing to scroll under the header anyway —
  * hiding it there would strand the user with no search box and no date navigation, which is the
  * same trap that shaped the empty-state design.
  */
 export function headerCollapses(view: AppointmentView): boolean {
-  return view === 'DAY' || view === 'CALENDAR';
+  return view === 'DAY' || view === 'CALENDAR' || view === 'ALL';
 }
 
 /**

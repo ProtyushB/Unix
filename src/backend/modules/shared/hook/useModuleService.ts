@@ -132,6 +132,19 @@ export interface AppointmentListOptions {
 }
 
 /**
+ * One page of appointments, HANDED BACK rather than stored — see `fetchAppointmentsPage`.
+ *
+ * `totalPages` is the only paging figure these endpoints report, so it is the only one here; a
+ * row count would be a guess. On a failure the rows are empty and `error` is a sentence.
+ */
+export interface AppointmentPage {
+  success: boolean;
+  rows: unknown[];
+  totalPages: number;
+  error: string | null;
+}
+
+/**
  * Per-IST-day appointment counts backing the week strip / month grid dots. Keys are YYYY-MM-DD and
  * match a row's own `appointmentDate`, so one indexes the other with no client-side date maths.
  */
@@ -1293,6 +1306,51 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           setAppointments([]);
         } finally {
           setLoading(false);
+        }
+      },
+      [service],
+    );
+
+    /**
+     * Fetch ONE page of appointments and RETURN it, touching no shared state.
+     *
+     * `loadAppointments` above writes `appointments`, `appointmentsTotalPages`, `loading` and
+     * `error` — one array, one page counter, one flag. That is exactly right for a list showing
+     * one query, and unusable for the Appointments screen's all-dates mode, which holds TWO
+     * independently-paged buckets (the future, and today-and-the-past) and concatenates them. Run
+     * through `loadAppointments` the two would overwrite each other's rows and each other's
+     * `totalPages`, and their two `loading` transitions would race the first-load detector that
+     * `sawLoadingRef` builds out of them — the same reason `readOne` is kept off these cells.
+     *
+     * So this returns instead of storing, and the caller owns the bucket. Same envelope handling
+     * as `loadAppointments`: refusals arrive as HTTP 200 with `success: false`, so the message has
+     * to come through `apiMessage`/`extractErrorMessage` rather than out of the body by hand.
+     */
+    const fetchAppointmentsPage = useCallback(
+      async (
+        page: number,
+        limit: number,
+        options: AppointmentListOptions = {},
+      ): Promise<AppointmentPage> => {
+        const empty = { success: false, rows: [], totalPages: 1 };
+        try {
+          const businessId = await getSelectedBusinessId();
+          if (!businessId) {
+            return { ...empty, error: 'No business selected. Please select a business first.' };
+          }
+          const response = await service.getAllAppointments(businessId, page, limit, options);
+          if (!response.success) {
+            return { ...empty, error: apiMessage(response, 'Failed to load appointments') };
+          }
+          const data = response.data;
+          return {
+            success: true,
+            rows: Array.isArray(data) ? data : [],
+            totalPages: response.totalPages ?? 1,
+            error: null,
+          };
+        } catch (err) {
+          return { ...empty, error: extractErrorMessage(err, 'Failed to load appointments') };
         }
       },
       [service],
@@ -2636,6 +2694,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
 
       // Appointment CRUD
       loadAppointments,
+      fetchAppointmentsPage,
       loadAppointment,
       loadAppointmentDayCounts,
       updateAppointmentStatus,

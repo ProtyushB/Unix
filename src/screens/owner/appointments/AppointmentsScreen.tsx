@@ -10,7 +10,7 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import type { StyleProp, ViewStyle } from 'react-native';
+import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
@@ -30,7 +30,11 @@ import {
   Scissors,
 } from 'lucide-react-native';
 import { FAB } from '../../../components/layout/FAB';
-import { CollapsingHeader, AnimatedSectionList } from '../../../components/layout/CollapsingHeader';
+import {
+  CollapsingHeader,
+  AnimatedSectionList,
+  type AnimatedSectionListHandle,
+} from '../../../components/layout/CollapsingHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useTheme } from '../../../hooks/useTheme';
 import { useThemedStyles } from '../../../hooks/useThemedStyles';
@@ -67,15 +71,93 @@ import {
   showsDateNav,
   dayDotCount,
   headerCollapses,
+  listKeyFor,
+  listModeFor,
   type AppointmentView,
 } from './appointment.view';
+import {
+  allDatesCellLayout,
+  allDatesWindows,
+  anchorSectionIndex,
+  buildDateSections,
+  sectionHeaderCellIndex,
+  sectionHeading,
+  toggleDaySelection,
+  type AllDatesCellMetrics,
+} from './appointment.allDates';
 
 const PAGE_SIZE = 20;
+
+/**
+ * How much of the previous (later-dated) group stays visible above the day the all-dates list opens
+ * on.
+ *
+ * What it actually shows is the bottom 64px of the previous group's LAST CARD — a partial row, cut
+ * off. Not a date band: the cell directly above an anchored section is always the previous
+ * section's zero-height footer, and `buildDateSections` never emits an empty section, so a band can
+ * never fall in the gap.
+ *
+ * A cut-off card is the right thing to show anyway, and better than a band would be. The all-dates
+ * list is the only one in the app that runs backwards — up is forward in time — and a day sitting
+ * flush against the top edge reads as the beginning of the list, so nothing suggests the upward
+ * scroll that reaches next week. Half a card is unmistakably a thing continuing off-screen.
+ */
+const ANCHOR_PEEK = 64;
+
+/**
+ * The gap under each appointment card.
+ *
+ * Named rather than inlined into the style because it is also part of the ROW CELL's height, and
+ * the all-dates list has to know that height exactly. VirtualizedList wraps every rendered item in
+ * a plain `<View>`, and a Yoga container's auto height is the sum of its children's margin boxes —
+ * so this gap sits inside the cell that `getItemLayout` measures, not between two cells. Measuring
+ * the card and forgetting the margin under-counts every row by 10px.
+ */
+const CARD_GAP = 10;
 
 /** Gap between the collapsing header and the first row. Lives on the header — see `gapBelow`. */
 const LIST_TOP_PAD = 10;
 /** FAB clearance, so the last card is never trapped under it. */
 const LIST_BOTTOM_PAD = 100;
+
+/**
+ * Keeps the rows the user is reading in place when a future page lands ABOVE them. Without it,
+ * every prepended page shoves the visible rows down the screen by its own height.
+ *
+ * `minIndexForVisible: 0`, and the value was checked against the RN source rather than copied off
+ * a chat-list snippet, because the two ends of this prop count from different places:
+ *
+ *  - VirtualizedList reads it in DATA-item space, to decide which item's key it fingerprints as
+ *    "the first one" and how far to shift its render window when that key moves
+ *    (`getDerivedStateFromProps`).
+ *  - It then hands the native ScrollView `minIndexForVisible + (ListHeaderComponent ? 1 : 0)`,
+ *    because on that side the count is over the content view's CHILDREN and the list header is
+ *    child 0.
+ *
+ * So the ListHeaderComponent this list always renders — the top cap — is already skipped for us.
+ * The 1 that other codebases pass is exactly that header adjustment, applied a second time by
+ * hand: against RN 0.82 it anchors on the second row rather than the first, for no reason.
+ */
+const MAINTAIN_POSITION = { minIndexForVisible: 0 } as const;
+
+/**
+ * Fixed height for the all-dates top cap, whatever it is currently showing.
+ *
+ * `maintainVisibleContentPosition` does cover a header that resizes — the anchor is a row below
+ * it, and moving that row is what triggers the correction. What a constant height buys is
+ * everything upstream of that: the list's content height stops changing as the cap swaps between
+ * spinner, end marker and spacer, so `onStartReached` (which fires once per content length) is not
+ * re-armed by the cap's own state changes, and the end marker appears without the list twitching.
+ */
+const ALL_TOP_CAP_HEIGHT = 46;
+
+/**
+ * The hook types every list payload as `unknown[]` — it is whatever the server sent. `toAppointmentRow`
+ * is the thing that copes with a missing or oddly-named field, so the cast belongs here, at the one
+ * point where a raw payload becomes a row, rather than repeated at each bucket's call site.
+ */
+const toRows = (raw: unknown[]): AppointmentRow[] =>
+  (raw as Record<string, any>[]).map(toAppointmentRow);
 
 /**
  * Quick Actions rows. The appointment's CURRENT status is filtered out at render time — offering
@@ -146,7 +228,14 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
   // ── Drivers ────────────────────────────────────────────────────────────────
   const [surface, setSurface] = useState<'DAY' | 'CALENDAR'>('DAY');
   const [mode, setMode] = useState<'browse' | 'search'>('browse');
-  const [selectedDate, setSelectedDate] = useState(() => toYmd(new Date()));
+  /** The picked day, or null once the user taps the highlighted day again — the all-dates list. */
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => toYmd(new Date()));
+  /**
+   * Which week the strip shows and which day the header names. Follows every tap INCLUDING the one
+   * that deselects, so clearing the selection leaves the strip on the week it was already showing
+   * with nothing highlighted, rather than snapping back to today's week.
+   */
+  const [anchorDate, setAnchorDate] = useState(() => toYmd(new Date()));
   const [anchorMonth, setAnchorMonth] = useState(() => {
     const now = new Date();
     return { y: now.getFullYear(), m: now.getMonth() };
@@ -167,10 +256,208 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
 
   const todayYmd = useMemo(() => toYmd(new Date()), []);
 
+  const listMode = listModeFor({ mode, selectedDate });
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  // ── All-dates buckets ──────────────────────────────────────────────────────
+  //
+  // Two lists, paged independently, concatenated at render time. See `allDatesWindows` for why the
+  // seam is at today and why the future bucket is fetched ascending.
+  const [futureRows, setFutureRows] = useState<AppointmentRow[]>([]);
+  const [pastRows, setPastRows] = useState<AppointmentRow[]>([]);
+  const [allLoadedOnce, setAllLoadedOnce] = useState(false);
+  const [allError, setAllError] = useState<string | null>(null);
+  const [futureLoading, setFutureLoading] = useState(false);
+  const [pastLoading, setPastLoading] = useState(false);
+  /** Mirrors of the page refs, for the top cap and the footer — a ref cannot trigger a repaint. */
+  const [futureDone, setFutureDone] = useState(false);
+  const [pastDone, setPastDone] = useState(false);
+  /** Bumped whenever a fresh pair of page-1s lands; drives the one-shot scroll onto today. */
+  const [anchorNonce, setAnchorNonce] = useState(0);
+
+  const futurePageRef = useRef(1);
+  const futurePagesRef = useRef(1);
+  const futureBusyRef = useRef(false);
+  const pastPageRef = useRef(1);
+  const pastPagesRef = useRef(1);
+  const pastBusyRef = useRef(false);
+  /**
+   * Generation counter for the all-dates fetches. Every response checks it before writing, so a
+   * page still in flight when the user picks a day — or pulls to refresh — is discarded instead of
+   * landing on top of the list that replaced it.
+   */
+  const allRunRef = useRef(0);
+  /** True between "both page-1s landed" and "the opening scroll finished". Gates upward paging. */
+  const anchorPendingRef = useRef(false);
+
+  const sectionListRef = useRef<AnimatedSectionListHandle | null>(null);
+
+  // ── Measuring the all-dates cells ──────────────────────────────────────────
+  //
+  // The two heights `getItemLayout` needs, read off the first card and the first date band the
+  // all-dates list lays out.
+  //
+  // Measured rather than written down as constants because there is no constant that would be
+  // right. A card is as tall as its tallest column, and every one of those is a `<Text>` whose line
+  // height comes from the platform's font metrics and is then multiplied by the user's system
+  // text-size setting — so the number differs between iOS and Android, and again at 150% text. A
+  // hardcoded height would be a `getItemLayout` that lies, and a lying one drifts a little further
+  // from the truth with every row, which is worse than the scroll simply not happening.
+  //
+  // What makes one measurement stand for every row is that no cell's height depends on its
+  // CONTENT. Every text that could wrap is capped at one line — the two body lines already were,
+  // the time gutter and the date band are now — and the amount is rendered on every row in this
+  // mode rather than only on some. The amount and the status pill sit in a column with no flex of
+  // its own, which is why six rows carrying four different statuses and five different amounts all
+  // laid out at exactly the same height when this was measured against the real screen.
+  const [cardHeight, setCardHeight] = useState(0);
+  const [bandHeight, setBandHeight] = useState(0);
+  const cardMeasuredRef = useRef(false);
+  const bandMeasuredRef = useRef(false);
+
+  /**
+   * First measurement wins, and later ones are ignored.
+   *
+   * Not an optimisation. `onLayout` fires per mounted cell, so re-reading it would let any single
+   * row rewrite the frame table for a list the user is already scrolling — and if two rows ever
+   * did disagree, the two values would take turns and the list would resize under the finger. One
+   * latched number is either right for every row or visibly wrong for all of them, which is the
+   * failure that gets reported rather than the one that gets lived with.
+   */
+  const measureCard = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (cardMeasuredRef.current || h <= 0) return;
+    cardMeasuredRef.current = true;
+    setCardHeight(h);
+  }, []);
+
+  const measureBand = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (bandMeasuredRef.current || h <= 0) return;
+    bandMeasuredRef.current = true;
+    setBandHeight(h);
+  }, []);
+
+  /** Both cells measured — i.e. the list's offsets are computable rather than guessable. */
+  const cellsMeasured = cardHeight > 0 && bandHeight > 0;
+
+  const windows = useMemo(() => allDatesWindows(todayYmd), [todayYmd]);
+
+  const fetchPage = activeModule.fetchAppointmentsPage;
+
+  /**
+   * Both buckets, page 1, in parallel.
+   *
+   * Parallel and then written TOGETHER, not one after the other: today's section index is the
+   * number of future sections above it, so a first paint holding only one bucket would anchor the
+   * opening scroll on the wrong group and then have it yanked when the other landed. One
+   * `allLoadedOnce` for both is also one skeleton rather than two.
+   */
+  const loadAllDates = useCallback(async () => {
+    const runId = ++allRunRef.current;
+    // Deliberately does NOT clear `allLoadedOnce` — the fetch effect does that, and only on a key
+    // change. Exactly like the day list, where `setLoadedOnce(false)` lives in the effect and not
+    // in `loadAppointments`: a reload or a pull-to-refresh has to repaint the rows UNDER the
+    // existing list, not drop back to the skeleton and take the list out from under the finger
+    // that is still holding the refresh spinner.
+    setAllError(null);
+    futurePageRef.current = 1;
+    futurePagesRef.current = 1;
+    futureBusyRef.current = false;
+    pastPageRef.current = 1;
+    pastPagesRef.current = 1;
+    pastBusyRef.current = false;
+    setFutureLoading(true);
+    setPastLoading(true);
+
+    const [future, past] = await Promise.all([
+      fetchPage(1, PAGE_SIZE, windows.future),
+      fetchPage(1, PAGE_SIZE, windows.todayAndPast),
+    ]);
+    if (runId !== allRunRef.current) return;
+
+    futurePagesRef.current = future.totalPages;
+    pastPagesRef.current = past.totalPages;
+    setFutureRows(toRows(future.rows));
+    setPastRows(toRows(past.rows));
+    // A bucket that FAILED is not a bucket that ended, and the failure envelope makes the two look
+    // identical: it answers `{rows: [], totalPages: 1}`, which reads as "one page, and you have it".
+    // Left alone that prints "That's the whole history" under a list that fetched no history, and
+    // — because the page cursor also starts at 1 — permanently satisfies loadMore's
+    // `page >= totalPages` guard, so scrolling can never retry. The only way out was pull-to-
+    // refresh, which nothing on screen suggests.
+    //
+    // Rewinding the cursor to 0 makes the next scroll re-request page ONE through the ordinary
+    // path, rather than skipping it and asking for page two of a bucket that has nothing.
+    if (future.error) futurePageRef.current = 0;
+    if (past.error) pastPageRef.current = 0;
+    setFutureDone(!future.error && future.totalPages <= 1);
+    setPastDone(!past.error && past.totalPages <= 1);
+    setFutureLoading(false);
+    setPastLoading(false);
+    // Today lives in the second bucket, so its failure is the one that matters most; either way
+    // the ERROR view only takes over when nothing at all came back — see deriveView's precedence.
+    setAllError(past.error ?? future.error);
+    setAllLoadedOnce(true);
+    anchorPendingRef.current = true;
+    setAnchorNonce((n) => n + 1);
+  }, [fetchPage, windows]);
+
+  /** Scrolling UP: the next page of the future, PREPENDED above what is already on screen. */
+  const loadMoreFuture = useCallback(async () => {
+    // Until the opening scroll has run the list is still sitting at offset 0, which is inside
+    // onStartReached's threshold — without this gate the first paint would immediately fetch page
+    // 2 of the future and prepend it under the anchor being computed.
+    if (anchorPendingRef.current || futureBusyRef.current) return;
+    if (futurePageRef.current >= futurePagesRef.current) return;
+    const runId = allRunRef.current;
+    futureBusyRef.current = true;
+    setFutureLoading(true);
+    const page = futurePageRef.current + 1;
+    const res = await fetchPage(page, PAGE_SIZE, windows.future);
+    if (runId !== allRunRef.current) return;
+    futureBusyRef.current = false;
+    setFutureLoading(false);
+    if (!res.success) return; // Silent: the rows already on screen are still valid.
+    futurePageRef.current = page;
+    futurePagesRef.current = res.totalPages;
+    setFutureDone(page >= res.totalPages);
+    // Appending to the ASCENDING bucket is what prepends to the rendered list — buildDateSections
+    // turns this array around.
+    setFutureRows((prev) => [...prev, ...toRows(res.rows)]);
+  }, [fetchPage, windows]);
+
+  /** Scrolling DOWN: the next page back through the past, appended. */
+  const loadMorePast = useCallback(async () => {
+    if (pastBusyRef.current) return;
+    if (pastPageRef.current >= pastPagesRef.current) return;
+    const runId = allRunRef.current;
+    pastBusyRef.current = true;
+    setPastLoading(true);
+    const page = pastPageRef.current + 1;
+    const res = await fetchPage(page, PAGE_SIZE, windows.todayAndPast);
+    if (runId !== allRunRef.current) return;
+    pastBusyRef.current = false;
+    setPastLoading(false);
+    if (!res.success) return;
+    pastPageRef.current = page;
+    pastPagesRef.current = res.totalPages;
+    setPastDone(page >= res.totalPages);
+    setPastRows((prev) => [...prev, ...toRows(res.rows)]);
+  }, [fetchPage, windows]);
+
+  const allSections = useMemo(
+    () => buildDateSections({ future: futureRows, todayAndPast: pastRows, today: todayYmd }),
+    [futureRows, pastRows, todayYmd],
+  );
+  const allRowCount = useMemo(
+    () => allSections.reduce((n, s) => n + s.data.length, 0),
+    [allSections],
+  );
 
   // ── Fetch A: the list ──────────────────────────────────────────────────────
   const listOpts = useMemo<AppointmentListOptions>(
@@ -179,20 +466,31 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
         ? // Global across all dates: someone looking up a booking rarely knows which day it is on.
           { search: debouncedSearch, sortBy: 'appointmentDateTime', sortDir: 'desc' }
         : // Exactly one IST day, chronological. sortDir must be explicit — viewAll defaults to desc.
+          //
+          // `?? todayYmd` never reaches the wire: with no day selected the effect below takes the
+          // all-dates branch and these options go unused. It is here so the day window stays a
+          // pair of strings rather than becoming nullable for a case that cannot use it.
           {
-            fromDate: selectedDate,
-            toDate: selectedDate,
+            fromDate: selectedDate ?? todayYmd,
+            toDate: selectedDate ?? todayYmd,
             sortBy: 'appointmentDateTime',
             sortDir: 'asc',
           },
-    [mode, debouncedSearch, selectedDate],
+    [mode, debouncedSearch, selectedDate, todayYmd],
   );
 
-  const listKey = mode === 'search' ? `s:${debouncedSearch}` : `d:${selectedDate}`;
+  const listKey = listKeyFor({ mode, selectedDate, query: debouncedSearch, today: todayYmd });
 
   useEffect(() => {
+    if (listMode === 'all') {
+      setAllLoadedOnce(false);
+      loadAllDates();
+      return;
+    }
+    // Leaving all-dates: retire any bucket page still in flight, or it lands on the day list.
+    allRunRef.current += 1;
     // A search with no query yet has nothing to fetch — SEARCH_IDLE renders a blank body.
-    if (mode === 'search' && !debouncedSearch) return;
+    if (listMode === 'search' && !debouncedSearch) return;
     pageRef.current = 1;
     setLoadedOnce(false);
     activeModule.loadAppointments(1, PAGE_SIZE, listOpts);
@@ -229,9 +527,11 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
       const { from, to } = monthGrid(anchorMonth.y, anchorMonth.m);
       return { fromDate: from, toDate: to };
     }
-    const week = weekDays(parseYmd(selectedDate));
+    // `anchorDate`, not `selectedDate`: the strip still shows a week — and still needs its dots —
+    // when nothing is selected.
+    const week = weekDays(parseYmd(anchorDate));
     return { fromDate: toYmd(week[0]), toDate: toYmd(week[6]) };
-  }, [mode, surface, selectedDate, anchorMonth]);
+  }, [mode, surface, anchorDate, anchorMonth]);
 
   const countsKey = countsWindow ? `${countsWindow.fromDate}:${countsWindow.toDate}` : '';
 
@@ -244,13 +544,20 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
   const dayCounts: Record<string, number> = activeModule.appointmentDayCounts ?? {};
 
   // ── Derived view ───────────────────────────────────────────────────────────
+  //
+  // All three counters switch together with the mode. The all-dates buckets are fetched through
+  // `fetchAppointmentsPage`, which deliberately writes none of the hook's shared cells, so
+  // `activeModule.error` and `loadedOnce` describe the DAY list and would report a stale
+  // first-load and a stale failure if they leaked into the all-dates branch.
+  const isAll = listMode === 'all';
   const view: AppointmentView = deriveView({
     surface,
     mode,
+    selectedDate,
     query: debouncedSearch,
-    rowCount: rows.length,
-    loadedOnce,
-    hasError: !!activeModule.error,
+    rowCount: isAll ? allRowCount : rows.length,
+    loadedOnce: isAll ? allLoadedOnce : loadedOnce,
+    hasError: isAll ? !!allError : !!activeModule.error,
   });
 
   /**
@@ -261,36 +568,57 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
    * fetch is deliberately best-effort (it never sets `error`), so a 404 or a 500 would otherwise
    * print "0 appointments" above a full list. Absent means unknown, not zero.
    */
-  const dayTotal = dayCounts[selectedDate] ?? rows.length;
+  const dayTotal = selectedDate ? (dayCounts[selectedDate] ?? rows.length) : rows.length;
 
   const onEndReached = useCallback(() => {
+    // Scrolling DOWN in all-dates mode walks backwards through the past, which is the second
+    // bucket's own forward paging — nothing to do with the day list's page counter.
+    if (isAll) {
+      loadMorePast();
+      return;
+    }
     if (loadingMoreRef.current || activeModule.loading) return;
     if (pageRef.current >= (activeModule.appointmentsTotalPages || 1)) return;
     loadingMoreRef.current = true;
     pageRef.current += 1;
     activeModule.loadAppointments(pageRef.current, PAGE_SIZE, listOpts);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listOpts, activeModule.loading, activeModule.appointmentsTotalPages]);
+  }, [isAll, loadMorePast, listOpts, activeModule.loading, activeModule.appointmentsTotalPages]);
 
+  /**
+   * Refetch everything the current mode shows.
+   *
+   * In all-dates mode this is a full reset: both buckets back to page 1, and the list re-anchored
+   * onto today. It cannot be anything else — the pages already loaded above and below are what the
+   * scroll offset is measured against, so refetching one bucket and keeping the offset would leave
+   * the user somewhere arbitrary. Re-anchoring at least lands them somewhere they can name.
+   */
   const reload = useCallback(() => {
+    if (isAll) {
+      loadAllDates();
+      if (countsWindow) activeModule.loadAppointmentDayCounts?.(countsWindow);
+      return;
+    }
     pageRef.current = 1;
     activeModule.loadAppointments(1, PAGE_SIZE, listOpts);
     if (countsWindow) activeModule.loadAppointmentDayCounts?.(countsWindow);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listOpts, countsWindow]);
+  }, [isAll, loadAllDates, listOpts, countsWindow]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    pageRef.current = 1;
-    await Promise.all([
-      activeModule.loadAppointments(1, PAGE_SIZE, listOpts),
-      countsWindow
-        ? (activeModule.loadAppointmentDayCounts?.(countsWindow) ?? Promise.resolve())
-        : Promise.resolve(),
-    ]);
+    const counts = countsWindow
+      ? (activeModule.loadAppointmentDayCounts?.(countsWindow) ?? Promise.resolve())
+      : Promise.resolve();
+    if (isAll) {
+      await Promise.all([loadAllDates(), counts]);
+    } else {
+      pageRef.current = 1;
+      await Promise.all([activeModule.loadAppointments(1, PAGE_SIZE, listOpts), counts]);
+    }
     setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listOpts, countsWindow]);
+  }, [isAll, loadAllDates, listOpts, countsWindow]);
 
   /**
    * Drop every overlay. Called before navigating as well as after an action.
@@ -412,8 +740,16 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
     if (target) Linking.openURL(target).catch(() => {});
   }, []);
 
+  /**
+   * Tapping a day on the strip or the calendar. Tapping the one already selected DESELECTS it and
+   * drops the screen into all-dates mode; every other tap selects, from either state.
+   *
+   * The month anchor follows the tap even when the tap deselected, so the calendar does not jump
+   * back to another month the instant the highlight clears.
+   */
   const openDay = useCallback((ymd: string) => {
-    setSelectedDate(ymd);
+    setSelectedDate((current) => toggleDaySelection(current, ymd));
+    setAnchorDate(ymd);
     const d = parseYmd(ymd);
     setAnchorMonth({ y: d.getFullYear(), m: d.getMonth() });
   }, []);
@@ -423,7 +759,9 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
     (item: AppointmentRow) => {
       const st = theme.status[item.status] ?? theme.status.FALLBACK;
       const pair = theme.avatar.forName(item.serviceName);
-      const showAmount = view === 'DAY' || view === 'SEARCH_RESULTS';
+      const showAmount = view === 'DAY' || view === 'ALL' || view === 'SEARCH_RESULTS';
+      // Only search: the all-dates list carries the date in its section headings instead, and
+      // repeating it on every row would state the same thing twice a card apart.
       const showDate = view === 'SEARCH_RESULTS';
 
       return (
@@ -433,14 +771,27 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
             setActiveAppt(item);
             setSheet('actions');
           }}
+          // Only the all-dates list needs a row height, and only its first row answers — see
+          // `measureCard`. The day and search lists measure their own cells the ordinary way.
+          onLayout={view === 'ALL' ? measureCard : undefined}
           style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
           android_ripple={{ color: palette.divider }}
           accessibilityRole="button"
           accessibilityLabel={`${item.appointmentNumber} · ${item.customerName}`}
         >
           <View style={styles.timeCol}>
-            <Text style={styles.timeClock}>{apptClock(item.time)}</Text>
-            <Text style={styles.timeMeridiem}>{apptMeridiem(item.time)}</Text>
+            {/*
+              Both capped at one line so the card's height cannot depend on which appointment it
+              is. The gutter is a fixed 46px, so at a large system text size "12:30" wraps where
+              "9:15" still fits — two rows of different heights, and a `getItemLayout` that is
+              right for one of them. "AM" and "PM" are not the same width either.
+            */}
+            <Text style={styles.timeClock} numberOfLines={1}>
+              {apptClock(item.time)}
+            </Text>
+            <Text style={styles.timeMeridiem} numberOfLines={1}>
+              {apptMeridiem(item.time)}
+            </Text>
           </View>
 
           <View style={styles.cardDivider} />
@@ -470,11 +821,23 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
         </Pressable>
       );
     },
-    [theme, styles, palette.divider, view, openDetail],
+    [theme, styles, palette.divider, view, openDetail, measureCard],
   );
 
   // ── Body ───────────────────────────────────────────────────────────────────
-  const sections = useMemo(() => [{ title: '', data: rows }], [rows]);
+  //
+  // One section with a blank date for the single-day and search lists — `renderSectionHeader`
+  // draws nothing for those, exactly as before. All-dates gets one section per date.
+  const sections = useMemo(
+    () =>
+      isAll
+        ? // `key` matters here and only here: without it SectionList keys sections by INDEX, and
+          // every future page prepended at the top shifts every index below it, remounting the
+          // whole list under the user.
+          allSections.map((s) => ({ key: s.date, date: s.date, data: s.data }))
+        : [{ key: 'single', date: '', data: rows }],
+    [isAll, allSections, rows],
+  );
 
   // The header is an overlay now, so every body branch has to reserve its height or it renders
   // underneath. The list gets it through contentContainerStyle; the hero/skeleton blocks need it
@@ -486,6 +849,195 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
   });
   const bodyInset = useMemo(() => ({ paddingTop: headerHeight }), [headerHeight]);
 
+  // ── The opening scroll onto today ──────────────────────────────────────────
+  //
+  // `initialNumToRender` sized to reach today's section header, so the first commit already paints
+  // the rows the scroll is about to land on instead of a blank band the windowing fills in
+  // afterwards. Bounded by construction: the future bucket's page 1 is PAGE_SIZE rows, so the
+  // worst case is PAGE_SIZE rows each on their own date, i.e. 3 * PAGE_SIZE + 1 cells.
+  //
+  // It is no longer what makes the scroll land — `getItemLayout` is, below — but it is still the
+  // fallback for the first commit of a fresh entry, where nothing has been measured yet and there
+  // is therefore no `getItemLayout` to hand the list.
+  //
+  // Deliberately keyed on `anchorNonce` alone. The state writes that end `loadAllDates` are
+  // batched, so the render that bumps the nonce is the render that first holds the complete
+  // sections — and pinning the value there keeps VirtualizedList's initial window from growing
+  // every time a further future page is prepended.
+  const anchorIndexRef = useRef(-1);
+  const anchorRetryRef = useRef(0);
+  const anchorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Appointments is a tab screen, so it stays mounted — but a retry armed as the user navigates
+  // away would still fire into a list that has moved on. Nothing else clears this one: the anchor
+  // effect owns only the timer IT starts, and the retry chain re-arms from inside the failure
+  // handler, outside any effect's reach.
+  useEffect(
+    () => () => {
+      if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
+    },
+    [],
+  );
+  const anchorFailedRef = useRef(false);
+  const initialCells = useMemo(() => {
+    if (!isAll) return undefined;
+    const index = anchorSectionIndex(allSections, todayYmd);
+    if (index <= 0) return undefined;
+    return sectionHeaderCellIndex(allSections, index) + 1;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchorNonce]);
+
+  /**
+   * The all-dates list's cell geometry, or null until both cells have been measured.
+   *
+   * `contentStart` is the one term that is easy to leave out and impossible to notice missing from
+   * the arithmetic alone: VirtualizedList hands whatever `getItemLayout` returns straight to
+   * `scrollTo`, and that offset is counted from the top of the CONTENT CONTAINER — above the top
+   * cap and inside the padding that reserves the collapsing header. `headerHeight` here is the
+   * very same value `useCollapsingHeader` puts in `contentContainerStyle.paddingTop`, so the two
+   * cannot drift apart.
+   */
+  const allCellMetrics = useMemo<AllDatesCellMetrics | null>(() => {
+    if (!isAll || !cellsMeasured) return null;
+    return {
+      row: cardHeight + CARD_GAP,
+      sectionHeader: bandHeight,
+      // No `renderSectionFooter` is passed, so the cell VirtualizedSectionList reserves for one
+      // renders nothing and measures zero. It still owns an index — see AllDatesCellMetrics.
+      sectionFooter: 0,
+      contentStart: headerHeight + ALL_TOP_CAP_HEIGHT,
+    };
+  }, [isAll, cellsMeasured, cardHeight, bandHeight, headerHeight]);
+
+  /**
+   * Undefined until the metrics exist, and that ordering is the point: a `getItemLayout` present
+   * before the heights are known would answer with zeros, and VirtualizedList trusts it absolutely
+   * — supplying one stops it measuring cells at all (`shouldListenForLayout`), so there would be
+   * nothing left to correct the guess with. Absent, the list measures as it always did.
+   *
+   * The cost of arriving late is a known and deliberately small one. On the FIRST all-dates entry
+   * of a screen session the initial cells are measured before this appears, and those measurements
+   * are then frozen — VirtualizedList prefers a measured frame over a computed one and will never
+   * re-measure that cell again. They agree with the computed offsets until something above them
+   * resizes, and the one thing that can is the collapsing header: opening the month grid WITHOUT
+   * picking a day leaves those first cells reporting pre-grid offsets while the rest report
+   * post-grid ones, which can put the render window a few rows out until the list next remounts
+   * (any day↔all-dates move does that, and every later entry has the heights already latched, so
+   * nothing is measured and the whole table is computed). Not worth a probe row rendered off-screen
+   * to pre-measure: that probe would have to be a copy of the real card, and a copy that drifts is
+   * exactly the lying geometry this is all avoiding.
+   */
+  const allDatesItemLayout = useMemo(() => {
+    if (!allCellMetrics) return undefined;
+    return (_: unknown, index: number) => allDatesCellLayout(sections, index, allCellMetrics);
+  }, [allCellMetrics, sections]);
+
+  const scrollToAnchor = useCallback(() => {
+    // The index belongs to the all-dates sections, so it is meaningless against any other list. A
+    // retry armed here can outlive the mode: tap a day while one is pending and the day list — one
+    // section, a handful of rows — receives a section index computed for a dozen. RN does not
+    // ignore that. `scrollToLocation` walks `this.props.sections[i].data` and either throws
+    // "scrollToIndex out of range" or dereferences undefined, uncaught, inside a bare timer.
+    if (!isAll) {
+      anchorPendingRef.current = false;
+      return;
+    }
+    if (anchorIndexRef.current < 0) {
+      anchorPendingRef.current = false;
+      return;
+    }
+    // `scrollToIndex` calls `onScrollToIndexFailed` SYNCHRONOUSLY and returns, so this flag is
+    // already true or false by the line after the call.
+    anchorFailedRef.current = false;
+    sectionListRef.current?.scrollToLocation({
+      sectionIndex: anchorIndexRef.current,
+      // itemIndex 0 is the SECTION HEADER cell, not the first row — see
+      // VirtualizedSectionList.scrollToLocation. That is what puts the date band at the top.
+      itemIndex: 0,
+      animated: false,
+      viewPosition: 0,
+      // Deliberately not flush with the top, and deliberately not `headerHeight` either.
+      //
+      // Flush would be the obvious reading of "open on today", but it hides the one thing this list
+      // does differently from every other list in the app: it runs BACKWARDS, so what is above the
+      // fold is the future. A day landing hard against the top edge looks like the start of the
+      // list, and nothing invites the upward scroll that reveals next week.
+      //
+      // So leave a slice of the previous group showing. It reads as "there is more above", which is
+      // the only honest way to advertise a direction the user cannot otherwise guess.
+      //
+      // `headerHeight` was the original value and it was wrong by accident rather than by intent:
+      // the header is an overlay that auto-hides on a downward scroll, and this anchor is always a
+      // downward jump, so it has translated away by the time the jump lands. Reserving its full
+      // height pushed today a whole header down — measured at 169px, with two entire date groups
+      // stacked above the day the list is meant to open on. That is a peek turning into a scroll.
+      viewOffset: ANCHOR_PEEK,
+    });
+    // Only now may upward paging start. Opening the gate while a retry is still pending would let
+    // a future page prepend under a scroll that has not landed, moving the target mid-flight.
+    if (!anchorFailedRef.current) anchorPendingRef.current = false;
+  }, [isAll]);
+
+  // Runs on a fresh pair of page-1s, AND again the moment the two cells are first measured.
+  //
+  // The second trigger is what makes a fresh entry land. The list mounts with nothing measured, so
+  // the commit that first holds the sections has no `getItemLayout` yet and the scroll it fires is
+  // still refused. The card and the band report their layout one commit later; that flips
+  // `cellsMeasured`, this effect runs a second time, and by then the offsets are computable and
+  // `scrollToIndex` cannot refuse. On any later entry the heights are already latched, so the flag
+  // no longer changes and this runs once, on the nonce.
+  //
+  // `isAll` is read but deliberately not a dependency. The guard is needed, but not for the reason
+  // an earlier draft of this comment gave: it claimed leaving all-dates flips `cellsMeasured` back
+  // to false and re-runs this. It does not — the heights latch once and are never reset, so neither
+  // dependency moves on the way out. What the guard actually catches is `cellsMeasured` turning
+  // TRUE on the same commit that leaves the mode, which would aim an all-dates section index at the
+  // single-day list. Worth stating correctly: a reader who checks the old claim finds it false and
+  // concludes the guard is dead.
+  useEffect(() => {
+    if (!isAll || anchorNonce === 0) return;
+    anchorRetryRef.current = 0;
+    anchorIndexRef.current = anchorSectionIndex(allSections, todayYmd);
+    // Index 0 (or none at all) already IS the top of the list — a business with no future, or with
+    // nothing anywhere. Scrolling there is a no-op that would still burn the retry budget against
+    // frames this commit has not measured yet, so open the paging gate and leave it alone.
+    if (anchorIndexRef.current <= 0) {
+      anchorPendingRef.current = false;
+      return;
+    }
+    // Deferred a tick: the cells rendered by this commit have not reported their layout yet, and
+    // an unmeasured frame is what scrollToLocation refuses while there is no `getItemLayout`.
+    const t = setTimeout(scrollToAnchor, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchorNonce, cellsMeasured]);
+
+  /**
+   * The frames were still not measured. Retry a few times, then stop.
+   *
+   * Reachable only while `getItemLayout` is absent — with one supplied, `scrollToIndex` skips the
+   * measurement check entirely and this cannot fire. So it is now the path for the single commit
+   * between "the rows are on screen" and "the first card has reported its height", plus whatever
+   * device never delivers that layout at all.
+   *
+   * Bounded on purpose: an unbounded retry against a list that genuinely cannot reach the index
+   * spins forever, and the fallback — sitting at the top of the future — is a real list the user
+   * can scroll rather than a broken screen.
+   */
+  const onScrollToIndexFailed = useCallback(() => {
+    anchorFailedRef.current = true;
+    if (anchorRetryRef.current >= 3) {
+      anchorPendingRef.current = false;
+      return;
+    }
+    anchorRetryRef.current += 1;
+    // Owned, so leaving the screen or the mode does not leave a scroll armed against a list that is
+    // no longer there. `scrollToAnchor` guards on `isAll` as well — belt and braces, because the
+    // guard alone still lets a timer fire into an unmounted tree.
+    if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
+    anchorTimerRef.current = setTimeout(scrollToAnchor, 80);
+  }, [scrollToAnchor]);
+
   // List footer: the spinner while a further page lands, otherwise the mockup's end-of-day marker.
   //
   // The marker is only honest on the DAY surface — "scheduled today" is nonsense against a search
@@ -494,6 +1046,26 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
   // page-capped, which is why the count line reads from the same place).
   const dayFullyLoaded = rows.length > 0 && rows.length >= dayTotal;
   const footer = useMemo(() => {
+    // All-dates: the bottom of the list is the OLDEST appointment, and completeness is the past
+    // bucket's own page counter — dayCounts describes one day and says nothing about it.
+    if (isAll) {
+      if (pastLoading) {
+        return (
+          <View style={styles.footer}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        );
+      }
+      if (pastDone) {
+        return (
+          <View style={styles.endOfDay}>
+            <CalendarCheck size={16} color={palette.muted} />
+            <Text style={styles.endOfDayText}>That's the whole history</Text>
+          </View>
+        );
+      }
+      return null;
+    }
     if (activeModule.loading && rows.length > 0) {
       return (
         <View style={styles.footer}>
@@ -511,6 +1083,9 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
     }
     return null;
   }, [
+    isAll,
+    pastLoading,
+    pastDone,
     activeModule.loading,
     rows.length,
     surface,
@@ -520,6 +1095,28 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
     colors.primary,
     palette.muted,
   ]);
+
+  /**
+   * The all-dates list's TOP cap — the far end of the future.
+   *
+   * Always rendered in this mode and always {@link ALL_TOP_CAP_HEIGHT} tall, which is why the
+   * third state — more pages exist, none in flight — is an empty spacer rather than nothing.
+   */
+  const topCap = useMemo(() => {
+    if (!isAll) return null;
+    return (
+      <View style={styles.topCap}>
+        {futureLoading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : futureDone ? (
+          <>
+            <CalendarClock size={16} color={palette.muted} />
+            <Text style={styles.endOfDayText}>Nothing scheduled further ahead</Text>
+          </>
+        ) : null}
+      </View>
+    );
+  }, [isAll, futureLoading, futureDone, styles, colors.primary, palette.muted]);
 
   let body: React.ReactNode;
 
@@ -536,7 +1133,12 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
         colors={colors}
       />
     );
-  } else if (view === 'LOADING' || view === 'CALENDAR_LOADING' || view === 'SEARCHING') {
+  } else if (
+    view === 'LOADING' ||
+    view === 'CALENDAR_LOADING' ||
+    view === 'ALL_LOADING' ||
+    view === 'SEARCHING'
+  ) {
     body = (
       <View style={[styles.skeletonWrap, bodyInset]}>
         {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -572,19 +1174,81 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
         colors={colors}
       />
     );
+  } else if (view === 'ALL_EMPTY') {
+    // Distinct copy from DAY_EMPTY on purpose: no day is selected here, so "nothing scheduled for
+    // this day" would point at a day the user cannot see and send them hunting through the strip
+    // for a day that has something on it. This state means the business has nothing, ever.
+    body = (
+      <HeroBlock
+        styles={styles}
+        style={bodyInset}
+        icon={<CalendarDays size={40} color={palette.muted} />}
+        headline="No appointments yet"
+        sub="Nothing booked on any date — past or upcoming. Book one to get started."
+        ctaLabel="New Appointment"
+        onCta={onAdd}
+        colors={colors}
+      />
+    );
   } else {
     body = (
       <AnimatedSectionList
+        // Remounts between the single-date list and the all-dates one. Their scroll offsets mean
+        // different things, and `initialNumToRender` is read at mount — reusing one instance would
+        // carry the day list's window into a list that has to open part-way down.
+        //
+        // Re-keying on a data-ready flag as well was tried, to remount the list with a window
+        // sized for the sections it now has, and it does NOT work: the anchor fires on the same
+        // batched render, so the scroll lands on the instance being replaced and the new one
+        // starts at zero. Reverted. What fixes the opening scroll is `getItemLayout` below.
+        //
+        // Day↔search deliberately share a key, so that transition behaves exactly as it did.
+        key={isAll ? 'all' : 'single'}
+        ref={sectionListRef}
         {...listProps}
         sections={sections}
         keyExtractor={(item: AppointmentRow) => String(item.id)}
-        renderSectionHeader={() => null}
+        renderSectionHeader={({ section }: { section: { date: string } }) =>
+          section.date ? (
+            // Only the all-dates list draws a band at all — the day and search lists pass one
+            // section with a blank date — so this onLayout only ever reports an all-dates cell.
+            <View style={styles.dateBand} onLayout={measureBand}>
+              {/*
+                One line, so every band is the same height. "YESTERDAY · WED, 23 SEPTEMBER" is
+                nearly twice the width of "SUN, 27 APRIL", and at a large system text size the
+                longer ones would wrap while the shorter ones did not.
+              */}
+              <Text style={styles.dateBandText} numberOfLines={1}>
+                {sectionHeading(section.date, todayYmd)}
+              </Text>
+            </View>
+          ) : null
+        }
         renderItem={({ item }: { item: AppointmentRow }) => renderRow(item)}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.3}
-        // Explicit, and load-bearing: the default is true on iOS, which would pin section headers
+        // Scrolling UP walks into the future. Only the all-dates list has anything above it.
+        onStartReached={isAll ? loadMoreFuture : undefined}
+        onStartReachedThreshold={0.3}
+        maintainVisibleContentPosition={isAll ? MAINTAIN_POSITION : undefined}
+        // Gated on `isAll` as well as computed under it: `initialCells` is memoised on the anchor
+        // nonce and therefore survives the switch back to a single day, where an inflated initial
+        // window would make the day list render forty cells to show three.
+        initialNumToRender={isAll ? initialCells : undefined}
+        // What actually lands the opening scroll. `scrollToIndex` refuses any cell past the
+        // highest frame it has MEASURED — and today's group sits below every future date, so on
+        // the first commit it is always past that mark — but the refusal only exists while there
+        // is no `getItemLayout`. With one, the offset is computed and the check is skipped.
+        //
+        // Already undefined outside all-dates and until the two cells have been measured; no
+        // second gate here, so there is one place that decides whether the geometry is known.
+        getItemLayout={allDatesItemLayout}
+        onScrollToIndexFailed={onScrollToIndexFailed}
+        ListHeaderComponent={topCap}
+        // Explicit, and load-bearing: the default is true on iOS, which would pin the date bands
         // at scroll-view y=0 — i.e. behind the overlay header — then pop them into view the moment
-        // it collapses. Headers render null here anyway, but the flag must not be left to chance.
+        // it collapses. It would also fight maintainVisibleContentPosition, whose anchor is a
+        // content child that a stuck header has been lifted out of the flow of.
         stickySectionHeadersEnabled={false}
         refreshControl={
           <RefreshControl
@@ -644,7 +1308,9 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
           <View style={styles.titleRow}>
             <View style={styles.titleBlock}>
               <Text style={styles.title}>Appointments</Text>
-              <Text style={styles.subtitle}>{formatDayHeading(parseYmd(selectedDate))}</Text>
+              <Text style={styles.subtitle}>
+                {selectedDate ? formatDayHeading(parseYmd(selectedDate)) : 'All dates'}
+              </Text>
             </View>
             <Pressable
               style={styles.calBtn}
@@ -690,6 +1356,7 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
           <WeekStrip
             styles={styles}
             colors={colors}
+            anchorDate={anchorDate}
             selectedDate={selectedDate}
             counts={dayCounts}
             onPickDate={openDay}
@@ -697,8 +1364,11 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
         ))}
 
       {/* Count line. Sourced from dayCounts, never rows.length — the list is page-capped, so a busy
-          day would otherwise read "20 appointments" forever. */}
-      {(view === 'DAY' || view === 'CALENDAR') && (
+          day would otherwise read "20 appointments" forever.
+
+          The `selectedDate &&` is a type narrowing, not a behaviour change: DAY and CALENDAR are
+          unreachable without a selected day — deriveView returns an ALL_* state instead. */}
+      {(view === 'DAY' || view === 'CALENDAR') && selectedDate && (
         <Text style={surface === 'CALENDAR' ? styles.calendarStamp : styles.dayCountLine}>
           {surface === 'CALENDAR'
             ? `${formatDayStamp(parseYmd(selectedDate))}   ·   ${dayTotal} appointment${
@@ -708,6 +1378,13 @@ export function AppointmentsScreen({ navigation }: AppointmentsScreenProps = {})
                 selectedDate === todayYmd ? ' today' : ''
               }`}
         </Text>
+      )}
+
+      {/* No number here, deliberately. The two buckets report pages, not row totals, so any figure
+          would be "however much has been paged in so far" dressed up as a count. What the line does
+          carry is the one thing the ordering is not self-evident about: up is later. */}
+      {view === 'ALL' && (
+        <Text style={styles.dayCountLine}>All dates · newest first, scroll up for later</Text>
       )}
 
       {view === 'SEARCH_RESULTS' && (
@@ -804,17 +1481,25 @@ function DayDots({ styles, count, color }: { styles: any; count: number; color: 
 function WeekStrip({
   styles,
   colors,
+  anchorDate,
   selectedDate,
   counts,
   onPickDate,
 }: {
   styles: any;
   colors: any;
-  selectedDate: string;
+  /** Which week is on screen. Follows every tap, including the one that clears the selection. */
+  anchorDate: string;
+  /**
+   * Which day is highlighted, or null. Null is the "disabled" strip: the week is still there and
+   * still tappable, and no cell is lit — that IS the all-dates mode's indicator, so it must not be
+   * substituted with a highlight on today.
+   */
+  selectedDate: string | null;
   counts: Record<string, number>;
   onPickDate: (ymd: string) => void;
 }) {
-  const days = useMemo(() => weekDays(parseYmd(selectedDate)), [selectedDate]);
+  const days = useMemo(() => weekDays(parseYmd(anchorDate)), [anchorDate]);
 
   return (
     <View style={styles.weekStrip}>
@@ -864,7 +1549,8 @@ function MonthGrid({
   colors: any;
   palette: any;
   anchor: { y: number; m: number };
-  selectedDate: string;
+  /** Null while no day is selected — no cell is filled, same as the week strip. */
+  selectedDate: string | null;
   counts: Record<string, number>;
   onPickDate: (ymd: string) => void;
   onShiftMonth: (delta: number) => void;
@@ -1358,7 +2044,7 @@ function createStyles(theme: AppTheme) {
       alignItems: 'center',
       gap: 12,
       marginHorizontal: 16,
-      marginBottom: 10,
+      marginBottom: CARD_GAP,
       paddingVertical: 12,
       paddingHorizontal: 14,
       borderRadius: 16,
@@ -1438,6 +2124,21 @@ function createStyles(theme: AppTheme) {
       justifyContent: 'center',
     },
     heroCtaLabel: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
+
+    // All-dates date band. Same type treatment as the calendar's day stamp so the two read as one
+    // family; the horizontal padding lines it up with the cards' 16px margin rather than the
+    // header's 18px.
+    dateBand: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 6 },
+    dateBandText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: dim },
+
+    // Fixed height — see ALL_TOP_CAP_HEIGHT.
+    topCap: {
+      height: ALL_TOP_CAP_HEIGHT,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
 
     footer: { paddingVertical: 16 },
     endOfDay: {

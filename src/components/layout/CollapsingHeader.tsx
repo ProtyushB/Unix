@@ -1,6 +1,12 @@
 import React from 'react';
 import { View, SectionList, FlatList, StyleSheet } from 'react-native';
-import type { LayoutChangeEvent, ViewProps, SectionListProps, FlatListProps } from 'react-native';
+import type {
+  LayoutChangeEvent,
+  ViewProps,
+  SectionListProps,
+  SectionListScrollParams,
+  FlatListProps,
+} from 'react-native';
 import Animated from 'react-native-reanimated';
 import type { AnimatedProps } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +25,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const AnimatedSectionListBase = Animated.createAnimatedComponent(SectionList);
 
 /**
+ * The slice of SectionList's imperative handle a caller can reach through the animated wrapper.
+ *
+ * Reanimated's `_setComponentRef` hands the forwarded ref the wrapped component itself before it
+ * resolves anything of its own, so this really is RN's SectionList instance and not a proxy — but
+ * `createAnimatedComponent` returns a plain function component, so the ref has to be declared on
+ * the cast below or TypeScript sees no `ref` prop at all.
+ *
+ * Only `scrollToLocation` is listed because it is the only method any caller needs. Widen it when
+ * one genuinely does, rather than re-exporting a handle nobody has checked.
+ */
+export interface AnimatedSectionListHandle {
+  scrollToLocation(params: SectionListScrollParams): void;
+}
+
+/**
  * `createAnimatedComponent` erases SectionList's generic, and the two screens using this have
  * different row types. Rather than casting at both call sites, the ugliness lives here once.
  */
@@ -26,6 +47,7 @@ export const AnimatedSectionList = AnimatedSectionListBase as unknown as <ItemT,
   props: SectionListProps<ItemT, SectionT> & {
     onScroll?: unknown;
     scrollEventThrottle?: number;
+    ref?: React.Ref<AnimatedSectionListHandle>;
   },
 ) => React.ReactElement;
 
