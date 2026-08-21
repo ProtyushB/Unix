@@ -20,6 +20,7 @@ import AuthTopBack from '../../components/auth/AuthTopBack';
 import AuthBackLink from '../../components/auth/AuthBackLink';
 import PasswordRuleDots from '../../components/auth/PasswordRuleDots';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
+import { extractErrorMessage } from '../../backend/shared/http/axiosError';
 import { PASSWORD_RULES } from '../../utils/validators';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
@@ -69,16 +70,35 @@ const ForgotPasswordNewScreen: React.FC<Props> = ({ navigation, route }) => {
       showToast('Password reset successful! Please sign in with your new password.', 'success');
       navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     } catch (err: any) {
-      const message = err?.message || 'Failed to reset password.';
-      const lower = message.toLowerCase();
+      // Two jobs that used to share one variable. `err.message` is the raw thrown text and stays
+      // the ROUTING input, matched exactly as before; what reaches the screen is the gated value,
+      // because this screen is reachable without an account and `auth-service`'s catch-all puts
+      // `"Internal server error: " + ex.getMessage()` — a Postgres `ERROR:` line, table name and
+      // all — into the very field the else branch used to render.
+      //
+      // The old code branched on `message`, which had the fallback `||`'d into it, so an error with
+      // no message at all was matched against "Failed to reset password." rather than against
+      // nothing. Reading `err?.message` directly is both the correct input and the shape
+      // `LoginScreen` already uses.
+      //
+      // 'same as the old password' is the key that actually fires: auth-service throws "New
+      // password cannot be the same as the old password" (AuthServiceImpl.resetPassword), which
+      // contains none of the three keys this branch shipped with, so the tailored sentence never
+      // rendered and every reuse attempt fell to the else. The three are kept beside it because
+      // they cost nothing: no string in auth-service, ModuleX or DMS-Backend contains any of them,
+      // so removing them would change matching behaviour for no gain, while adding the real one is
+      // what makes the branch live. That measurement is what would falsify keeping them — a backend
+      // that starts emitting one is a backend whose wording this branch should be re-read against.
+      const raw = (err?.message || '').toLowerCase();
       if (
-        lower.includes('same password') ||
-        lower.includes('previously used') ||
-        lower.includes('must be different')
+        raw.includes('same as the old password') ||
+        raw.includes('same password') ||
+        raw.includes('previously used') ||
+        raw.includes('must be different')
       ) {
         setError('New password must be different from your current password.');
       } else {
-        setError(message);
+        setError(extractErrorMessage(err, 'Failed to reset password.'));
       }
     } finally {
       setLoading(false);

@@ -20,6 +20,7 @@ import AuthTopBack from '../../components/auth/AuthTopBack';
 import AuthBackLink from '../../components/auth/AuthBackLink';
 import AuthBadge from '../../components/auth/AuthBadge';
 import { getAuthService } from '../../backend/auth/provider/auth.provider';
+import { extractErrorMessage } from '../../backend/shared/http/axiosError';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { useAuthScrollInsets } from '../../hooks/useAuthScrollInsets';
@@ -86,7 +87,16 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
         setError('Invalid OTP. Please try again.');
       }
     } catch (err: any) {
-      setError(err?.message || 'Verification failed. Please try again.');
+      // Pre-login screen, so the raw text of a 500 is readable by anyone: `auth-service` writes
+      // `"Internal server error: " + ex.getMessage()` into both wrapper fields, and until the gate
+      // was put in front of the display that arrived here whole. An earlier version of this comment
+      // credited the endpoint with two curated refusals — "OTP not verified for reset" and the
+      // password-reset expiry sentence — which belong to `resetPassword`, the NEXT screen's call.
+      // `verifyResetPasswordOtp` throws none of its own: a wrong code comes back as
+      // `verified(false)` and is handled in the `else` above, so what reaches this catch is a
+      // transport failure or a 500. The gate matters here for that reason rather than in spite of
+      // it — there is no curated sentence to preserve, only text nobody wrote for a user.
+      setError(extractErrorMessage(err, 'Verification failed. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -101,7 +111,7 @@ const ForgotPasswordOtpScreen: React.FC<Props> = ({ navigation, route }) => {
       setOtp('');
       startCooldown();
     } catch (err: any) {
-      setError(err?.message || 'Failed to resend OTP.');
+      setError(extractErrorMessage(err, 'Failed to resend OTP.'));
     } finally {
       setResending(false);
     }
