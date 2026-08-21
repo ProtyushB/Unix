@@ -8,6 +8,7 @@
 import { FileApiInterface, ResourceFileDto, NativeFile } from './file.api.interface';
 import { appendFiles } from './appendFiles';
 import dmsApiClient from '../config/axios.instance';
+import { apiError } from '../../shared/http/axiosError';
 
 interface DmsResponseWrapper<T> {
   success: boolean;
@@ -16,9 +17,24 @@ interface DmsResponseWrapper<T> {
   error: string | null;
 }
 
+/**
+ * The throw carries the wrapper rather than the sentence out of it.
+ *
+ * `FileService.handleApiError` runs `extractErrorMessage` over whatever this raises, and that gate
+ * reads `err.response.data`. A plain `Error(wrapper.error || …)` kept the text and dropped the
+ * envelope, so the gate had nothing to inspect and handed the field straight back — the exact
+ * arrangement `ApiError` exists to end. The field in question is the one `LocalStorageService`
+ * fills with absolute storage paths.
+ *
+ * This branch does not fire today: DMS-Backend's controllers all build `success(true)`, and only
+ * its `GlobalExceptionHandler` builds a failure, which travels on a non-2xx and therefore rejects
+ * instead of reaching here. So this is a line waiting for the first DMS endpoint that reports a
+ * refusal in a 200 body, not a leak now — and it is cheaper to convert it than to remember the rule
+ * when that endpoint is written.
+ */
 function unwrap<T>(wrapper: DmsResponseWrapper<T>): T {
   if (!wrapper.success) {
-    throw new Error(wrapper.error || wrapper.message || 'DMS request failed');
+    throw apiError(wrapper, 'DMS request failed');
   }
   return wrapper.data;
 }

@@ -26,7 +26,25 @@ import type { StockTransferPayload, StockTransferQuery } from '../stockTransfer.
 import { DmsService } from '../../../dms/service/dms.service';
 import { createEntityFolder } from '../../../dms/util/EntityFolderUtils';
 import { NativeFile, ResourceFileDto } from '../../../dms/api/file.api.interface';
-import { extractErrorInfo, extractErrorMessage } from '../../../shared/http/axiosError';
+// ModuleX refuses a write with HTTP 200 and `success: false`, so the wrapper arrives as an ordinary
+// result rather than as a rejection. The body is the only thing the shared gate can inspect, so a
+// site that lifts a field out of that wrapper and drops the envelope hands the user whatever the
+// server wrote — an SQL dump, a helpful NPE, an absolute storage path, an internal host — while the
+// identical text arriving on a REJECTED request is demoted. One failure, two routes, two answers.
+//
+// Which is why no site in this file reads those fields itself. All 55 refusal branches go through
+// one of two doors: the 16 that turn the refusal back into a throw use `apiError`, which carries the
+// wrapper on the thrown error so the catch below gates it, and the 39 that hand the message back
+// without throwing use `apiMessage`, which runs the same gate with no throw to hang it on.
+// `extractErrorInfo` and `extractErrorMessage` are the other half, for requests that really did
+// reject. Nothing enforces this but reading: a new branch that spells the old
+// `error || message || 'fallback'` chain out by hand is outside the gate again, silently.
+import {
+  apiError,
+  apiMessage,
+  extractErrorInfo,
+  extractErrorMessage,
+} from '../../../shared/http/axiosError';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -452,7 +470,7 @@ async function readOne(
   try {
     const response = await fetchOne();
     if (response.success) return { success: true, data: response.data, error: null };
-    return { success: false, error: response.error || response.message || fallbackMessage };
+    return { success: false, error: apiMessage(response, fallbackMessage) };
   } catch (err) {
     const { message, code } = extractErrorInfo(err, fallbackMessage);
     return { success: false, code, error: message };
@@ -590,7 +608,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             // `|| null` this replaces cleared the banner while the list below it was emptied. A
             // failed query then rendered as a confirmed empty catalog — the user reads "nothing
             // here" and stops looking. The six list loaders below carry the same fallback.
-            setError(response.error || response.message || 'Failed to load products');
+            setError(apiMessage(response, 'Failed to load products'));
             setProducts([]);
             setProductsTotalPages(1);
           }
@@ -637,7 +655,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           const response = await service.createProduct(productData);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not save this product.');
+          throw apiError(response, 'Could not save this product.');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
             try {
@@ -661,7 +679,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateProduct(productData);
           if (response.success) return { success: true, data: response.data };
-          const message = response.error || response.message || 'Could not save this product.';
+          const message = apiMessage(response, 'Could not save this product.');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -682,7 +700,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteProduct(id);
           if (response.success) return { success: true, data: response.data };
-          const message = response.error || response.message || 'Could not delete this product.';
+          const message = apiMessage(response, 'Could not delete this product.');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -731,7 +749,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return { success: true, data: response.data };
           return {
             success: false,
-            error: response.error || response.message || 'Failed to prepare the image folder',
+            error: apiMessage(response, 'Failed to prepare the image folder'),
           };
         } catch (err) {
           const message = extractErrorMessage(err, 'Failed to prepare the image folder');
@@ -796,7 +814,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           return {
             success: false,
-            error: response.error || response.message || 'Could not load products.',
+            error: apiMessage(response, 'Could not load products.'),
           };
         } catch (err) {
           const message = extractErrorMessage(err, 'Could not load products.');
@@ -843,7 +861,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             // blanking the count on every page-2 fetch would make the header flicker.
             if (response.totalElements != null) setServicesTotalElements(response.totalElements);
           } else {
-            setError(response.error || response.message || 'Failed to load services');
+            setError(apiMessage(response, 'Failed to load services'));
             setServices([]);
             setServicesTotalPages(1);
           }
@@ -873,7 +891,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           const response = await service.createService(serviceData);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not save this service.');
+          throw apiError(response, 'Could not save this service.');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
             try {
@@ -897,7 +915,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateService(serviceData);
           if (response.success) return { success: true, data: response.data };
-          const message = response.error || response.message || 'Could not save this service.';
+          const message = apiMessage(response, 'Could not save this service.');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -935,7 +953,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteService(id);
           if (response.success) return { success: true, data: response.data };
-          const message = response.error || response.message || 'Could not delete this service.';
+          const message = apiMessage(response, 'Could not delete this service.');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -1017,7 +1035,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             setOrders(Array.isArray(data) ? data : []);
             setOrdersTotalPages(response.totalPages ?? 1);
           } else {
-            setError(response.error || response.message || 'Failed to load orders');
+            setError(apiMessage(response, 'Failed to load orders'));
             setOrders([]);
             setOrdersTotalPages(1);
           }
@@ -1074,7 +1092,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           const response = await service.updateOrderStatus(orderId, status, { reason });
           if (response.success) return { success: true, data: response.data };
-          const message = response.error || response.message || 'Failed to update order status';
+          const message = apiMessage(response, 'Failed to update order status');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -1116,7 +1134,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           const response = await service.createOrder(orderData);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not save this order.');
+          throw apiError(response, 'Could not save this order.');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
             try {
@@ -1140,7 +1158,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateOrder(orderData);
           if (response.success) return { success: true, data: response.data };
-          const message = response.error || response.message || 'Could not save this order.';
+          const message = apiMessage(response, 'Could not save this order.');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -1161,7 +1179,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteOrder(id);
           if (response.success) return { success: true, data: response.data };
-          const message = response.error || response.message || 'Could not delete this order.';
+          const message = apiMessage(response, 'Could not delete this order.');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -1191,7 +1209,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             const data = response.data;
             setOrders(Array.isArray(data) ? data : []);
           } else {
-            setError(response.error || response.message || 'Failed to load orders for customer');
+            setError(apiMessage(response, 'Failed to load orders for customer'));
             setOrders([]);
           }
         } catch (err) {
@@ -1267,7 +1285,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             // whatever the first request returned.
             setAppointmentsTotalPages(response.totalPages ?? 1);
           } else {
-            setError(response.error || response.message || 'Failed to load appointments');
+            setError(apiMessage(response, 'Failed to load appointments'));
             setAppointments([]);
           }
         } catch (err) {
@@ -1344,8 +1362,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           const response = await service.updateAppointmentStatus(appointmentId, status, { reason });
           if (response.success) return { success: true, data: response.data };
-          const message =
-            response.error || response.message || 'Failed to update appointment status';
+          const message = apiMessage(response, 'Failed to update appointment status');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -1378,7 +1395,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             reason,
           });
           if (response.success) return { success: true, data: response.data };
-          const message = response.error || response.message || 'Failed to reschedule appointment';
+          const message = apiMessage(response, 'Failed to reschedule appointment');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -1409,7 +1426,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           const response = await service.createAppointment(appointmentData);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not save this appointment.');
+          throw apiError(response, 'Could not save this appointment.');
         } catch (err) {
           for (const f of uploadedDmsFiles) {
             try {
@@ -1433,7 +1450,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateAppointment(appointmentData);
           if (response.success) return { success: true, data: response.data };
-          const message = response.error || response.message || 'Could not save this appointment.';
+          const message = apiMessage(response, 'Could not save this appointment.');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -1454,8 +1471,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteAppointment(id);
           if (response.success) return { success: true, data: response.data };
-          const message =
-            response.error || response.message || 'Could not delete this appointment.';
+          const message = apiMessage(response, 'Could not delete this appointment.');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -1485,9 +1501,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             const data = response.data;
             setAppointments(Array.isArray(data) ? data : []);
           } else {
-            setError(
-              response.error || response.message || 'Failed to load appointments for customer',
-            );
+            setError(apiMessage(response, 'Failed to load appointments for customer'));
             setAppointments([]);
           }
         } catch (err) {
@@ -1537,7 +1551,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             // list had no way to know whether another page existed.
             setBillsTotalPages((response as { totalPages?: number }).totalPages || 1);
           } else {
-            setError(response.error || response.message || 'Failed to load bills');
+            setError(apiMessage(response, 'Failed to load bills'));
             setBills([]);
           }
         } catch (err) {
@@ -1591,7 +1605,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return response;
           return {
             ...response,
-            error: response.error || response.message || 'Failed to update bill status',
+            error: apiMessage(response, 'Failed to update bill status'),
           };
         } catch (err) {
           // Dig the server's `code` out of the axios error — the screen branches on it to tell a
@@ -1617,7 +1631,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return response;
           return {
             ...response,
-            error: response.error || response.message || 'Failed to update bill payment',
+            error: apiMessage(response, 'Failed to update bill payment'),
           };
         } catch (err) {
           const { message, code } = extractErrorInfo(err, 'Failed to update bill payment');
@@ -1634,7 +1648,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return response;
           return {
             ...response,
-            error: response.error || response.message || 'Could not create this bill.',
+            error: apiMessage(response, 'Could not create this bill.'),
           };
         } catch (err) {
           const { message, code } = extractErrorInfo(err, 'Could not create this bill.');
@@ -1664,7 +1678,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return response;
           return {
             ...response,
-            error: response.error || response.message || 'Could not save this bill.',
+            error: apiMessage(response, 'Could not save this bill.'),
           };
         } catch (err) {
           const { message, code } = extractErrorInfo(err, 'Could not save this bill.');
@@ -1686,7 +1700,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return response;
           return {
             ...response,
-            error: response.error || response.message || 'Could not delete this bill.',
+            error: apiMessage(response, 'Could not delete this bill.'),
           };
         } catch (err) {
           const { message, code } = extractErrorInfo(err, 'Could not delete this bill.');
@@ -1719,7 +1733,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return { success: true, data: response.data };
           return {
             success: false,
-            error: response.error || response.message || 'Failed to prepare the photo folder',
+            error: apiMessage(response, 'Failed to prepare the photo folder'),
           };
         } catch (err) {
           const message = extractErrorMessage(err, 'Failed to prepare the photo folder');
@@ -1796,7 +1810,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             );
             return { success: true, data: rows };
           }
-          const message = response.error || response.message || 'Failed to load inventory';
+          const message = apiMessage(response, 'Failed to load inventory');
           setError(message);
           if (!append) setInventory([]);
           return { success: false, error: message };
@@ -1827,7 +1841,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           return {
             success: false,
-            error: response.error || response.message || 'Failed to load counts',
+            error: apiMessage(response, 'Failed to load counts'),
           };
         } catch (err) {
           return { success: false, error: extractErrorMessage(err, 'Failed to load counts') };
@@ -1847,8 +1861,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             inventoryType,
           );
           if (response.success) return { success: true, data: response.data };
-          const message =
-            response.error || response.message || 'Failed to load inventory by product';
+          const message = apiMessage(response, 'Failed to load inventory by product');
           setError(message);
           return { success: false, error: message };
         } catch (err) {
@@ -1885,7 +1898,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           }
           return {
             success: false,
-            error: response.error || response.message || 'Failed to load transitions',
+            error: apiMessage(response, 'Failed to load transitions'),
           };
         } catch (err) {
           return { success: false, error: extractErrorMessage(err, 'Failed to load transitions') };
@@ -1901,7 +1914,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return { success: true, data: response.data };
           return {
             success: false,
-            error: response.error || response.message || 'Could not dispose this batch',
+            error: apiMessage(response, 'Could not dispose this batch'),
           };
         } catch (err) {
           return {
@@ -1920,7 +1933,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.addInventoryBatch(batchData);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not save this batch.');
+          throw apiError(response, 'Could not save this batch.');
         } catch (err) {
           const message = extractErrorMessage(err, 'Could not save this batch.');
           setError(message);
@@ -1942,7 +1955,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteInventoryBatch(id);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not delete this batch.');
+          throw apiError(response, 'Could not delete this batch.');
         } catch (err) {
           const message = extractErrorMessage(err, 'Could not delete this batch.');
           setError(message);
@@ -1968,7 +1981,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateBatchStatus(id, status, options);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not change the status');
+          throw apiError(response, 'Could not change the status');
         } catch (err) {
           const message = extractErrorMessage(err, 'Could not change the status');
           setError(message);
@@ -1987,7 +2000,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.getExpiringBatches(businessId, withinDays);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Failed to fetch expiring batches');
+          throw apiError(response, 'Failed to fetch expiring batches');
         } catch (err) {
           const message = extractErrorMessage(err, 'Failed to fetch expiring batches');
           setError(message);
@@ -2006,7 +2019,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return { success: true, data: response.data };
           return {
             success: false,
-            error: response.error || response.message || 'Failed to load stock',
+            error: apiMessage(response, 'Failed to load stock'),
           };
         } catch (err) {
           // The one catch here that carried no fallback at all: anything thrown with a blank
@@ -2063,7 +2076,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             setConsumptionsTotalPages(response.totalPages ?? 1);
             return { success: true, data: rows };
           }
-          const message = response.error || response.message || 'Failed to load consumptions';
+          const message = apiMessage(response, 'Failed to load consumptions');
           setError(message);
           if (!append) setConsumptions([]);
           return { success: false, error: message };
@@ -2100,9 +2113,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.createConsumption(data);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(
-            response.error || response.message || 'Could not record this consumption.',
-          );
+          throw apiError(response, 'Could not record this consumption.');
         } catch (err) {
           // Dig the server's reason out of the axios body rather than reporting "Request failed
           // with status code 400": the refusals here name a field (not enough stock in the batch,
@@ -2125,9 +2136,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteConsumption(id);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(
-            response.error || response.message || 'Could not delete this consumption.',
-          );
+          throw apiError(response, 'Could not delete this consumption.');
         } catch (err) {
           const { message, code } = extractErrorInfo(err, 'Could not delete this consumption.');
           setError(message);
@@ -2173,7 +2182,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             setWastageTotalPages(response.totalPages ?? 1);
             return { success: true, data: rows };
           }
-          const message = response.error || response.message || 'Failed to load wastage';
+          const message = apiMessage(response, 'Failed to load wastage');
           setError(message);
           if (!append) setWastage([]);
           return { success: false, error: message };
@@ -2209,7 +2218,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.createWastage(data);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not record this wastage.');
+          throw apiError(response, 'Could not record this wastage.');
         } catch (err) {
           // Dig the server's reason out of the axios body rather than reporting "Request failed
           // with status code 400": the refusals here name the shortfall (not enough stock left in
@@ -2238,7 +2247,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteWastage(id);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not delete this wastage.');
+          throw apiError(response, 'Could not delete this wastage.');
         } catch (err) {
           const { message, code } = extractErrorInfo(err, 'Could not delete this wastage.');
           setError(message);
@@ -2288,7 +2297,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             setStockTransfersTotalPages(response.totalPages ?? 1);
             return { success: true, data: rows };
           }
-          const message = response.error || response.message || 'Failed to load stock transfers';
+          const message = apiMessage(response, 'Failed to load stock transfers');
           setError(message);
           if (!append) setStockTransfers([]);
           return { success: false, error: message };
@@ -2325,7 +2334,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.createStockTransfer(data);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not record this transfer.');
+          throw apiError(response, 'Could not record this transfer.');
         } catch (err) {
           // Dig the server's reason out of the axios body: an over-draw refusal names the shortfall,
           // and that reason is the whole message.
@@ -2361,7 +2370,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return { success: true, data: response.data };
           return {
             success: false,
-            error: response.error || response.message || 'Could not delete this transfer',
+            error: apiMessage(response, 'Could not delete this transfer'),
           };
         } catch (err) {
           const { message, code } = extractErrorInfo(err, 'Could not delete this transfer');
@@ -2400,7 +2409,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
             setExpensesTotalPages(response.totalPages ?? 1);
             return { success: true, data: rows };
           }
-          const message = response.error || response.message || 'Failed to load expenses';
+          const message = apiMessage(response, 'Failed to load expenses');
           setError(message);
           if (!append) setExpenses([]);
           return { success: false, error: message };
@@ -2429,7 +2438,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.createExpense(data);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not save this expense.');
+          throw apiError(response, 'Could not save this expense.');
         } catch (err) {
           const { message, code } = extractErrorInfo(err, 'Could not save this expense.');
           setError(message);
@@ -2459,7 +2468,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.updateExpense(id, data);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not save this expense.');
+          throw apiError(response, 'Could not save this expense.');
         } catch (err) {
           const { message, code } = extractErrorInfo(err, 'Could not save this expense.');
           setError(message);
@@ -2478,7 +2487,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
         try {
           const response = await service.deleteExpense(id);
           if (response.success) return { success: true, data: response.data };
-          throw new Error(response.error || response.message || 'Could not delete this expense.');
+          throw apiError(response, 'Could not delete this expense.');
         } catch (err) {
           const { message, code } = extractErrorInfo(err, 'Could not delete this expense.');
           setError(message);
@@ -2512,7 +2521,7 @@ export function createModuleHook(getServiceFn: () => ModuleService, _moduleName:
           if (response.success) return { success: true, data: response.data };
           return {
             success: false,
-            error: response.error || response.message || 'Could not mark this expense reimbursed.',
+            error: apiMessage(response, 'Could not mark this expense reimbursed.'),
           };
         } catch (err) {
           const { message, code } = extractErrorInfo(

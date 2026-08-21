@@ -31,6 +31,7 @@ import {
   StoredUser,
 } from '../../../storage/auth.storage';
 import { AxiosError } from 'axios';
+import { ApiError } from '../../shared/http/axiosError';
 
 export class AuthService {
   private api: AuthApiInterface;
@@ -357,14 +358,39 @@ export class AuthService {
 
   // ==================== ERROR HANDLING ====================
 
+  /**
+   * Normalise an axios rejection into an Error whose `message` is what this module's callers
+   * already branch on — while keeping the body, so what the user is SHOWN can still be gated.
+   *
+   * The message text here is control flow, not display copy, which is why the four branches below
+   * are untouched: `LoginScreen` lower-cases `err.message` and matches 'invalid credentials',
+   * 'not found with username' and a network/econnrefused/timeout/enotfound pattern to pick which
+   * sentence to show; `ForgotPasswordNewScreen` matches 'same password' / 'previously used' /
+   * 'must be different'; and `isVerificationError` in `completeSignup` regex-matches what `signup`
+   * throws to decide whether to bounce the user back to re-verify. Any of those turning into a
+   * fallback would re-route a screen silently, with nothing failing.
+   *
+   * What changed is only that the body rides along. `completeSignup` runs this error through the
+   * shared extractor, and until now that extractor found a bare `Error` — no `response`, nothing to
+   * inspect — so `auth-service`'s `RuntimeException` handler, which answers with
+   * `"Internal server error: " + ex.getMessage()`, went to the user as-is. With the body attached
+   * the gate sees it. The re-verify bounce is unaffected because auth-service's `buildErrorResponse`
+   * writes the SAME string into `message` and `error`, and all four verification strings are short
+   * marker-free sentences the gate returns unchanged ("Email verification has expired. Please
+   * verify your email again.", "Email not verified via OTP", and the two reset spellings).
+   */
   private handleApiError(error: unknown): Error {
     const axiosError = error as AxiosError<{ error?: string; message?: string }>;
-    if (axiosError.response?.data?.error) {
-      return new Error(axiosError.response.data.error);
+    const body = axiosError.response?.data;
+    if (body?.error) {
+      return new ApiError(body.error, body);
     }
-    if (axiosError.response?.data?.message) {
-      return new Error(axiosError.response.data.message);
+    if (body?.message) {
+      return new ApiError(body.message, body);
     }
+    // No body to attach, so a plain Error is all there is — and all that is needed. axios wrote
+    // this string itself ("Network Error", "timeout of 4000ms exceeded"), which is exactly what the
+    // login screen's connectivity branch reads.
     if (axiosError.message) {
       return new Error(axiosError.message);
     }

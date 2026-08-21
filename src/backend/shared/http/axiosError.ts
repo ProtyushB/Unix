@@ -37,11 +37,68 @@
  * codes handed `error` back untouched — and `INVALID_ARGUMENT` is as wide as
  * `IllegalArgumentException` itself. See `reason` for what the uniform gate was checked against.
  *
- * The one term deliberately left ungated is `statusLine`, which reads `err.message`. No server text
- * can reach it: axios builds that string itself ("Request failed with status code 500", "Network
- * Error", "timeout of 4000ms exceeded") and never copies the response body into it, so the leaks
- * this module exists to stop have no route there. What else lands on it is our own JS throws, whose
- * text names our own variables rather than the backend's schema, hosts or disks.
+ * The one term still ungated is `statusLine`, which reads `err.message`. The claim that used to sit
+ * here — that no server text can reach that property, because axios writes it itself and never
+ * copies the body into it — was false, and it was false about our own code rather than about axios.
+ * Four places READ a wrapper and re-threw the field they read: 16 sites in `useModuleService`
+ * spelling it `throw new Error(response.error || response.message || '<fallback>')`,
+ * `auth.service`'s `handleApiError` spelling it `new Error(data.error)`, and the `unwrap` helper
+ * copied into `file.api.impl` and `folder.api.impl` spelling it `new Error(wrapper.error || …)`. A
+ * plain `Error` keeps the sentence and drops the envelope, so the extractor was handed a message
+ * with no `response.data` behind it, every marker list was skipped for want of anything to inspect,
+ * and `statusLine` handed the text straight back. That is how a foreign-key dump naming a table and
+ * a live key, a helpful NPE naming `com.modulex.parlour.entity.Bill`, an absolute `/var/dms/...`
+ * path and an internal `http://host:port` each reached a toast verbatim while the identical text on
+ * a wrapper was being correctly demoted.
+ *
+ * A larger set of sites never threw at all: they read the same HTTP-200 wrapper in an `else` branch
+ * and put its text on screen directly, so nothing in this module ran for them in the first place.
+ * `apiMessage` is the door built for those — the same gate, entered with no error to wrap.
+ *
+ * `useModuleService`'s 39 go through it. Eighteen more do not, and naming them is worth more here
+ * than a sentence that sounds finished: `person.service` (11 sites), `business.service` (5) and
+ * `dashboard.service` (2) each end a refusal with `response.error || response.message`, ungated.
+ * `CustomersScreen` and `useCustomerPicker` put that field on screen directly, so a constraint
+ * violation on the person routes still reaches a user. They are deliberately left for a separate
+ * change, because sixteen of them pass no fallback at
+ * all — the field is `undefined` whenever the wrapper is empty, and `actionOutcome` documents the
+ * screens whose `if (!result.success && result.error)` guard turns on exactly that. Sending them
+ * through here would make the field always non-empty and flip those guards, which is a decision
+ * about what a screen shows rather than about message safety, and it needs a fallback literal
+ * chosen per site.
+ *
+ * What makes `statusLine` safe now is not that server text cannot arrive but that it cannot WIN.
+ * Those sites throw `ApiError`, which carries the wrapper at `response.data` alongside the message,
+ * and `statusLine` is consulted only when neither wrapper field held visible text. Whenever
+ * `err.message` was built FROM a wrapper field, that same non-blank field is in the body, so
+ * `wrapperSpoke` is true and the chain never reaches the status line — the case where `err.message`
+ * holds server text is exactly the case where `statusLine` is skipped.
+ *
+ * So what still lands on `statusLine`, re-derived after those conversions rather than carried over
+ * from before them, is four things:
+ *
+ * - axios's own strings ("Request failed with status code 500", "Network Error", "timeout of 4000ms
+ *   exceeded"), including the copy `auth.service` re-throws as `new Error(axiosError.message)` when
+ *   there was no body to attach to.
+ * - our own JS throws: the argument guards in the module and DMS services ("Quantity must be more
+ *   than zero", "fileId is required"), `ensureBusinessDmsFolders`'s two failures, and a TypeError
+ *   out of our own mapping code. Their text names our variables and our copy, not the backend's
+ *   schema, hosts or disks.
+ * - an `ApiError` whose body said nothing at all, whose message is then the caller's own fallback
+ *   literal.
+ * - a message THIS module already gated, flattened back onto a plain `Error`. `DmsService`,
+ *   `FileService` and `FolderService` each end `handleApiError` with
+ *   `new Error(extractErrorMessage(error, 'An unexpected DMS error occurred'))`, and
+ *   `useModuleService` awaits those services inside try blocks whose catch runs
+ *   `extractErrorMessage` a second time. The second run re-gates nothing — it reads the string off
+ *   `.message` and hands it back — so what makes this one safe is only that it went through
+ *   `reason` on the first pass. It is the single category here that is safe by history rather than
+ *   by construction, and a service that flattens an UNGATED string the same way would join it
+ *   without anything failing.
+ *
+ * Gating `statusLine` is therefore still unnecessary, and leaving it ungated is what keeps a
+ * transport failure — the one case where nobody has anything better to say — from collapsing into
+ * the fallback.
  *
  * The returned message is guaranteed non-empty. A blank one is the worst available outcome: a
  * delete that failed with no message is a delete the user believes succeeded, because all they see
@@ -241,11 +298,60 @@ const TRANSPORT_MESSAGE_MARKERS: readonly RegExp[] = [
  *
  * Shapes, and why each is drawn the way it is:
  *
- * - A POSIX path is an unbroken run of `/segment/` that STARTS a token. Requiring the leading slash
- *   to sit at the start of the string or after whitespace, a colon, a quote or a bracket is what
- *   keeps prose out: "Record a wastage/transfer or change its status instead." and "I/O error" both
- *   have their slash mid-word, and the "(use reason=CORRECTION to adjust an ON_HOLD / QUARANTINED
- *   batch …)" message has a lone slash with spaces around it and no second segment.
+ * - A POSIX path is a token containing TWO separators between segments. The leading slash is
+ *   optional, and that is the correction of a rule that used to require it. DMS's
+ *   `NoResourceFoundException` handler builds its own text and prepends the slash by hand
+ *   (`"No endpoint for " + method + " /" + path`), so the old rule fired there — but ModuleX's twin
+ *   handler writes Spring's raw `ex.getMessage()` into `error`, and Spring 6.2 formats that as
+ *   `"No static resource " + resourcePath + "."` where `resourcePath` is
+ *   `PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE`. `PathPattern.extractPathWithinPattern` skips the
+ *   leading separator before returning, so the value is `api/parlour/orders/999`, UNSLASHED. The
+ *   rule caught the storage service and missed the backend every screen actually talks to.
+ *
+ *   Two separators, not one, is what still keeps prose out, and it is doing the whole job now that
+ *   the anchor is gone. What used to be claimed here — that every curated string in either backend
+ *   containing a slash contains exactly one — is false, and the narrower true statement is worth
+ *   having in its place.
+ *
+ *   True of the THROW strings, which are the corpus this gate actually sees: ModuleX's "New
+ *   appointment date/time cannot be null" and "Invalid appointment date/time format", "Record a
+ *   wastage/transfer or change its status instead.", and the "(use reason=CORRECTION to move an
+ *   ON_HOLD / QUARANTINED batch …)" message, whose lone slash has spaces around it and no segment
+ *   after it — one slash each. DMS's `throw` strings contain none at all. The only ModuleX throws
+ *   with two are `DmsClient`'s "DMS /folder/ensure failed …" and "DMS /folder/rename failed …",
+ *   both named under the knowing cost below as demoted on purpose.
+ *
+ *   Not true of ModuleX's curated English generally. Five distinct `@Operation` descriptions in the
+ *   main sources run two slashes together — "Customers are the people orders/appointments/bills
+ *   were created for.", "…with search/sort/pagination" on the two billable-list endpoints,
+ *   "(paginated, optional search/sort/status)" and "the chart's week/month/year toggle". Those are
+ *   OpenAPI metadata: never thrown, never stamped into a wrapper, never seen by this module, so
+ *   nothing is demoted by them today. What they establish is that `a/b/c` is a shape someone
+ *   writing English about this domain reaches for unprompted, which is the part the old sentence
+ *   denied.
+ *
+ *   The latent cost, measured through the real gate rather than reasoned about: "This batch is used
+ *   by orders/appointments/bills and cannot be deleted.", "Search by name/username/email is
+ *   unavailable right now." and "Expires on 31/12/2026 and cannot be extended." are all refused and
+ *   would show the caller's fallback instead. None is a backend string today. That cost is accepted
+ *   rather than designed around, because no narrowing is available that does not reopen the hole
+ *   this rule was widened to close: a relative request path and a slash-run in prose are the SAME
+ *   shape — `api/parlour/orders` and `orders/appointments/bills` differ in meaning and in nothing a
+ *   regex can read. Every discriminator that suggests itself keys on something the motivating case
+ *   lacks. Requiring a leading separator is exactly the anchor that missed Spring's unslashed "No
+ *   static resource api/parlour/orders/999."; requiring a digit or a dot in one segment passes
+ *   `api/parlour/orders`, which is the same handler's output for a path carrying no numeric id.
+ *   A rule that is right about the enumerations and wrong about the paths is the worse of the two,
+ *   because what it admits is a server's directory layout in a toast and what it avoids is one
+ *   sentence being replaced by another sentence.
+ *
+ *   Spacing the slashes is the escape hatch that already exists and needs no rule: ModuleX's
+ *   "filters by name / username / email / phone" is untouched, because the separator has to be
+ *   followed immediately by a segment for the shape to fire.
+ *
+ *   The boundary before the token is kept for the same reason it was added — it is what stops the
+ *   rule firing inside a longer word — and `I/O error on POST request for "…"` survives it twice
+ *   over: one slash, and no second segment.
  * - A Windows path is a drive letter, a colon and a separator. It is checked even though the server
  *   runs Linux, because the same service is run on a developer's machine against a real client and
  *   the message travels unchanged; the colon-then-separator pair is what keeps a clock time out of
@@ -255,13 +361,30 @@ const TRANSPORT_MESSAGE_MARKERS: readonly RegExp[] = [
  *   wider shape costs nothing measurable: no exception message string in either ModuleX or
  *   DMS-Backend contains `://` at all.
  *
+ *   What this rule does NOT refuse is an address written with no scheme: a bare `dms-backend:8081`
+ *   or `10.0.0.7:8081` passes it, and passes the other two shapes as well. That gap is left open
+ *   knowingly. The motivating string is covered twice without closing it — Spring writes the
+ *   address into `I/O error on POST request for "http://…"`, which carries the scheme AND matches
+ *   `TRANSPORT_MESSAGE_MARKERS` on its own phrasing — and the rule that would close it cannot be
+ *   drawn narrowly enough to pay for itself. `host:port` is `<token>:<digits>`, and to cover an IP
+ *   the token has to admit digits, at which point the rule also reads `14:30` and `09:05`. A
+ *   parlour and a pharmacy backend interpolate clock times into curated sentences — appointment
+ *   times, expiry windows — and the Windows-path shape in the bullet above was already drawn around
+ *   that same collision on purpose. Trading a live class of readable message against a shape neither
+ *   backend is known to emit is the wrong side of this module's trade. A bare `host:port` turning
+ *   up in a real message is the evidence that would reverse it.
+ *
  * The knowing cost, checked rather than assumed by running the gate over both backends' curated
- * strings. Three are refused, all of them for naming a REQUEST path, which is indistinguishable
+ * strings. Four are refused, all of them for naming a REQUEST path, which is indistinguishable
  * from a filesystem path and is refused with them:
  *
  * - DMS's `NoResourceFoundException` handler writes `"No endpoint for " + method + " /" + path`.
  *   The user gets that body's "Not found" instead, losing which endpoint 404'd — a fact for a
  *   developer reading a log, not for a person holding a phone.
+ * - ModuleX's `NoResourceFoundException` handler writes Spring's own `"No static resource
+ *   api/parlour/orders/999."`, and is the reason the leading slash stopped being required. Its
+ *   body's `message` is the same "Not found", so the user loses nothing they were not already
+ *   losing from DMS's spelling of the identical 404.
  * - `DmsClient` in ModuleX throws `"DMS /folder/ensure failed for '<name>' under parent <id>: "` and
  *   `"DMS /folder/rename failed for folder <id> -> '<name>': "`, each ending in the DMS wrapper's
  *   own `error` field. Losing these is a gain, not a cost: that tail is the very field
@@ -269,7 +392,7 @@ const TRANSPORT_MESSAGE_MARKERS: readonly RegExp[] = [
  *   than a victim of the rule. The endpoint name it also publishes is internal API surface.
  */
 const LOCATOR_MARKERS: readonly RegExp[] = [
-  /(?:^|[\s:="'([])\/[\w.-]+\/[\w.-]/,
+  /(?:^|[\s:="'([])[\w.-]*\/[\w.-]+\/[\w.-]/,
   /(?:^|[\s:="'([])[A-Za-z]:[\\/][\w.-]/,
   /[A-Za-z][A-Za-z\d+.-]*:\/\/[^\s/]/,
 ];
@@ -416,16 +539,19 @@ interface ErrorBody {
 }
 
 /**
- * Message plus code, for callers whose result contract carries both — `useModuleService` returns
- * `{ success: false, code, error }` and its screens branch on the code.
+ * The chain itself, over a body that is already in hand.
+ *
+ * `thrownMessage` is the only thing the two entry points disagree about. `extractErrorInfo` has an
+ * `err.message` to offer as the status line; `apiMessage` has none and passes `undefined`, because
+ * a wrapper that arrived on an HTTP 200 was never carried by a rejection — nothing built an axios
+ * sentence for it, so there is no status line to consult rather than one being withheld.
+ *
+ * Taking it as a parameter instead of reading it here is what lets both routes run this function
+ * literally rather than each spelling the chain out for itself. Spelling it out twice is the defect
+ * this split exists to prevent: the same wrapper reached the user through two code paths and only
+ * one of them was gated.
  */
-export function extractErrorInfo(err: unknown, fallback: string): ApiErrorInfo {
-  // Every hop is optional-chained off a cast rather than type-guarded, because `err` is genuinely
-  // anything: a rejected non-Error, a string, `undefined` from a bare `throw`. Optional chaining
-  // makes each of those miss instead of throw a second error out of the catch block.
-  const source = err as { response?: { data?: unknown } | null; message?: unknown } | null;
-  const data = source?.response?.data;
-
+function infoFromBody(data: unknown, thrownMessage: unknown, fallback: string): ApiErrorInfo {
   // DMS is the one backend whose error bodies are sometimes a bare string instead of the wrapper,
   // which is why its three services each grew this branch. Keeping it here is what lets them drop
   // their private copies rather than keep one for this single shape.
@@ -458,7 +584,7 @@ export function extractErrorInfo(err: unknown, fallback: string): ApiErrorInfo {
   // status line: a string body means axios could not parse JSON, so no structured error was sent
   // and the status is genuinely the only classification anyone has.
   const wrapperSpoke = text(preferredField) !== undefined || text(secondaryField) !== undefined;
-  const statusLine = wrapperSpoke ? undefined : text(source?.message);
+  const statusLine = wrapperSpoke ? undefined : text(thrownMessage);
 
   const message =
     reason(data) ??
@@ -472,6 +598,18 @@ export function extractErrorInfo(err: unknown, fallback: string): ApiErrorInfo {
 }
 
 /**
+ * Message plus code, for callers whose result contract carries both — `useModuleService` returns
+ * `{ success: false, code, error }` and its screens branch on the code.
+ */
+export function extractErrorInfo(err: unknown, fallback: string): ApiErrorInfo {
+  // Every hop is optional-chained off a cast rather than type-guarded, because `err` is genuinely
+  // anything: a rejected non-Error, a string, `undefined` from a bare `throw`. Optional chaining
+  // makes each of those miss instead of throw a second error out of the catch block.
+  const source = err as { response?: { data?: unknown } | null; message?: unknown } | null;
+  return infoFromBody(source?.response?.data, source?.message, fallback);
+}
+
+/**
  * The message alone — what almost every call site wants.
  *
  * Named to match the private `extractErrorMessage` these services already call, so adopting it is a
@@ -479,4 +617,101 @@ export function extractErrorInfo(err: unknown, fallback: string): ApiErrorInfo {
  */
 export function extractErrorMessage(err: unknown, fallback: string): string {
   return extractErrorInfo(err, fallback).message;
+}
+
+/**
+ * A server-described failure, thrown without throwing the server's envelope away.
+ *
+ * The gate above reads `err.response.data`, so an error that keeps the body there flows through it
+ * unchanged — that is the entire design, and it is why this fixes the leak at the cause rather than
+ * adding a second net under `statusLine`. Nothing in `extractErrorInfo` knows this class exists.
+ *
+ * It is needed because the call sites turn a resolved-but-failed body back into a throw, and the
+ * way they did it — `new Error(response.error || response.message || '<fallback>')` — kept the
+ * sentence and dropped the envelope, which left the extractor nothing to inspect. Same shape, two
+ * routes, two different answers for identical text.
+ *
+ * On how that body arrives: an earlier draft of this comment said ModuleX answers a refused write
+ * with HTTP 200 and `success: false`. It does not. All 51 of its `.success(false)` builders sit
+ * under a non-2xx `ResponseEntity`, so its refusals reject and land at `response.data` already.
+ * These branches are defensive against a resolved body that reports failure — a shape auth-service
+ * and DMS can produce, and one a future ModuleX endpoint could. That is a thinner justification
+ * than the one it replaces, and it is the true one.
+ *
+ * `message` is deliberately still the raw field. In this codebase some thrown message text is
+ * routing, not display copy: `LoginScreen` lower-cases `err.message` and branches on 'invalid
+ * credentials' and 'not found with username' to choose which sentence to show, and
+ * `isVerificationError` regex-matches the signup throw to decide whether to bounce the user back to
+ * re-verify. Replacing the message with the fallback would have re-routed both silently. The body
+ * is attached ALONGSIDE it, so the property those branches read is byte for byte what it was.
+ *
+ * That buys gating only where something actually consults the body. `completeSignup` does. The auth
+ * SCREENS do not: `ForgotPasswordEmailScreen`, `ForgotPasswordOtpScreen` and `SignupScreen` each
+ * render `err?.message` directly, so on those paths the attached body is carried and never read,
+ * and auth-service's `"Internal server error: " + ex.getMessage()` still reaches the user whole.
+ * That is unchanged from before this class existed rather than caused by it — but it is not closed,
+ * and a comment claiming otherwise is how this module has repeatedly hidden its own leaks.
+ */
+export class ApiError extends Error {
+  /**
+   * Nested under `response` rather than held flat, because flat would mean teaching the extractor a
+   * second shape — and a second shape is a second place for a rule to be forgotten, which is the
+   * failure this class exists to end.
+   */
+  readonly response: { data: unknown };
+
+  constructor(message: string, data: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.response = { data };
+  }
+}
+
+/**
+ * Build the throw a call site used to write by hand.
+ *
+ * The `error`-then-`message`-then-fallback order is the one every one of these sites already used,
+ * and it is reproduced here with `||` rather than with `text()` so the message is character for
+ * character what it was before the conversion. `text()` would trim, which is harmless at today's 14
+ * call sites and still not worth spending: `.message` is the property this codebase has twice made
+ * load-bearing (see `ApiError`), so a conversion that changes it by even a space is a conversion
+ * that has to be re-argued rather than read.
+ *
+ * Taking the whole body rather than the two fields is what carries `code` through as well, which a
+ * hand-written `new Error` had no way to keep: `extractErrorInfo` can now report the wrapper's code
+ * at these sites instead of returning an untyped failure.
+ */
+export function apiError(body: unknown, fallback: string): ApiError {
+  const wrapper: ErrorBody | undefined =
+    typeof body === 'object' && body !== null ? (body as ErrorBody) : undefined;
+  const asString = (value: unknown): string => (typeof value === 'string' ? value : '');
+  return new ApiError(asString(wrapper?.error) || asString(wrapper?.message) || fallback, body);
+}
+
+/**
+ * The gated message for a refusal that never becomes a throw.
+ *
+ * `ApiError` and `apiError` cover the sites that turn a `success: false` wrapper back into an
+ * exception. Most sites do not: they read the same HTTP-200 body in an `else` branch and lift its
+ * text straight into `setError(...)` and the returned `{ error }`. Nothing is thrown, so no catch
+ * block runs, `extractErrorMessage` is never reached, and those sites sat outside the gate
+ * altogether — measured on one wrapper whose `error` was a foreign-key dump naming two tables and a
+ * column, `createProduct` showed "Could not save this product." and `deleteProduct` beside it
+ * showed the dump, verbatim, in a toast.
+ *
+ * Taking the parsed body rather than the two fields is the point. It keeps the code list, the
+ * marker lists and the field order in this module instead of being copied into the 39 call sites
+ * that need them — copies drifting apart is precisely how one half of a hook came to be gated and
+ * the other half not.
+ *
+ * There is deliberately no `code` on the return. The sites that report one already have it: they
+ * spread the server's own wrapper into their result, so the code travels untouched, and returning a
+ * second copy from here would be one more thing that can disagree with the first. This function
+ * decides the message and nothing else.
+ *
+ * `fallback` is the same literal the caller already had as the last arm of its `||` chain, passed
+ * through unchanged. What changes is only which of the earlier arms is allowed to win.
+ */
+export function apiMessage(body: unknown, fallback: string): string {
+  return infoFromBody(body, undefined, fallback).message;
 }

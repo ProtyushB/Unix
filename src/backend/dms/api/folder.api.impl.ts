@@ -7,6 +7,7 @@
 
 import { FolderApiInterface, FolderDto, FolderFilterRequest } from './folder.api.interface';
 import dmsApiClient from '../config/axios.instance';
+import { apiError } from '../../shared/http/axiosError';
 
 interface DmsResponseWrapper<T> {
   success: boolean;
@@ -15,9 +16,18 @@ interface DmsResponseWrapper<T> {
   error: string | null;
 }
 
+/**
+ * The throw carries the wrapper rather than the sentence out of it — see the twin in
+ * `file.api.impl.ts` for the full reasoning.
+ *
+ * In short: `FolderService.handleApiError` and `DmsService.handleApiError` both run
+ * `extractErrorMessage` over what this raises, and that gate reads `err.response.data`. A plain
+ * `Error(wrapper.error || …)` left it nothing to inspect. Latent today — DMS-Backend answers every
+ * failure on a non-2xx, so this branch is not reached — and one DMS change away from live.
+ */
 function unwrap<T>(wrapper: DmsResponseWrapper<T>): T {
   if (!wrapper.success) {
-    throw new Error(wrapper.error || wrapper.message || 'DMS request failed');
+    throw apiError(wrapper, 'DMS request failed');
   }
   return wrapper.data;
 }
