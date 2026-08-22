@@ -12,6 +12,17 @@ export interface SheetOption {
   label: string;
   /** Optional second line, for an option whose consequence is not obvious from its name. */
   sub?: string;
+  /**
+   * A filled dot before the label, in the option's own colour. Status sheets pass the theme's
+   * `StatusColorSet.text` here so the row matches the chip it produces; see `statusSheetOptions`.
+   */
+  dotColor?: string;
+  /**
+   * Label colour. OUTRANKS the selected-row accent: without it, picking a status repainted the one
+   * row the reader is most likely to look at, and it then disagreed with the chip behind the sheet.
+   * The check mark and the tinted row still mark the selection.
+   */
+  textColor?: string;
 }
 
 interface Props {
@@ -115,11 +126,21 @@ export function OptionSheet({
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={option.label}
                 >
+                  {option.dotColor ? (
+                    <View style={[styles.dot, { backgroundColor: option.dotColor }]} />
+                  ) : null}
                   <View style={styles.optionBody}>
-                    <Text style={active ? styles.labelActive : styles.label}>{option.label}</Text>
+                    <Text
+                      style={[
+                        active ? styles.labelActive : styles.label,
+                        option.textColor ? { color: option.textColor } : null,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
                     {option.sub ? <Text style={styles.sub}>{option.sub}</Text> : null}
                   </View>
-                  {active ? <Check size={16} color={theme.colors.primary} /> : null}
+                  {active ? <Check size={16} color={option.textColor ?? theme.colors.primary} /> : null}
                 </Pressable>
               );
             })}
@@ -174,6 +195,7 @@ function createStyles(theme: AppTheme) {
     searchInput: { flex: 1, fontSize: 13.5, color: theme.palette.onSurface, padding: 0 },
     empty: { fontSize: 12.5, color: theme.palette.muted, paddingVertical: 18, textAlign: 'center' },
     optionActive: { backgroundColor: theme.colors.softBg, borderColor: theme.colors.border },
+    dot: { width: 8, height: 8, borderRadius: 4 },
     optionBody: { flex: 1, gap: 2 },
     label: { fontSize: 14, fontWeight: '600', color: theme.palette.onSurface },
     labelActive: { fontSize: 14, fontWeight: '700', color: theme.colors.primary },

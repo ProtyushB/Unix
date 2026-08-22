@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { parseYmd, toYmd } from '../../../../utils/dateRange';
 import { CustomerPickerSheet } from '../../shared/customer/CustomerPickerSheet';
 import { OptionSheet } from '../../shared/detail/parts/OptionSheet';
+import { statusSheetOptions } from '../../shared/detail/optionSheet.view';
 import { CatalogPickerSheet, type CatalogRow } from '../../shared/detail/parts/CatalogPickerSheet';
 import { AppointmentDetailBase, type ServiceDisplay } from './AppointmentDetailBase';
 import { useAppointmentDetailForm } from './useAppointmentDetailForm';
@@ -434,7 +435,10 @@ export function AppointmentDetailScreen({ route, navigation }: Props = {}) {
       <OptionSheet
         visible={sheet === 'status'}
         title="Appointment status"
-        options={STATUS_ORDER.map((s) => ({ value: s, label: statusLabel(s) }))}
+        options={statusSheetOptions(STATUS_ORDER, {
+          label: statusLabel,
+          colorOf: (s) => theme.status[s] ?? theme.status.FALLBACK,
+        })}
         selected={engine.form.appointmentStatus}
         onSelect={(value) => engine.setField('appointmentStatus', value)}
         onClose={() => setSheet('none')}
