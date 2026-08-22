@@ -29,8 +29,15 @@ const TONE = {
     info: { bg: 'rgba(59, 130, 246, 0.18)', text: '#60a5fa', border: '#60a5fa' },
     warning: { bg: 'rgba(245, 158, 11, 0.18)', text: '#fbbf24', border: '#fbbf24' },
     error: { bg: 'rgba(239, 68, 68, 0.18)', text: '#ff7e7e', border: '#ff7e7e' },
-    // Centrix builds its neutral chip as `color-mix(text-muted 14%)` over the muted text itself.
-    subtle: { bg: 'rgba(147, 160, 176, 0.14)', text: '#93a0b0', border: '#93a0b0' },
+    // Centrix builds its neutral chip as `color-mix(neutral 14%)` over the neutral colour itself.
+    // #b6c2d0, not the #93a0b0 this started at: a neutral label on its own 14% wash measured 4.34
+    // to 1 on the portal's Midnight theme, under the 4.5 AA floor, so Pending and Refunded were
+    // shipping unreadable on the darkest theme. This clears it at 5.40 and still reads as muted.
+    subtle: { bg: 'rgba(182, 194, 208, 0.14)', text: '#b6c2d0', border: '#b6c2d0' },
+    // Held for inspection: not a warning to clear, not a failure. Purple is the one hue with no
+    // prior meaning in either app -- and it clears AA on its own wash, which the brand accent that
+    // Quarantined used to wear on the portal could not.
+    purple: { bg: 'rgba(168, 85, 247, 0.18)', text: '#dcaaff', border: '#dcaaff' },
   },
   light: {
     success: { bg: 'rgba(16, 185, 129, 0.15)', text: '#004a30', border: '#004a30' },
@@ -38,6 +45,7 @@ const TONE = {
     warning: { bg: 'rgba(245, 158, 11, 0.15)', text: '#6c3403', border: '#6c3403' },
     error: { bg: 'rgba(239, 68, 68, 0.12)', text: '#800000', border: '#800000' },
     subtle: { bg: 'rgba(50, 61, 78, 0.14)', text: '#323d4e', border: '#323d4e' },
+    purple: { bg: 'rgba(168, 85, 247, 0.15)', text: '#3e0094', border: '#3e0094' },
   },
 } as const;
 
@@ -85,6 +93,8 @@ function statusPalette(tone: (typeof TONE)['dark' | 'light']): Record<string, St
     PARTIAL: tone.info,
     // Warning
     CONFIRMED: tone.warning,
+    // A held batch is paused deliberately and someone has to come back to it.
+    ON_HOLD: tone.warning,
     PREPARING: tone.warning,
     SCHEDULED: tone.warning,
     UNPAID: tone.warning,
@@ -93,16 +103,17 @@ function statusPalette(tone: (typeof TONE)['dark' | 'light']): Record<string, St
     REJECTED: tone.error,
     FAILED: tone.error,
     EXPIRED: tone.error,
-    DEPLETED: tone.error,
     OVERDUE: tone.error,
     // Neutral
     PENDING: tone.subtle,
-    ON_HOLD: tone.subtle,
-    QUARANTINED: tone.subtle,
+    // A fully-used batch is spent, not broken -- red stays for what actually went wrong.
+    DEPLETED: tone.subtle,
     // A refund is money already returned — not a state to act on, so it reads neutral rather than
     // competing with the pill beside it.
     REFUNDED: tone.subtle,
     PARTIAL_REFUNDED: tone.subtle,
+    // Purple
+    QUARANTINED: tone.purple,
   };
 }
 

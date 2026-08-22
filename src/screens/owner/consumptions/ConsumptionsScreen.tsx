@@ -52,12 +52,10 @@ import {
   quickActionsFor,
   reasonChoices,
   reasonLabel,
-  reasonTone,
   showsFab,
   toQuery,
   type ConsumptionActionId,
   type ConsumptionFilters,
-  type ReasonTone,
 } from './consumption.view';
 
 const PAGE_SIZE = 20;
@@ -673,13 +671,6 @@ export function ConsumptionsScreen({ navigation }: ConsumptionsScreenProps = {})
 
 type Styles = ReturnType<typeof createStyles>;
 
-/** The palette role `reasonTone` names, resolved. Kept beside the card, its only caller. */
-function toneColor(theme: AppTheme, tone: ReasonTone): string {
-  if (tone === 'accent') return theme.colors.primary;
-  if (tone === 'info') return theme.palette.info;
-  return theme.palette.muted;
-}
-
 /**
  * The list row: name and reason chip, the quantity, then when and out of what.
  *
@@ -703,7 +694,8 @@ function ConsumptionCard({
   onPress: () => void;
   onLongPress: () => void;
 }) {
-  const tint = toneColor(theme, reasonTone(row.reason));
+  // A reason is a category, not a state -- see the note on reasonTone's removal in consumption.view.
+  const tint = theme.palette.muted;
   const meta = cardMetaLine(row);
 
   return (

@@ -28,7 +28,7 @@ import { UnitRowsEditor } from '../../shared/detail/parts/UnitRowsEditor';
 import { formatStamp } from '../../inventory/batch.model';
 import { isMixedUnitLines, recordQtyLabel, type SaleUnit } from '../../inventory/batchUnits';
 import { batchText, formatShortStamp, recordQtyParts } from '../consumption.model';
-import { reasonLabel, reasonTone, type ReasonTone } from '../consumption.view';
+import { reasonLabel } from '../consumption.view';
 import { formatClock, splitConsumedAt, type ConsumptionFormState } from './consumptionDetail.model';
 import {
   appBarSubtitle,
@@ -439,12 +439,6 @@ function RecordForm({
 
 // ─── Read view ───────────────────────────────────────────────────────────────
 
-function toneColor(theme: AppTheme, tone: ReasonTone): string {
-  if (tone === 'accent') return theme.colors.primary;
-  if (tone === 'info') return theme.palette.info;
-  return theme.palette.muted;
-}
-
 /**
  * The saved record: what was used, how much, and out of what.
  *
@@ -470,7 +464,8 @@ function ReadView({
   theme: AppTheme;
   baseUnit: string;
 }) {
-  const tint = toneColor(theme, reasonTone(item?.reason));
+  // A reason is a category, not a state -- see the note on reasonTone's removal in consumption.view.
+  const tint = theme.palette.muted;
   const qty = recordQtyParts(item, baseUnit);
   const qtyText = recordQtyLabel(
     { quantity: item?.quantity, unitName: item?.unitName, unitLines: item?.unitLines },
