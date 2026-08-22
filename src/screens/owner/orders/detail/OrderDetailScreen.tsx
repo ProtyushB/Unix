@@ -12,6 +12,7 @@ import { getSelectedBusinessId } from '../../../../backend/modules/shared/hook/u
 import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { CustomerPickerSheet } from '../../shared/customer/CustomerPickerSheet';
 import { OptionSheet } from '../../shared/detail/parts/OptionSheet';
+import { statusSheetOptions } from '../../shared/detail/optionSheet.view';
 import { OrderDetailBase, type LineDisplay } from './OrderDetailBase';
 import { CatalogPickerSheet, type CatalogRow } from '../../shared/detail/parts/CatalogPickerSheet';
 import { useOrderDetailForm } from './useOrderDetailForm';
@@ -446,7 +447,10 @@ export function OrderDetailScreen({ route, navigation }: OrderDetailScreenProps 
       <OptionSheet
         visible={sheet === 'status'}
         title="Order status"
-        options={STATUS_ORDER.map((s) => ({ value: s, label: statusLabel(s) }))}
+        options={statusSheetOptions(STATUS_ORDER, {
+          label: statusLabel,
+          colorOf: (s) => theme.status[s] ?? theme.status.FALLBACK,
+        })}
         selected={engine.form.orderStatus}
         onSelect={(value) => engine.setField('orderStatus', value)}
         onClose={() => setSheet('none')}

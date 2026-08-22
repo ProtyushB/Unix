@@ -25,7 +25,7 @@ import { useThemedStyles } from '../../../../hooks/useThemedStyles';
 import type { AppTheme } from '../../../../theme/theme.types';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
-import { Badge, type BadgeTone } from '../../shared/detail/parts/Badge';
+import { Badge } from '../../shared/detail/parts/Badge';
 import { ChipPickerRow } from '../../shared/detail/parts/ChipPickerRow';
 import {
   appointmentTotal,
@@ -394,24 +394,27 @@ export function AppointmentDetailBase({
 
 type Styles = ReturnType<typeof createStyles>;
 
-function statusTone(status: string): BadgeTone {
-  switch (status) {
-    case 'COMPLETED':
-      return 'success';
-    case 'CANCELLED':
-    case 'REJECTED':
-      return 'error';
-    case 'IN_PROGRESS':
-      return 'info';
-    case 'CONFIRMED':
-      return 'accent';
-    default:
-      return 'neutral';
-  }
-}
-
+/**
+ * A status pill in the shared status palette.
+ *
+ * Not `Badge`, and this screen learned why the hard way. Badge offers five tones -- neutral,
+ * accent, info, success, error -- and has no amber, so CONFIRMED, which means "still owed an
+ * action", landed on `accent` and rendered in the BRAND orange: a status wearing the colour
+ * reserved for things you press. PENDING fell through to Badge's outlined neutral and read as a
+ * disabled control rather than a live state.
+ *
+ * `theme.status` is what the list, the dashboard and the status sheet all resolve, so the chip now
+ * matches the list it opens. Same fix, same reasoning, as BillDetailBase's StatusChip.
+ */
 function StatusPill({ status }: { status: string }) {
-  return <Badge label={statusLabel(status)} tone={statusTone(status)} />;
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const tone = theme.status[status] ?? theme.status.FALLBACK;
+  return (
+    <View style={[styles.chip, { backgroundColor: tone.bg, borderColor: tone.border }]}>
+      <Text style={[styles.chipLabel, { color: tone.text }]}>{statusLabel(status)}</Text>
+    </View>
+  );
 }
 
 function CustomerRow({
@@ -613,6 +616,10 @@ function PassthroughRow({
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
+    // Matches BillDetailBase's chip, so the three detail screens draw one shape.
+    chip: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
+    chipLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.2 },
+
     screen: { flex: 1, backgroundColor: theme.palette.background },
 
     appBar: {

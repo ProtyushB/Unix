@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { parseYmd, toYmd } from '../../../../utils/dateRange';
 import { CustomerPickerSheet } from '../../shared/customer/CustomerPickerSheet';
 import { OptionSheet } from '../../shared/detail/parts/OptionSheet';
+import { statusSheetOptions } from '../../shared/detail/optionSheet.view';
 import { dayLabelOf, statusLabel as orderStatusLabel } from '../../orders/order.model';
 import { STATUS_LABEL as APPOINTMENT_STATUS_LABEL } from '../../appointments/appointment.model';
 import { BillDetailBase } from './BillDetailBase';
@@ -635,11 +636,11 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
       <OptionSheet
         visible={sheet === 'billStatus'}
         title="Bill status"
-        options={billStatusOptions(engine.form.billStatus).map((s) => ({
-          value: s,
-          label: billStatusLabel(s),
-          sub: s === 'CANCELLED' ? 'Releases every item and returns the stock' : undefined,
-        }))}
+        options={statusSheetOptions(billStatusOptions(engine.form.billStatus), {
+          label: billStatusLabel,
+          colorOf: (s) => theme.status[s] ?? theme.status.FALLBACK,
+          sub: (s) => (s === 'CANCELLED' ? 'Releases every item and returns the stock' : undefined),
+        })}
         selected={engine.form.billStatus}
         onSelect={(value) => engine.setField('billStatus', value)}
         onClose={() => setSheet('none')}
@@ -648,7 +649,10 @@ export function BillDetailScreen({ route, navigation }: Props = {}) {
       <OptionSheet
         visible={sheet === 'paymentStatus'}
         title="Payment status"
-        options={PAYMENT_STATUSES.map((s) => ({ value: s, label: paymentStatusLabel(s) }))}
+        options={statusSheetOptions(PAYMENT_STATUSES, {
+          label: paymentStatusLabel,
+          colorOf: (s) => theme.status[s] ?? theme.status.FALLBACK,
+        })}
         selected={engine.form.paymentStatus}
         onSelect={(value) => engine.setField('paymentStatus', value)}
         onClose={() => setSheet('none')}

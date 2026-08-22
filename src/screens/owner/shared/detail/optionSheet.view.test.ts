@@ -1,4 +1,4 @@
-import { filterSheetOptions, noOptionMatchText } from './optionSheet.view';
+import { filterSheetOptions, noOptionMatchText, statusSheetOptions } from './optionSheet.view';
 import type { SheetOption } from './parts/OptionSheet';
 
 const OPTIONS: SheetOption[] = [
@@ -59,5 +59,56 @@ describe('noOptionMatchText', () => {
   it('says something different when there was nothing to search in the first place', () => {
     expect(noOptionMatchText('')).toBe('Nothing to choose from.');
     expect(noOptionMatchText(null)).toBe('Nothing to choose from.');
+  });
+});
+
+describe('statusSheetOptions', () => {
+  const TONES: Record<string, { text: string }> = {
+    PENDING: { text: '#93a0b0' },
+    CONFIRMED: { text: '#fbbf24' },
+    COMPLETED: { text: '#34d399' },
+  };
+  const colorOf = (s: string) => TONES[s] ?? { text: '#64748b' };
+  const label = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
+
+  it('gives every option the tone colour for BOTH its dot and its label', () => {
+    const [pending, confirmed] = statusSheetOptions(['PENDING', 'CONFIRMED'], { label, colorOf });
+    // Both read from the same StatusColorSet the chips use, so a sheet cannot drift from the chip
+    // it produces. The dot takes `text`, not `bg` -- the wash is near-invisible at 8px.
+    expect(pending).toEqual({
+      value: 'PENDING',
+      label: 'Pending',
+      sub: undefined,
+      dotColor: '#93a0b0',
+      textColor: '#93a0b0',
+    });
+    expect(confirmed.dotColor).toBe('#fbbf24');
+    expect(confirmed.textColor).toBe('#fbbf24');
+  });
+
+  it('keeps the caller order rather than grouping by tone', () => {
+    // The sheet lists a lifecycle; sorting it by colour would scramble the order a reader expects.
+    expect(
+      statusSheetOptions(['COMPLETED', 'PENDING', 'CONFIRMED'], { label, colorOf }).map(
+        (o) => o.value,
+      ),
+    ).toEqual(['COMPLETED', 'PENDING', 'CONFIRMED']);
+  });
+
+  it('falls back rather than throwing on a status the theme has no tone for', () => {
+    // The server can invent a status; a sheet that crashes is worse than one drawn slate.
+    const [only] = statusSheetOptions(['INVENTED'], { label, colorOf });
+    expect(only.textColor).toBe('#64748b');
+    expect(only.label).toBe('Invented');
+  });
+
+  it('applies sub only where the caller returns one', () => {
+    const out = statusSheetOptions(['PENDING', 'CONFIRMED'], {
+      label,
+      colorOf,
+      sub: (s) => (s === 'CONFIRMED' ? 'Tells the customer it is on' : undefined),
+    });
+    expect(out[0].sub).toBeUndefined();
+    expect(out[1].sub).toBe('Tells the customer it is on');
   });
 });
