@@ -27,6 +27,7 @@ import type { AppTheme } from '../../../../theme/theme.types';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
 import { Badge } from '../../shared/detail/parts/Badge';
+import { ChipPickerRow } from '../../shared/detail/parts/ChipPickerRow';
 import { AdhocLineRow } from '../../shared/detail/parts/AdhocLineRow';
 import {
   attachedCount,
@@ -305,35 +306,36 @@ export function BillDetailBase({
         {/* ── Bill details (edit only) ───────────────────────────────────────── */}
         {editable ? (
           <DetailCard title="Bill Details" icon={Receipt} gap={13}>
+            {/* Chips, not plain text: the Status card above shows both axes coloured in view mode,
+                and drawing them as grey words here made tapping Edit look like the colour had been
+                lost. The cell wrappers carry the `flex: 1` the Pressables used to, so the two
+                halves stay equal — `ChipPickerRow` owns its own Pressable now. */}
             <View style={styles.twoUp}>
-              <Pressable
-                style={styles.twoUpCell}
-                onPress={onPickBillStatus}
-                accessibilityRole="button"
-                accessibilityLabel="Bill status"
-              >
-                <DetailField
+              <View style={styles.twoUpCell}>
+                <ChipPickerRow
                   label="Bill Status"
-                  value={billStatusLabel(form.billStatus)}
-                  editable={false}
-                  readLayout="block"
+                  accessibilityLabel="Bill status"
+                  onPress={onPickBillStatus}
                   error={errors.billStatus}
-                />
-              </Pressable>
-              <Pressable
-                style={styles.twoUpCell}
-                onPress={onPickPaymentStatus}
-                accessibilityRole="button"
-                accessibilityLabel="Payment status"
-              >
-                <DetailField
-                  label="Payment"
-                  value={paymentStatusLabel(form.paymentStatus)}
-                  editable={false}
                   readLayout="block"
+                >
+                  <StatusChip status={form.billStatus} label={billStatusLabel(form.billStatus)} />
+                </ChipPickerRow>
+              </View>
+              <View style={styles.twoUpCell}>
+                <ChipPickerRow
+                  label="Payment"
+                  accessibilityLabel="Payment status"
+                  onPress={onPickPaymentStatus}
                   error={errors.paymentStatus}
-                />
-              </Pressable>
+                  readLayout="block"
+                >
+                  <StatusChip
+                    status={form.paymentStatus}
+                    label={paymentStatusLabel(form.paymentStatus)}
+                  />
+                </ChipPickerRow>
+              </View>
             </View>
 
             <Pressable
