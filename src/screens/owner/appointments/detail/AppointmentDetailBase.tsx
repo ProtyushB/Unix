@@ -26,6 +26,7 @@ import type { AppTheme } from '../../../../theme/theme.types';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
 import { Badge, type BadgeTone } from '../../shared/detail/parts/Badge';
+import { ChipPickerRow } from '../../shared/detail/parts/ChipPickerRow';
 import {
   appointmentTotal,
   billLine,
@@ -317,18 +318,15 @@ export function AppointmentDetailBase({
         {/* ── Status & Notes (edit only) ───────────────────────────────────── */}
         {editable ? (
           <DetailCard title="Status & Notes" icon={CheckCircle2} gap={13}>
-            <Pressable
-              onPress={onPickStatus}
-              accessibilityRole="button"
+            {/* The chip view mode already shows, so the status reads the same in both modes. */}
+            <ChipPickerRow
+              label="Status"
               accessibilityLabel="Appointment status"
+              onPress={onPickStatus}
+              error={errors.status}
             >
-              <DetailField
-                label="Status"
-                value={statusLabel(form.appointmentStatus)}
-                editable={false}
-                error={errors.status}
-              />
-            </Pressable>
+              <StatusPill status={form.appointmentStatus} />
+            </ChipPickerRow>
             <DetailField
               label="Notes"
               value={form.notes}

@@ -24,6 +24,7 @@ import type { AppTheme } from '../../../../theme/theme.types';
 import { DetailCard } from '../../shared/detail/parts/DetailCard';
 import { DetailField } from '../../shared/detail/parts/DetailField';
 import { Badge, type BadgeTone } from '../../shared/detail/parts/Badge';
+import { ChipPickerRow } from '../../shared/detail/parts/ChipPickerRow';
 import {
   billLine,
   formatAmount,
@@ -296,18 +297,15 @@ export function OrderDetailBase({
         {/* ── Order card (edit only) ───────────────────────────────────────── */}
         {editable ? (
           <DetailCard title="Order" icon={Package} gap={13}>
-            <Pressable
-              onPress={onPickStatus}
-              accessibilityRole="button"
+            {/* The chip view mode already shows, so the status reads the same in both modes. */}
+            <ChipPickerRow
+              label="Order Status"
               accessibilityLabel="Order status"
+              onPress={onPickStatus}
+              error={errors.status}
             >
-              <DetailField
-                label="Order Status"
-                value={statusLabel(form.orderStatus)}
-                editable={false}
-                error={errors.status}
-              />
-            </Pressable>
+              <StatusPill status={form.orderStatus} />
+            </ChipPickerRow>
             <DetailField
               label="Notes"
               value={form.notes}
