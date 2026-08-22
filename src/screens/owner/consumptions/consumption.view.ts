@@ -140,20 +140,10 @@ export function reasonLabel(reason: ConsumptionReason | 'ALL' | null | undefined
   return REASON_LABELS[reason] ?? String(reason);
 }
 
-/**
- * The tint a reason chip carries. Not a colour — a palette ROLE the `.tsx` resolves.
- *
- * Only SERVICE_USE is accented. It is the reason behind almost every record, so tinting all six
- * would make the accent mean "this is a consumption" rather than "this one is the ordinary case",
- * and a list where every chip is coloured has no signal left in the colour.
- */
-export type ReasonTone = 'accent' | 'info' | 'muted';
-
-export function reasonTone(reason: ConsumptionReason | null | undefined): ReasonTone {
-  if (reason === 'SERVICE_USE') return 'accent';
-  if (reason === 'INTERNAL_USE' || reason === 'TRAINING') return 'info';
-  return 'muted';
-}
+// A reason has no tone, deliberately. `reasonTone` used to sort the six into accent / info / muted,
+// which read as a ranking nobody designed -- Training "informational", Testing inert -- and put the
+// BRAND colour on SERVICE_USE, a data value. A status has a good-to-bad axis so a tone means
+// something; a category does not. The chips are muted now, and selection is what carries colour.
 
 /** Every chip the reason row draws, head included. Ordered as `CONSUMPTION_REASONS` orders them. */
 export function reasonChoices(): (ConsumptionReason | 'ALL')[] {

@@ -9,7 +9,6 @@ import {
   quickActionsFor,
   reasonChoices,
   reasonLabel,
-  reasonTone,
   showsFab,
   toQuery,
   type ConsumptionsViewInput,
@@ -159,16 +158,6 @@ describe('reasonChoices', () => {
   it('offers all six plus the head — consumption hides none, unlike wastage', () => {
     expect(reasonChoices()).toEqual(['ALL', ...CONSUMPTION_REASONS]);
     expect(reasonChoices()).toHaveLength(7);
-  });
-});
-
-describe('reasonTone', () => {
-  it('accents only the ordinary case, so the colour still means something', () => {
-    expect(reasonTone('SERVICE_USE')).toBe('accent');
-    expect(reasonTone('SAMPLING')).toBe('muted');
-    expect(reasonTone('TESTING')).toBe('muted');
-    expect(reasonTone('OTHER')).toBe('muted');
-    expect(reasonTone(null)).toBe('muted');
   });
 });
 
